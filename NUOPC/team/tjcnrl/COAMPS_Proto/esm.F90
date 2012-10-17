@@ -109,8 +109,8 @@ module ESM
     case (4) ! fails
       allocate(is%wrap%medPetList(1)); is%wrap%medPetList = (/0/)
       allocate(is%wrap%atmPetList(2)); is%wrap%atmPetList = (/1,2/)
-      allocate(is%wrap%ocnPetList(1)); is%wrap%ocnPetList = (/2,3/)
-      allocate(is%wrap%wavPetList(1)); is%wrap%wavPetList = (/3,1/)
+      allocate(is%wrap%ocnPetList(2)); is%wrap%ocnPetList = (/2,3/)
+      allocate(is%wrap%wavPetList(2)); is%wrap%wavPetList = (/3,1/)
     case (5) ! fails
       allocate(is%wrap%medPetList(2)); is%wrap%medPetList = (/0,1/)
       allocate(is%wrap%atmPetList(2)); is%wrap%atmPetList = (/1,2/)
