@@ -1,0 +1,21 @@
+ocn
+  imp: pmsl,risw,tauy
+  exp: sst,tauv
+
+atm
+  imp: sst,taux
+  exp: pmsl,risw,tauu
+
+ice
+  imp: tauu,tauv
+  exp: taux,tauy
+
+med
+  imp: sst,tauv,pmsl,risw,tauu,taux,tauy
+  exp: pmsl,risw,tauy,sst,taux,tauu,tauv
+
+taux: surface_downward_x_stress
+tauy: surface_downward_y_stress
+
+tauu: surface_downward_eastward_stress
+tauv: surface_downward_northward_stress

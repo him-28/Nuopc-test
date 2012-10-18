@@ -1,0 +1,26 @@
+#!/bin/ksh
+#PBS -S /bin/ksh
+#PBS -A NRLMR03835026
+#PBS -o /u/home/chenchai/nuopc/proto_5.3.0_beta_ss43/AtmOcnIceMedConPetListTest/out.log
+#PBS -j oe
+#PBS -l walltime=5:00
+#PBS -N proto 
+##PBS -l mppwidth=10
+##PBS -l mppnppn=8
+#PBS -l mppwidth=10
+#PBS -l mppnppn=1
+#PBS -q standard
+#PBS -V
+#
+unalias rm
+umask 022
+set -x
+#
+
+cd /scr/chenchai/nuopc/AtmOcnIceMedConPetListTest
+cp /u/home/chenchai/nuopc/proto_5.3.0_beta_ss43/AtmOcnIceMedConPetListTest/esmApp .
+rm PET*
+date
+/usr/bin/aprun -N 1 -n 10 ./esmApp
+date
+

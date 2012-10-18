@@ -1,0 +1,124 @@
+Checking for available licenses...
++ cd /scr/chenchai/nuopc/AtmOcnIceMedConPetListTest
++ cp /u/home/chenchai/nuopc/proto_5.3.0_beta_ss43/AtmOcnIceMedConPetListTest/esmApp .
++ rm PET0.ESMF_LogFile PET1.ESMF_LogFile PET2.ESMF_LogFile PET3.ESMF_LogFile PET4.ESMF_LogFile PET5.ESMF_LogFile PET6.ESMF_LogFile PET7.ESMF_LogFile PET8.ESMF_LogFile PET9.ESMF_LogFile
++ date
+Thu Oct 18 15:07:38 GMT 2012
++ /usr/bin/aprun -N 1 -n 10 ./esmApp
+ Call atm InitializeP0
+ Call ice InitializeP0
+ Call ocn InitializeP0
+ Call ice InitializeP1
+ Call atm InitializeP1
+ Call ocn InitializeP1
+ ComputeRH start.. ATM2MED
+ ComputeRH end ATM2MED
+ ComputeRH start.. OCN2MED
+ ComputeRH end OCN2MED
+ ComputeRH start.. ICE2MED
+ ComputeRH end ICE2MED
+ ComputeRH start.. MED2ATM
+ ComputeRH end MED2ATM
+ ComputeRH start.. MED2OCN
+ ComputeRH end MED2OCN
+ ComputeRH start.. MED2ICE
+ ComputeRH end MED2ICE
+ ExecuteRH start.. ATM2MED
+ ExecuteRH start.. OCN2MED
+ ExecuteRH start.. ICE2MED
+-------->MED Advance() mediating for: 2010  6  1  0  0  0   0
+----------------> model time step to: 2010  6  1  0 15  0   0
+-------->MED Advance() mediating for: 2010  6  1  0  0  0   0
+-------->MED Advance() mediating for: 2010  6  1  0  0  0   0
+----------------> model time step to: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 15  0   0
+-------->MED Advance() mediating for: 2010  6  1  0  0  0   0
+-------->MED Advance() mediating for: 2010  6  1  0  0  0   0
+----------------> model time step to: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 15  0   0
+-------->MED Advance() mediating for: 2010  6  1  0  0  0   0
+----------------> model time step to: 2010  6  1  0 15  0   0
+ ExecuteRH start.. MED2ATM
+ ExecuteRH start.. MED2OCN
+ ExecuteRH start.. MED2ICE
+------>Advancing ATM from: 2010  6  1  0  0  0   0
+--------------------------------> to: 2010  6  1  0 15  0   0
+------>Advancing ICE from: 2010  6  1  0  0  0   0
+--------------------------------> to: 2010  6  1  0 15  0   0
+------>Advancing OCN from: 2010  6  1  0  0  0   0
+--------------------------------> to: 2010  6  1  0 15  0   0
+ ExecuteRH start.. ATM2MED
+ ExecuteRH start.. OCN2MED
+ ExecuteRH start.. ICE2MED
+-------->MED Advance() mediating for: 2010  6  1  0 15  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 30  0   0
+----------------> model time step to: 2010  6  1  0 30  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 30  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 30  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 30  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 15  0   0
+----------------> model time step to: 2010  6  1  0 30  0   0
+ ExecuteRH start.. MED2ATM
+ ExecuteRH start.. MED2OCN
+ ExecuteRH start.. MED2ICE
+------>Advancing ATM from: 2010  6  1  0 15  0   0
+------>Advancing ICE from: 2010  6  1  0 15  0   0
+--------------------------------> to: 2010  6  1  0 30  0   0
+--------------------------------> to: 2010  6  1  0 30  0   0
+------>Advancing OCN from: 2010  6  1  0 15  0   0
+--------------------------------> to: 2010  6  1  0 30  0   0
+ ExecuteRH start.. ATM2MED
+ ExecuteRH start.. OCN2MED
+ ExecuteRH start.. ICE2MED
+-------->MED Advance() mediating for: 2010  6  1  0 30  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 30  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 30  0   0
+----------------> model time step to: 2010  6  1  0 45  0   0
+----------------> model time step to: 2010  6  1  0 45  0   0
+----------------> model time step to: 2010  6  1  0 45  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 30  0   0
+----------------> model time step to: 2010  6  1  0 45  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 30  0   0
+----------------> model time step to: 2010  6  1  0 45  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 30  0   0
+----------------> model time step to: 2010  6  1  0 45  0   0
+ ExecuteRH start.. MED2ATM
+ ExecuteRH start.. MED2OCN
+ ExecuteRH start.. MED2ICE
+------>Advancing ATM from: 2010  6  1  0 30  0   0
+--------------------------------> to: 2010  6  1  0 45  0   0
+------>Advancing ICE from: 2010  6  1  0 30  0   0
+--------------------------------> to: 2010  6  1  0 45  0   0
+------>Advancing OCN from: 2010  6  1  0 30  0   0
+--------------------------------> to: 2010  6  1  0 45  0   0
+ ExecuteRH start.. ATM2MED
+ ExecuteRH start.. OCN2MED
+ ExecuteRH start.. ICE2MED
+-------->MED Advance() mediating for: 2010  6  1  0 45  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 45  0   0
+----------------> model time step to: 2010  6  1  1  0  0   0
+----------------> model time step to: 2010  6  1  1  0  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 45  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 45  0   0
+----------------> model time step to: 2010  6  1  1  0  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 45  0   0
+----------------> model time step to: 2010  6  1  1  0  0   0
+----------------> model time step to: 2010  6  1  1  0  0   0
+-------->MED Advance() mediating for: 2010  6  1  0 45  0   0
+----------------> model time step to: 2010  6  1  1  0  0   0
+ ExecuteRH start.. MED2ATM
+ ExecuteRH start.. MED2OCN
+ ExecuteRH start.. MED2ICE
+------>Advancing ICE from: 2010  6  1  0 45  0   0
+--------------------------------> to: 2010  6  1  1  0  0   0
+------>Advancing OCN from: 2010  6  1  0 45  0   0
+--------------------------------> to: 2010  6  1  1  0  0   0
+------>Advancing ATM from: 2010  6  1  0 45  0   0
+--------------------------------> to: 2010  6  1  1  0  0   0
+Application 18479983 resources: utime 0, stime 0
++ date
+Thu Oct 18 15:07:47 GMT 2012

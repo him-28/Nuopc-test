@@ -1,0 +1,31 @@
+Checking for available licenses...
++ cd /scr/chenchai/nuopc/AtmOcnIceMedConPetListTest
++ cp /u/home/chenchai/nuopc/proto_5.3.0_beta_ss43/AtmOcnIceMedConPetListTest/esmApp .
++ rm PET0.ESMF_LogFile PET1.ESMF_LogFile PET2.ESMF_LogFile PET3.ESMF_LogFile PET4.ESMF_LogFile PET5.ESMF_LogFile PET6.ESMF_LogFile PET7.ESMF_LogFile PET8.ESMF_LogFile PET9.ESMF_LogFile
++ date
+Thu Oct 18 15:16:35 GMT 2012
++ /usr/bin/aprun -N 1 -n 10 ./esmApp
+ Call atm InitializeP0
+ Call ice InitializeP0
+ Call ocn InitializeP0
+ Call ice InitializeP1
+ Call atm InitializeP1
+ Call ocn InitializeP1
+ ComputeRH start.. ATM2MED
+ ComputeRH end ATM2MED
+ ComputeRH start.. OCN2MED
+ ComputeRH end OCN2MED
+ ComputeRH start.. ICE2MED
+ ComputeRH end ICE2MED
+ ComputeRH start.. MED2ATM
+ ComputeRH end MED2ATM
+ ComputeRH start.. MED2OCN
+aborting job:
+application called MPI_Abort(comm=0x84000002, 0) - process 2
+aborting job:
+application called MPI_Abort(comm=0x84000002, 0) - process 1
+[NID 00164] 2012-10-18 15:16:42 Apid 18480050: initiated application termination
+Application 18480050 exit signals: Killed
+Application 18480050 resources: utime 0, stime 0
++ date
+Thu Oct 18 15:16:43 GMT 2012
