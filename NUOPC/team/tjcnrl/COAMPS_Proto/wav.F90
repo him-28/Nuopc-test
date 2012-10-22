@@ -16,6 +16,13 @@ module WAV
   private
   
   public SetServices
+
+  integer, parameter :: numImport = 2
+  character (ESMF_MAXSTR) :: impStdName(numImport)
+  character (ESMF_MAXSTR) :: impName(numImport)
+  integer, parameter :: numExport = 6
+  character (ESMF_MAXSTR) :: expStdName(numExport)
+  character (ESMF_MAXSTR) :: expName(numExport)
   
   !-----------------------------------------------------------------------------
   contains
@@ -72,72 +79,51 @@ module WAV
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
+
+    ! local variables    
+    integer :: i
     
     rc = ESMF_SUCCESS
 
-    ! importable field: eastward_10m_wind
-    call NUOPC_StateAdvertiseField(importState, &
-      StandardName="eastward_10m_wind", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! importable fields
+    impStdName(1) = "eastward_10m_wind"
+    impName(1) = "wind_u"
+    impStdName(2) = "northward_10m_wind"
+    impName(1) = "wind_v"
 
-    ! importable field: northward_10m_wind
-    call NUOPC_StateAdvertiseField(importState, &
-      StandardName="northward_10m_wind", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! exportable fields
+    expStdName(1) = "surface_eastward_wave_induced_stress"
+    expName(1) = "tau_atm_wave_u"
+    expStdName(2) = "surface_northward_wave_induced_stress"
+    expName(1) = "tau_atm_wave_v"
+    expStdName(3) = "surface_eastward_wave_dissipation_stress"
+    expName(3) = "tau_ocn_wave_u"
+    expStdName(4) = "surface_northward_wave_dissipation_stress"
+    expName(4) = "tau_ocn_wave_v"
+    expStdName(5) = "eastward_stokes_drift_current"
+    expName(5) = "stokes_u"
+    expStdName(6) = "northward_stokes_drift_current"
+    expName(6) = "stokes_v"
 
-    ! importable field: surface_eastward_sea_water_velocity
-    call NUOPC_StateAdvertiseField(importState, &
-      StandardName="surface_eastward_sea_water_velocity", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! advertise import fields
+    do i = 1,numImport
+      call NUOPC_StateAdvertiseField(importState, &
+        StandardName=trim(impStdName(i)), name=trim(impName(i)), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    enddo
 
-    ! importable field: surface_northward_sea_water_velocity
-    call NUOPC_StateAdvertiseField(importState, &
-      StandardName="surface_northward_sea_water_velocity", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: surface_eastward_wave_induced_stress
-    call NUOPC_StateAdvertiseField(exportState, &
-      StandardName="surface_eastward_wave_induced_stress", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: surface_northward_wave_induced_stress
-    call NUOPC_StateAdvertiseField(exportState, &
-      StandardName="surface_northward_wave_induced_stress", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: eastward_stokes_drift_current
-    call NUOPC_StateAdvertiseField(exportState, &
-      StandardName="eastward_stokes_drift_current", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: northward_stokes_drift_current
-    call NUOPC_StateAdvertiseField(exportState, &
-      StandardName="northward_stokes_drift_current", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! advertise export fields
+    do i = 1,numExport
+      call NUOPC_StateAdvertiseField(exportState, &
+        StandardName=trim(expStdName(i)), name=trim(expName(i)), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    enddo
 
   end subroutine
   
@@ -150,10 +136,10 @@ module WAV
     integer, intent(out) :: rc
     
     ! local variables    
-    type(ESMF_TimeInterval) :: stabilityTimeStep
     type(ESMF_Field)        :: field
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
+    integer                 :: i
     
     rc = ESMF_SUCCESS
     
@@ -166,109 +152,35 @@ module WAV
       return  ! bail out
     gridOut = gridIn ! for now out same as in
 
-    ! importable field: eastward_10m_wind
-    field = ESMF_FieldCreate(name="wndu", grid=gridIn, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! realize import fields
+    do i = 1,numImport
+      field = ESMF_FieldCreate(name=trim(impName(i)), grid=gridIn, &
+        typekind=ESMF_TYPEKIND_R8, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_StateRealizeField(importState, field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    enddo
 
-    ! importable field: northward_10m_wind
-    field = ESMF_FieldCreate(name="wndv", grid=gridIn, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! importable field: surface_eastward_sea_water_velocity
-    field = ESMF_FieldCreate(name="sscu", grid=gridIn, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! importable field: surface_northward_sea_water_velocity
-    field = ESMF_FieldCreate(name="sscv", grid=gridIn, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: surface_eastward_wave_induced_stress
-    field = ESMF_FieldCreate(name="wvsu", grid=gridOut, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: surface_northward_wave_induced_stress
-    field = ESMF_FieldCreate(name="wvsv", grid=gridOut, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: eastward_stokes_drift_current
-    field = ESMF_FieldCreate(name="sdcu", grid=gridOut, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! exportable field: northward_stokes_drift_current
-    field = ESMF_FieldCreate(name="sdcv", grid=gridOut, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! realize export fields
+    do i = 1,numExport
+      field = ESMF_FieldCreate(name=trim(expName(i)), grid=gridIn, &
+        typekind=ESMF_TYPEKIND_R8, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    enddo
 
   end subroutine
   

@@ -23,7 +23,6 @@ module ICE
   integer, parameter :: numExport = 2
   character (ESMF_MAXSTR) :: expStdName(numExport)
   character (ESMF_MAXSTR) :: expName(numExport)
-
   
   !-----------------------------------------------------------------------------
   contains
@@ -129,11 +128,10 @@ module ICE
     integer, intent(out) :: rc
     
     ! local variables    
-    type(ESMF_TimeInterval) :: stabilityTimeStep
     type(ESMF_Field)        :: field
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
-    integer :: i
+    integer                 :: i
     
     rc = ESMF_SUCCESS
     
