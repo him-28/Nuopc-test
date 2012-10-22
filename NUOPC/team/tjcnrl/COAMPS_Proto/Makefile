@@ -18,8 +18,26 @@
 ## flexible and non-portable.                                                 ##
 ################################################################################
 
-ifneq ($(origin ESMFMKFILE), environment)
-$(error Environment variable ESMFMKFILE was not set.)
+export ESMF_RUNTIME_COMPLIANCECHECK=ON
+ESMFV = 6.1.0bs02
+DHOST = $(shell hostname -d)
+SHOST = $(shell hostname -s)
+ifeq ($(DHOST),nrlssc.navy.mil)
+  ifeq ($(SHOST),parche)
+    ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk
+  else
+    ifeq ($(SHOST),tinosa)
+      ESMFMKFILE = /common/esmf/$(ESMFV)/esmf.mk
+    else
+      ifneq ($(origin ESMFMKFILE), environment)
+        $(error Environment variable ESMFMKFILE was not set.)
+      endif
+    endif
+  endif
+else
+  ifneq ($(origin ESMFMKFILE), environment)
+    $(error Environment variable ESMFMKFILE was not set.)
+  endif
 endif
 
 include $(ESMFMKFILE)
