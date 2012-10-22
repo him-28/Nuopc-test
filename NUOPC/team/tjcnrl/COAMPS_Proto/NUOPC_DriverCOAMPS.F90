@@ -50,6 +50,9 @@ module NUOPC_DriverCOAMPS
     type(ESMF_GridComp) :: wav
     type(ESMF_State)    :: wavIS, wavES
     integer, pointer    :: wavPetList(:)
+    type(ESMF_GridComp) :: ice
+    type(ESMF_State)    :: iceIS, iceES
+    integer, pointer    :: icePetList(:)
     type(ESMF_CplComp)  :: med2atm
     integer, pointer    :: med2atmPetList(:)
     type(ESMF_CplComp)  :: atm2med
@@ -62,6 +65,10 @@ module NUOPC_DriverCOAMPS
     integer, pointer    :: med2wavPetList(:)
     type(ESMF_CplComp)  :: wav2med
     integer, pointer    :: wav2medPetList(:)
+    type(ESMF_CplComp)  :: med2ice
+    integer, pointer    :: med2icePetList(:)
+    type(ESMF_CplComp)  :: ice2med
+    integer, pointer    :: ice2medPetList(:)
     type(ESMF_CplComp)  :: ocn2wav
     integer, pointer    :: ocn2wavPetList(:)
     type(ESMF_CplComp)  :: wav2ocn
@@ -175,12 +182,15 @@ module NUOPC_DriverCOAMPS
     nullify(is%wrap%atmPetList)
     nullify(is%wrap%ocnPetList)
     nullify(is%wrap%wavPetList)
+    nullify(is%wrap%icePetList)
     nullify(is%wrap%med2atmPetList)
     nullify(is%wrap%atm2medPetList)
     nullify(is%wrap%med2ocnPetList)
     nullify(is%wrap%ocn2medPetList)
     nullify(is%wrap%med2wavPetList)
     nullify(is%wrap%wav2medPetList)
+    nullify(is%wrap%med2icePetList)
+    nullify(is%wrap%ice2medPetList)
     nullify(is%wrap%ocn2wavPetList)
     nullify(is%wrap%wav2ocnPetList)
 
@@ -206,6 +216,7 @@ module NUOPC_DriverCOAMPS
       superIS%wrap%modelPetLists(2)%petList => is%wrap%atmPetList
       superIS%wrap%modelPetLists(3)%petList => is%wrap%ocnPetList
       superIS%wrap%modelPetLists(4)%petList => is%wrap%wavPetList
+!     superIS%wrap%modelPetLists(5)%petList => is%wrap%wavPetList
 
       ! set the connector petLists
       superIS%wrap%connectorPetLists(1,2)%petList => is%wrap%med2atmPetList
@@ -214,6 +225,8 @@ module NUOPC_DriverCOAMPS
       superIS%wrap%connectorPetLists(3,1)%petList => is%wrap%ocn2medPetList
       superIS%wrap%connectorPetLists(1,4)%petList => is%wrap%med2wavPetList
       superIS%wrap%connectorPetLists(4,1)%petList => is%wrap%wav2medPetList
+!     superIS%wrap%connectorPetLists(1,5)%petList => is%wrap%med2icePetList
+!     superIS%wrap%connectorPetLists(5,1)%petList => is%wrap%ice2medPetList
       superIS%wrap%connectorPetLists(3,4)%petList => is%wrap%ocn2wavPetList
       superIS%wrap%connectorPetLists(4,3)%petList => is%wrap%wav2ocnPetList
     endif
@@ -268,6 +281,9 @@ module NUOPC_DriverCOAMPS
     is%wrap%wav = superIS%wrap%modelComp(4)
     is%wrap%wavIS = superIS%wrap%modelIS(4)
     is%wrap%wavES = superIS%wrap%modelES(4)
+!   is%wrap%ice = superIS%wrap%modelComp(5)
+!   is%wrap%iceIS = superIS%wrap%modelIS(5)
+!   is%wrap%iceES = superIS%wrap%modelES(5)
 
     ! map connectors
     is%wrap%med2atm = superIS%wrap%connectorComp(1,2)
@@ -276,6 +292,8 @@ module NUOPC_DriverCOAMPS
     is%wrap%ocn2med = superIS%wrap%connectorComp(3,1)
     is%wrap%med2wav = superIS%wrap%connectorComp(1,4)
     is%wrap%wav2med = superIS%wrap%connectorComp(4,1)
+!   is%wrap%med2ice = superIS%wrap%connectorComp(1,5)
+!   is%wrap%ice2med = superIS%wrap%connectorComp(5,1)
     is%wrap%ocn2wav = superIS%wrap%connectorComp(3,4)
     is%wrap%wav2ocn = superIS%wrap%connectorComp(4,3)
 
@@ -295,6 +313,11 @@ module NUOPC_DriverCOAMPS
       line=__LINE__, &
       file=FILENAME)) &
       return  ! bail out
+!   call ESMF_GridCompSet(is%wrap%wav, name="ICE", rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!     line=__LINE__, &
+!     file=FILENAME)) &
+!     return  ! bail out
     call ESMF_GridCompSet(is%wrap%med, name="MED", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -330,6 +353,16 @@ module NUOPC_DriverCOAMPS
       line=__LINE__, &
       file=FILENAME)) &
       return  ! bail out
+!   call ESMF_CplCompSet(is%wrap%med2wav, name="MED2ICE", rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!     line=__LINE__, &
+!     file=FILENAME)) &
+!     return  ! bail out
+!   call ESMF_CplCompSet(is%wrap%wav2med, name="ICE2MED", rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!     line=__LINE__, &
+!     file=FILENAME)) &
+!     return  ! bail out
     call ESMF_CplCompSet(is%wrap%ocn2wav, name="OCN2WAV", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -362,6 +395,10 @@ module NUOPC_DriverCOAMPS
     call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=4, j=1, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    ! ice2med in runSeq(1)
+!   call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=5, j=1, phase=1, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!     line=__LINE__, file=FILENAME)) return  ! bail out
     ! med     in runSeq(1)
     call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=1, j=0, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -378,6 +415,10 @@ module NUOPC_DriverCOAMPS
     call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=1, j=4, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    ! med2ice in runSeq(1)
+!   call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=1, j=5, phase=1, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!     line=__LINE__, file=FILENAME)) return  ! bail out
     ! ocn2wav in runSeq(1)
     call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=3, j=4, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -398,6 +439,10 @@ module NUOPC_DriverCOAMPS
     call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=4, j=0, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    ! ice     in runSeq(1)
+!   call NUOPC_RunElementAdd(superIS%wrap%runSeq(1), i=5, j=0, phase=1, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!     line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! nullify the runSeq
     nullify(is%wrap%runSeq)
