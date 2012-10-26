@@ -18,13 +18,12 @@ module COAMPS
     driver_label_SetModelServices => label_SetModelServices, &
     driver_label_Finalize         => label_Finalize
 
+  use CON, only: cplSS => SetServices
   use MED, only: medSS => SetServices
   use ATM, only: atmSS => SetServices
   use OCN, only: ocnSS => SetServices
   use WAV, only: wavSS => SetServices
   use ICE, only: iceSS => SetServices
-
-  use NUOPC_Connector, only: cplSS => routine_SetServices
 
   implicit none
 
