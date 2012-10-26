@@ -105,23 +105,26 @@ module WAV
       rcToReturn=rc)) &
       return  ! bail out
     impStdName( 1) = "eastward_wind_at_10m_height"
-    impFldName( 1) = "wind_u"
     impStdName( 2) = "northward_wind_at_10m_height"
-    impFldName( 2) = "wind_v"
     impStdName( 3) = "surface_eastward_sea_water_velocity"
-    impFldName( 3) = "ssc_u"
     impStdName( 4) = "surface_northward_sea_water_velocity"
-    impFldName( 4) = "ssc_v"
     impStdName( 5) = "air_sea_temperature_difference"
-    impFldName( 5) = "ast"
     do i = 1,numImport
+      call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
+        defaultShortName=impFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       call NUOPC_StateAdvertiseField(importState, &
         StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(impStdName(i))//', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -137,25 +140,27 @@ module WAV
       rcToReturn=rc)) &
       return  ! bail out
     expStdName( 1) = "surface_eastward_wind_to_wave_stress"
-    expFldName( 1) = "tau_atm_wav_u"
     expStdName( 2) = "surface_northward_wind_to_wave_stress"
-    expFldName( 2) = "tau_atm_wav_v"
     expStdName( 3) = "surface_eastward_wave_to_ocean_stress"
-    expFldName( 3) = "tau_wav_ocn_u"
     expStdName( 4) = "surface_northward_wave_to_ocean_stress"
-    expFldName( 4) = "tau_wav_ocn_v"
     expStdName( 5) = "eastward_stokes_drift_current"
-    expFldName( 5) = "sdc_u"
     expStdName( 6) = "northward_stokes_drift_current"
-    expFldName( 6) = "sdc_v"
     do i = 1,numExport
+      call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
+        defaultShortName=expFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       call NUOPC_StateAdvertiseField(exportState, &
         StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(expStdName(i))//', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -196,7 +201,7 @@ module WAV
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -204,7 +209,7 @@ module WAV
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -217,7 +222,7 @@ module WAV
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -225,7 +230,7 @@ module WAV
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif

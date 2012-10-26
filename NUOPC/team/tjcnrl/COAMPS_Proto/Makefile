@@ -19,7 +19,7 @@
 ################################################################################
 
 export ESMF_RUNTIME_COMPLIANCECHECK=ON
-ESMFV = 6.1.0bs02
+ESMFV = 6.1.0bs03
 HOST = $(shell hostname -s)
 ifeq ($(HOST),parche)
   ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk

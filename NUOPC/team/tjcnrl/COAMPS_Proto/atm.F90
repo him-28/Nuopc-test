@@ -98,17 +98,23 @@ module ATM
       rcToReturn=rc)) &
       return  ! bail out
     impStdName( 1) = "surface_downward_eastward_stress"
-    impFldName( 1) = "tau_u"
     impStdName( 2) = "surface_downward_northward_stress"
-    impFldName( 2) = "tau_v"
     do i = 1,numImport
+      call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
+        defaultShortName=impFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       call NUOPC_StateAdvertiseField(importState, &
         StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(impStdName(i))//', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -124,19 +130,24 @@ module ATM
       rcToReturn=rc)) &
       return  ! bail out
     expStdName( 1) = "eastward_wind_at_10m_height"
-    expFldName( 1) = "wind_u"
     expStdName( 2) = "northward_wind_at_10m_height"
-    expFldName( 2) = "wind_v"
     expStdName( 3) = "air_temperature_at_2m_height"
-    expFldName( 3) = "air_temp"
     do i = 1,numExport
+      call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
+        defaultShortName=expFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       call NUOPC_StateAdvertiseField(exportState, &
         StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(expStdName(i))//', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -177,7 +188,7 @@ module ATM
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -185,7 +196,7 @@ module ATM
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -198,7 +209,7 @@ module ATM
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -206,7 +217,7 @@ module ATM
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif

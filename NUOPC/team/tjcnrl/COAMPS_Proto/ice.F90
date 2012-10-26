@@ -105,21 +105,25 @@ module ICE
       rcToReturn=rc)) &
       return  ! bail out
     impStdName( 1) = "sea_ice_surface_downward_eastward_stress"
-    impFldName( 1) = "tau_atm_u"
     impStdName( 2) = "sea_ice_surface_downward_northward_stress"
-    impFldName( 2) = "tau_atm_v"
     impStdName( 3) = "sea_ice_basal_upward_eastward_stress"
-    impFldName( 3) = "tau_ocn_u"
     impStdName( 4) = "sea_ice_basal_upward_northward_stress"
-    impFldName( 4) = "tau_ocn_v"
     do i = 1,numImport
+      call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
+        defaultShortName=impFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       call NUOPC_StateAdvertiseField(importState, &
         StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(impStdName(i))//', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -135,23 +139,26 @@ module ICE
       rcToReturn=rc)) &
       return  ! bail out
     expStdName( 1) = "sea_ice_eastward_drift_velocity"
-    expFldName( 1) = "ice_drift_u"
     expStdName( 2) = "sea_ice_northward_drift_velocity"
-    expFldName( 2) = "ice_drift_v"
     expStdName( 3) = "sea_ice_concentration"
-    expFldName( 3) = "ice_conc"
     expStdName( 4) = "sea_ice_thickness"
-    expFldName( 4) = "ice_thick"
     expStdName( 5) = "sea_ice_temperature"
-    expFldName( 5) = "ice_temp"
     do i = 1,numExport
+      call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
+        defaultShortName=expFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       call NUOPC_StateAdvertiseField(exportState, &
         StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(expStdName(i))//', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -192,7 +199,7 @@ module ICE
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -200,7 +207,7 @@ module ICE
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -213,7 +220,7 @@ module ICE
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -221,7 +228,7 @@ module ICE
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expFldName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
