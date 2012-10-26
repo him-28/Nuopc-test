@@ -32,6 +32,9 @@ module COAMPS
 
   public SetServices
 
+  character (*), parameter :: label_DriverName = "COAMPS"
+  character (*), parameter :: label_InternalState = "COAMPS_InternalState"
+
   integer, parameter :: med = 1
   integer, parameter :: atm = 2
   integer, parameter :: ocn = 3
@@ -39,11 +42,9 @@ module COAMPS
   integer, parameter :: ice = 5
   integer, parameter :: modelCount = 5
   character (3) :: modelName(modelCount) = (/'MED','ATM','OCN','WAV','ICE'/)
+  logical       :: modelActive(modelCount)
   character (7) :: connectorName(modelCount,modelCount)
   logical       :: connectorActive(modelCount,modelCount)
-
-  character (*), parameter :: label_DriverName = "COAMPS"
-  character (*), parameter :: label_InternalState = "COAMPS_InternalState"
 
   type type_InternalStateStruct
     integer :: placeholder
@@ -73,6 +74,9 @@ module COAMPS
     type(ESMF_Clock)                   :: internalClock
 
     rc = ESMF_SUCCESS
+
+    ! set active models
+    modelActive = .true.
 
     ! set connector names
     do j=1,modelCount
@@ -141,7 +145,7 @@ module COAMPS
     call ESMF_TimeSet(stopTime, yy=2010, mm=6, dd=1, h=1, m=0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    internalClock = ESMF_ClockCreate(name="ESM Clock", &
+    internalClock = ESMF_ClockCreate(name=label_DriverName//" Clock", &
       timeStep=timeStep, startTime=startTime, stopTime=stopTime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
