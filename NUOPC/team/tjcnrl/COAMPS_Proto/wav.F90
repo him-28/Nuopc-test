@@ -89,6 +89,7 @@ module WAV
     integer, intent(out) :: rc
 
     ! local variables    
+    character(ESMF_MAXSTR) :: msg
     integer :: stat
     integer :: i
     
@@ -118,8 +119,12 @@ module WAV
         StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+          ', '//trim(impStdName(i))//', '//trim(impFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
     enddo
 
     ! exportable fields
@@ -148,8 +153,12 @@ module WAV
         StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+          ', '//trim(expStdName(i))//', '//trim(expFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
     enddo
 
   end subroutine
@@ -161,15 +170,16 @@ module WAV
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     ! local variables    
-    type(ESMF_Field)        :: field
-    type(ESMF_Grid)         :: gridIn
-    type(ESMF_Grid)         :: gridOut
-    integer                 :: i
-    
+    character(ESMF_MAXSTR) :: msg
+    type(ESMF_Field)       :: field
+    type(ESMF_Grid)        :: gridIn
+    type(ESMF_Grid)        :: gridOut
+    integer                :: i
+
     rc = ESMF_SUCCESS
-    
+
     ! create a Grid object for Fields
     gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
       100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 100, 20, rc)
@@ -185,13 +195,19 @@ module WAV
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
       call NUOPC_StateRealizeField(importState, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
     enddo
 
     ! realize export fields
@@ -200,13 +216,19 @@ module WAV
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
       call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
     enddo
 
   end subroutine

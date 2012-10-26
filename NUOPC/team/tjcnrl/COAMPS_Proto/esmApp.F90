@@ -48,29 +48,7 @@ program esmApp
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
   CALL NUOPC_FieldDictionaryAddEntry( &
-       "eastward_wind_at_model_lowest_level", &
-       canonicalUnits="m s-1", &
-       defaultLongName="foo", &
-       defaultShortName="bar", &
-       rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    line=__LINE__, &
-    file=__FILE__)) &
-    call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-  CALL NUOPC_FieldDictionaryAddEntry( &
-       "northward_wind_at_model_lowest_level", &
-       canonicalUnits="m s-1", &
-       defaultLongName="foo", &
-       defaultShortName="bar", &
-       rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    line=__LINE__, &
-    file=__FILE__)) &
-    call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-  CALL NUOPC_FieldDictionaryAddEntry( &
-       "air_temperature_at_model_lowest_level", &
+       "air_temperature_at_2m_height", &
        canonicalUnits="K", &
        defaultLongName="foo", &
        defaultShortName="bar", &
@@ -249,7 +227,7 @@ program esmApp
 !----------------------------------------------------------------------
   
   ! Create the earth system Component
-  esmComp = ESMF_GridCompCreate(name="esm", rc=rc)
+  esmComp = ESMF_GridCompCreate(name="ESM", rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &

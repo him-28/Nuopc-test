@@ -81,9 +81,9 @@ module MED
     integer, intent(out) :: rc
 
     ! local variables    
+    character(ESMF_MAXSTR) :: msg
     integer :: stat
     integer :: i
-    character(ESMF_MAXSTR) :: msg
     
     rc = ESMF_SUCCESS
 
@@ -96,11 +96,11 @@ module MED
       file=__FILE__, &
       rcToReturn=rc)) &
       return  ! bail out
-    impStdName( 1) = "eastward_wind_at_model_lowest_level"
+    impStdName( 1) = "eastward_wind_at_10m_height"
     impFldName( 1) = "wind_u"
-    impStdName( 2) = "northward_wind_at_model_lowest_level"
+    impStdName( 2) = "northward_wind_at_10m_height"
     impFldName( 2) = "wind_v"
-    impStdName( 3) = "air_temperature_at_model_lowest_level"
+    impStdName( 3) = "air_temperature_at_2m_height"
     impFldName( 3) = "air_temp"
     impStdName( 4) = "surface_eastward_sea_water_velocity"
     impFldName( 4) = "ssc_u"
@@ -109,13 +109,13 @@ module MED
     impStdName( 6) = "sea_surface_temperature"
     impFldName( 6) = "sst"
     impStdName( 7) = "surface_eastward_wind_to_wave_stress"
-    impFldName( 7) = "tau_atm_wave_u"
+    impFldName( 7) = "tau_atm_wav_u"
     impStdName( 8) = "surface_northward_wind_to_wave_stress"
-    impFldName( 8) = "tau_atm_wave_v"
+    impFldName( 8) = "tau_atm_wav_v"
     impStdName( 9) = "surface_eastward_wave_to_ocean_stress"
-    impFldName( 9) = "tau_ocn_wave_u"
+    impFldName( 9) = "tau_wav_ocn_u"
     impStdName(10) = "surface_northward_wave_to_ocean_stress"
-    impFldName(10) = "tau_ocn_wave_v"
+    impFldName(10) = "tau_wav_ocn_v"
     impStdName(11) = "sea_ice_eastward_drift_velocity"
     impFldName(11) = "ice_drift_u"
     impStdName(12) = "sea_ice_northward_drift_velocity"
@@ -152,12 +152,12 @@ module MED
     expFldName( 1) = "wind_u"
     expStdName( 2) = "northward_wind_at_10m_height"
     expFldName( 2) = "wind_v"
-    expStdName( 3) = "surface_eastward_sea_water_velocity"
-    expFldName( 3) = "ssc_u"
-    expStdName( 4) = "surface_northward_sea_water_velocity"
-    expFldName( 4) = "ssc_v"
-    expStdName( 5) = "air_sea_temperature_difference"
-    expFldName( 5) = "ast"
+    expStdName( 3) = "air_sea_temperature_difference"
+    expFldName( 3) = "ast"
+    expStdName( 4) = "surface_eastward_sea_water_velocity"
+    expFldName( 4) = "ssc_u"
+    expStdName( 5) = "surface_northward_sea_water_velocity"
+    expFldName( 5) = "ssc_v"
     expStdName( 6) = "surface_downward_eastward_stress"
     expFldName( 6) = "tau_u"
     expStdName( 7) = "surface_downward_northward_stress"
@@ -181,7 +181,7 @@ module MED
         line=__LINE__, &
         file=__FILE__)) then
         write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-          ', '//trim(impStdName(i))//', '//trim(impFldName(i))
+          ', '//trim(expStdName(i))//', '//trim(expFldName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -196,15 +196,16 @@ module MED
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     ! local variables    
-    type(ESMF_Field)        :: field
-    type(ESMF_Grid)         :: gridIn
-    type(ESMF_Grid)         :: gridOut
-    integer                 :: i
-    
+    character(ESMF_MAXSTR) :: msg
+    type(ESMF_Field)       :: field
+    type(ESMF_Grid)        :: gridIn
+    type(ESMF_Grid)        :: gridOut
+    integer                :: i
+
     rc = ESMF_SUCCESS
-    
+
     ! create a Grid object for Fields
     gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
       100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 20, 200, rc)
@@ -220,13 +221,19 @@ module MED
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
       call NUOPC_StateRealizeField(importState, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
     enddo
 
     ! realize export fields
@@ -235,13 +242,19 @@ module MED
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
       call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
-        file=__FILE__)) &
+        file=__FILE__)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expFldName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
+      endif
     enddo
 
   end subroutine

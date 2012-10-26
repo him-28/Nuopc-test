@@ -17,6 +17,7 @@ module ESM
   use ATM, only: atmSS => SetServices
   use OCN, only: ocnSS => SetServices
   use WAV, only: wavSS => SetServices
+  use ICE, only: iceSS => SetServices
   
   use NUOPC_Connector, only: cplSS => routine_SetServices
   
@@ -89,7 +90,7 @@ module ESM
       return  ! bail out
     
     ! set the petLists
-    petLayout = 0
+    petLayout = 1
     select case (petLayout)
     case (1)
       allocate(is%wrap%medPetList(4)); is%wrap%medPetList = (/0,1,2,3/)
@@ -181,6 +182,18 @@ module ESM
       rcToReturn=rc)) &
       return  ! bail out
 
+    ! SetServices for ice
+    call ESMF_GridCompSetServices(is%wrap%ice, iceSS, userRc=localrc, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+
     ! SetServices for med2atm
     call ESMF_CplCompSetServices(is%wrap%med2atm, cplSS, userRc=localrc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -243,6 +256,30 @@ module ESM
 
     ! SetServices for wav2med
     call ESMF_CplCompSetServices(is%wrap%wav2med, cplSS, userRc=localrc, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    ! SetServices for med2ice
+    call ESMF_CplCompSetServices(is%wrap%med2ice, cplSS, userRc=localrc, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    ! SetServices for ice2med
+    call ESMF_CplCompSetServices(is%wrap%ice2med, cplSS, userRc=localrc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

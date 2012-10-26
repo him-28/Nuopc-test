@@ -145,7 +145,7 @@ module NUOPC_DriverCOAMPS
       return  ! bail out
       
     ! set the modelCount
-    superIS%wrap%modelCount = 4
+    superIS%wrap%modelCount = 5
 
   end subroutine
   
@@ -216,7 +216,7 @@ module NUOPC_DriverCOAMPS
       superIS%wrap%modelPetLists(2)%petList => is%wrap%atmPetList
       superIS%wrap%modelPetLists(3)%petList => is%wrap%ocnPetList
       superIS%wrap%modelPetLists(4)%petList => is%wrap%wavPetList
-      superIS%wrap%modelPetLists(5)%petList => is%wrap%wavPetList
+      superIS%wrap%modelPetLists(5)%petList => is%wrap%icePetList
 
       ! set the connector petLists
       superIS%wrap%connectorPetLists(1,2)%petList => is%wrap%med2atmPetList
@@ -298,6 +298,11 @@ module NUOPC_DriverCOAMPS
     is%wrap%wav2ocn = superIS%wrap%connectorComp(4,3)
 
     ! maybe too much? but maybe nice to have the component names specified?
+    call ESMF_GridCompSet(is%wrap%med, name="MED", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=FILENAME)) &
+      return  ! bail out
     call ESMF_GridCompSet(is%wrap%atm, name="ATM", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -313,12 +318,7 @@ module NUOPC_DriverCOAMPS
       line=__LINE__, &
       file=FILENAME)) &
       return  ! bail out
-    call ESMF_GridCompSet(is%wrap%wav, name="ICE", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=FILENAME)) &
-      return  ! bail out
-    call ESMF_GridCompSet(is%wrap%med, name="MED", rc=rc)
+    call ESMF_GridCompSet(is%wrap%ice, name="ICE", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=FILENAME)) &
@@ -353,12 +353,12 @@ module NUOPC_DriverCOAMPS
       line=__LINE__, &
       file=FILENAME)) &
       return  ! bail out
-    call ESMF_CplCompSet(is%wrap%med2wav, name="MED2ICE", rc=rc)
+    call ESMF_CplCompSet(is%wrap%med2ice, name="MED2ICE", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=FILENAME)) &
       return  ! bail out
-    call ESMF_CplCompSet(is%wrap%wav2med, name="ICE2MED", rc=rc)
+    call ESMF_CplCompSet(is%wrap%ice2med, name="ICE2MED", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=FILENAME)) &
