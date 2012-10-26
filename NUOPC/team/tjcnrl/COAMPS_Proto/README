@@ -22,11 +22,8 @@ Output:
 Code structure:
   - Makefile    - Makefile that is based on the standard esmf.mk mechanism.
   - esmApp.F90  - ESM driver application.
-  - esm.F90     - The Earth System Model (ESM) component, specializing generic
-                  NUOPC_DriverCOAMPS. Define partial petLists for
-                  MED, ATM, OCN, WAV, and ICE.
-  - med.F90     - The Mediator component, specializing generic 
-                  NUOPC_Mediator.
+  - coamps.F90  - The COAMPS component, specializing generic NUOPC_Driver.
+  - med.F90     - The Mediator component, specializing generic NUOPC_Mediator.
   - atm.F90     - The ATM component, specializing generic NUOPC_Model.
   - ocn.F90     - The OCN component, specializing generic NUOPC_Model.
   - wav.F90     - The WAV component, specializing generic NUOPC_Model.
