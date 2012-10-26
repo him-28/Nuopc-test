@@ -3,7 +3,7 @@
 module COAMPS
 
   !-----------------------------------------------------------------------------
-  ! Generic Driver Component for COAMPS with explicit time stepping
+  ! Driver Component for COAMPS with explicit time stepping
   !-----------------------------------------------------------------------------
 
   use ESMF
