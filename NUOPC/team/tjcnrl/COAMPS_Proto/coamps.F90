@@ -76,7 +76,11 @@ module COAMPS
     rc = ESMF_SUCCESS
 
     ! set active models
-    modelActive = .true.
+    modelActive(med) = .true.
+    modelActive(atm) = .true.
+    modelActive(ocn) = .true.
+    modelActive(wav) = .true.
+    modelActive(ice) = .true.
 
     ! set connector names
     do j=1,modelCount
@@ -87,16 +91,26 @@ module COAMPS
 
     ! set active connectors
     connectorActive = .false.
-    connectorActive(med,atm) = .true.
-    connectorActive(atm,med) = .true.
-    connectorActive(med,ocn) = .true.
-    connectorActive(ocn,med) = .true.
-    connectorActive(med,wav) = .true.
-    connectorActive(wav,med) = .true.
-    connectorActive(med,ice) = .true.
-    connectorActive(ice,med) = .true.
-    connectorActive(ocn,wav) = .true.
-    connectorActive(wav,ocn) = .true.
+    if (modelActive(atm)) then
+      connectorActive(med,atm) = .true.
+      connectorActive(atm,med) = .true.
+    endif
+    if (modelActive(ocn)) then
+      connectorActive(med,ocn) = .true.
+      connectorActive(ocn,med) = .true.
+    endif
+    if (modelActive(wav)) then
+      connectorActive(med,wav) = .true.
+      connectorActive(wav,med) = .true.
+    endif
+    if (modelActive(ice)) then
+      connectorActive(med,ice) = .true.
+      connectorActive(ice,med) = .true.
+    endif
+    if (modelActive(ocn).and.modelActive(wav)) then
+      connectorActive(ocn,wav) = .true.
+      connectorActive(wav,ocn) = .true.
+    endif
 
     ! set name for this component
     call ESMF_GridCompSet(gcomp, name=label_DriverName, rc=rc)
@@ -215,25 +229,31 @@ module COAMPS
     ! get the petCount
     call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! allocate and set the model petLists
     petLayout = 1
     select case (petLayout)
     case (1)
-      allocate(modelPL(med)%petList(4)); modelPL(med)%petList = (/0,1,2,3/)
-      allocate(modelPL(atm)%petList(1)); modelPL(atm)%petList = (/0/)
-      allocate(modelPL(ocn)%petList(1)); modelPL(ocn)%petList = (/1/)
-      allocate(modelPL(wav)%petList(1)); modelPL(wav)%petList = (/2/)
-      allocate(modelPL(ice)%petList(1)); modelPL(ice)%petList = (/3/)
+      if (modelActive(med)) then
+        allocate(modelPL(med)%petList(4))
+        modelPL(med)%petList = (/0,1,2,3/)
+      endif
+      j = 0
+      do i = 2,modelCount
+        if (modelActive(i)) then
+          allocate(modelPL(i)%petList(1))
+          modelPL(i)%petList = (/j/)
+          j = j+1
+        endif
+      enddo
     case default
-      allocate(modelPL(med)%petList(4)); modelPL(med)%petList = (/0,1,2,3/)
-      allocate(modelPL(atm)%petList(4)); modelPL(atm)%petList = (/0,1,2,3/)
-      allocate(modelPL(ocn)%petList(4)); modelPL(ocn)%petList = (/1,1,2,3/)
-      allocate(modelPL(wav)%petList(4)); modelPL(wav)%petList = (/2,1,2,3/)
-      allocate(modelPL(ice)%petList(4)); modelPL(ice)%petList = (/3,1,2,3/)
+      do i = 1,modelCount
+        if (modelActive(i)) then
+          allocate(modelPL(i)%petList(4))
+          modelPL(i)%petList = (/0,1,2,3/)
+        endif
+      enddo
     end select
 
   end subroutine
@@ -296,31 +316,41 @@ module COAMPS
     enddo
 
     ! SetServices for active models
-    call ESMF_GridCompSetServices(modelComp(med), medSS, userRc=localrc, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call ESMF_GridCompSetServices(modelComp(atm), atmSS, userRc=localrc, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call ESMF_GridCompSetServices(modelComp(ocn), ocnSS, userRc=localrc, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call ESMF_GridCompSetServices(modelComp(wav), wavSS, userRc=localrc, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call ESMF_GridCompSetServices(modelComp(ice), iceSS, userRc=localrc, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    if (modelActive(med)) then
+      call ESMF_GridCompSetServices(modelComp(med), medSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+    if (modelActive(atm)) then
+      call ESMF_GridCompSetServices(modelComp(atm), atmSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+    if (modelActive(ocn)) then
+      call ESMF_GridCompSetServices(modelComp(ocn), ocnSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+    if (modelActive(wav)) then
+      call ESMF_GridCompSetServices(modelComp(wav), wavSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+    if (modelActive(ice)) then
+      call ESMF_GridCompSetServices(modelComp(ice), iceSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
 
     ! SetServices for active connectors
     do j = 1,modelCount
