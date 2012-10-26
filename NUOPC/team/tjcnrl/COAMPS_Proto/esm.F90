@@ -89,38 +89,20 @@ module ESM
       return  ! bail out
     
     ! set the petLists
-    petLayout = 6
+    petLayout = 0
     select case (petLayout)
-    case (1) ! works
-      allocate(is%wrap%medPetList(1)); is%wrap%medPetList = (/0/)
-      allocate(is%wrap%atmPetList(1)); is%wrap%atmPetList = (/1/)
-      allocate(is%wrap%ocnPetList(1)); is%wrap%ocnPetList = (/2/)
-      allocate(is%wrap%wavPetList(1)); is%wrap%wavPetList = (/3/)
-    case (2) ! works
-      allocate(is%wrap%medPetList(2)); is%wrap%medPetList = (/0,1/)
-      allocate(is%wrap%atmPetList(1)); is%wrap%atmPetList = (/1/)
-      allocate(is%wrap%ocnPetList(1)); is%wrap%ocnPetList = (/2/)
-      allocate(is%wrap%wavPetList(1)); is%wrap%wavPetList = (/3/)
-    case (3) ! fails
-      allocate(is%wrap%medPetList(2)); is%wrap%medPetList = (/0,2/)
-      allocate(is%wrap%atmPetList(1)); is%wrap%atmPetList = (/1/)
-      allocate(is%wrap%ocnPetList(1)); is%wrap%ocnPetList = (/2/)
-      allocate(is%wrap%wavPetList(1)); is%wrap%wavPetList = (/3/)
-    case (4) ! fails
-      allocate(is%wrap%medPetList(1)); is%wrap%medPetList = (/0/)
-      allocate(is%wrap%atmPetList(2)); is%wrap%atmPetList = (/1,2/)
-      allocate(is%wrap%ocnPetList(2)); is%wrap%ocnPetList = (/2,3/)
-      allocate(is%wrap%wavPetList(2)); is%wrap%wavPetList = (/3,1/)
-    case (5) ! fails
-      allocate(is%wrap%medPetList(2)); is%wrap%medPetList = (/0,1/)
-      allocate(is%wrap%atmPetList(2)); is%wrap%atmPetList = (/1,2/)
-      allocate(is%wrap%ocnPetList(2)); is%wrap%ocnPetList = (/2,3/)
-      allocate(is%wrap%wavPetList(2)); is%wrap%wavPetList = (/3,0/)
-    case default ! works
+    case (1)
+      allocate(is%wrap%medPetList(4)); is%wrap%medPetList = (/0,1,2,3/)
+      allocate(is%wrap%atmPetList(1)); is%wrap%atmPetList = (/0/)
+      allocate(is%wrap%ocnPetList(1)); is%wrap%ocnPetList = (/1/)
+      allocate(is%wrap%wavPetList(1)); is%wrap%wavPetList = (/2/)
+      allocate(is%wrap%icePetList(1)); is%wrap%icePetList = (/3/)
+    case default
       allocate(is%wrap%medPetList(4)); is%wrap%medPetList = (/0,1,2,3/)
       allocate(is%wrap%atmPetList(4)); is%wrap%atmPetList = (/0,1,2,3/)
       allocate(is%wrap%ocnPetList(4)); is%wrap%ocnPetList = (/0,1,2,3/)
       allocate(is%wrap%wavPetList(4)); is%wrap%wavPetList = (/0,1,2,3/)
+      allocate(is%wrap%icePetList(4)); is%wrap%icePetList = (/0,1,2,3/)
     end select
     
   end subroutine

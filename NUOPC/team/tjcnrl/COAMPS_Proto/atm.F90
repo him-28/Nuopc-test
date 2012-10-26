@@ -16,12 +16,12 @@ module ATM
   
   public SetServices
 
-  integer, parameter :: numImport = 2
-  character (ESMF_MAXSTR) :: impStdName(numImport)
-  character (ESMF_MAXSTR) :: impName(numImport)
-  integer, parameter :: numExport = 2
-  character (ESMF_MAXSTR) :: expStdName(numExport)
-  character (ESMF_MAXSTR) :: expName(numExport)
+  integer :: numImport
+  character(ESMF_MAXSTR), allocatable :: impStdName(:)
+  character(ESMF_MAXSTR), allocatable :: impFldName(:)
+  integer :: numExport
+  character(ESMF_MAXSTR), allocatable :: expStdName(:)
+  character(ESMF_MAXSTR), allocatable :: expFldName(:)
   
   !-----------------------------------------------------------------------------
   contains
@@ -54,6 +54,14 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
     
+    ! set entry point for finalize method
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
+      userRoutine=Finalize, phase=1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
     ! attach specializing method(s)
     call ESMF_MethodAdd(gcomp, label=model_label_Advance, &
       userRoutine=ModelAdvance, rc=rc)
@@ -61,7 +69,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -73,36 +81,51 @@ module ATM
     integer, intent(out) :: rc
 
     ! local variables    
+    integer :: stat
     integer :: i
     
     rc = ESMF_SUCCESS
 
     ! importable fields
-    impStdName(1) = "surface_downward_eastward_stress"
-    impName(1) = "tau_u"
-    impStdName(2) = "surface_downward_northward_stress"
-    impName(1) = "tau_v"
-
-    ! exportable fields
-    expStdName(1) = "eastward_10m_wind"
-    expName(1) = "wind_u"
-    expStdName(2) = "northward_10m_wind"
-    expName(1) = "wind_v"
-
-    ! advertise import fields
+    numImport = 2
+    allocate(impStdName(numImport), impFldName(numImport), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of import field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+    impStdName( 1) = "surface_downward_eastward_stress"
+    impFldName( 1) = "tau_u"
+    impStdName( 2) = "surface_downward_northward_stress"
+    impFldName( 2) = "tau_v"
     do i = 1,numImport
       call NUOPC_StateAdvertiseField(importState, &
-        StandardName=trim(impStdName(i)), name=trim(impName(i)), rc=rc)
+        StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
     enddo
 
-    ! advertise export fields
+    ! exportable fields
+    numExport = 3
+    allocate(expStdName(numExport), expFldName(numExport), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of export field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+    expStdName( 1) = "eastward_wind_at_model_lowest_level"
+    expFldName( 1) = "wind_u"
+    expStdName( 2) = "northward_wind_at_model_lowest_level"
+    expFldName( 2) = "wind_v"
+    expStdName( 3) = "air_temperature_at_model_lowest_level"
+    expFldName( 3) = "air_temp"
     do i = 1,numExport
       call NUOPC_StateAdvertiseField(exportState, &
-        StandardName=trim(expStdName(i)), name=trim(expName(i)), rc=rc)
+        StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -138,7 +161,7 @@ module ATM
 
     ! realize import fields
     do i = 1,numImport
-      field = ESMF_FieldCreate(name=trim(impName(i)), grid=gridIn, &
+      field = ESMF_FieldCreate(name=trim(impFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -153,7 +176,7 @@ module ATM
 
     ! realize export fields
     do i = 1,numExport
-      field = ESMF_FieldCreate(name=trim(expName(i)), grid=gridIn, &
+      field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -207,6 +230,39 @@ module ATM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+  
+  subroutine Finalize(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    integer :: stat
+
+    rc = ESMF_SUCCESS
+
+    ! deallocate import field name arrays
+    deallocate(impStdName, impFldName, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of import field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    ! deallocate export field name arrays
+    deallocate(expStdName, expFldName, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of export field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
       return  ! bail out
 
   end subroutine

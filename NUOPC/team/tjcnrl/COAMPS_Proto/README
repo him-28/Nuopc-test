@@ -2,7 +2,7 @@ README for COAMPS NUOPC prototype
 ---------------------------------------------------
 
 Dependencies: 
-  - ESMF v6.1.0bs01
+  - ESMF v6.1.0bs02
   
 Build:
   - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF
@@ -24,9 +24,10 @@ Code structure:
   - esmApp.F90  - ESM driver application.
   - esm.F90     - The Earth System Model (ESM) component, specializing generic
                   NUOPC_DriverCOAMPS. Define partial petLists for
-                  MED, ATM, OCN, and WAV.
+                  MED, ATM, OCN, WAV, and ICE.
   - med.F90     - The Mediator component, specializing generic 
                   NUOPC_Mediator.
   - atm.F90     - The ATM component, specializing generic NUOPC_Model.
   - ocn.F90     - The OCN component, specializing generic NUOPC_Model.
   - wav.F90     - The WAV component, specializing generic NUOPC_Model.
+  - ice.F90     - The ICE component, specializing generic NUOPC_Model.

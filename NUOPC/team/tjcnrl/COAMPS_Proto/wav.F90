@@ -17,12 +17,12 @@ module WAV
   
   public SetServices
 
-  integer, parameter :: numImport = 2
-  character (ESMF_MAXSTR) :: impStdName(numImport)
-  character (ESMF_MAXSTR) :: impName(numImport)
-  integer, parameter :: numExport = 6
-  character (ESMF_MAXSTR) :: expStdName(numExport)
-  character (ESMF_MAXSTR) :: expName(numExport)
+  integer :: numImport
+  character(ESMF_MAXSTR), allocatable :: impStdName(:)
+  character(ESMF_MAXSTR), allocatable :: impFldName(:)
+  integer :: numExport
+  character(ESMF_MAXSTR), allocatable :: expStdName(:)
+  character(ESMF_MAXSTR), allocatable :: expFldName(:)
   
   !-----------------------------------------------------------------------------
   contains
@@ -55,6 +55,14 @@ module WAV
       file=__FILE__)) &
       return  ! bail out
     
+    ! set entry point for finalize method
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
+      userRoutine=Finalize, phase=1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
     ! attach specializing method(s)
     call ESMF_MethodAdd(gcomp, label=model_label_SetClock, &
       userRoutine=SetClock, rc=rc)
@@ -81,44 +89,63 @@ module WAV
     integer, intent(out) :: rc
 
     ! local variables    
+    integer :: stat
     integer :: i
     
     rc = ESMF_SUCCESS
 
     ! importable fields
-    impStdName(1) = "eastward_10m_wind"
-    impName(1) = "wind_u"
-    impStdName(2) = "northward_10m_wind"
-    impName(1) = "wind_v"
-
-    ! exportable fields
-    expStdName(1) = "surface_eastward_wave_induced_stress"
-    expName(1) = "tau_atm_wave_u"
-    expStdName(2) = "surface_northward_wave_induced_stress"
-    expName(1) = "tau_atm_wave_v"
-    expStdName(3) = "surface_eastward_wave_dissipation_stress"
-    expName(3) = "tau_ocn_wave_u"
-    expStdName(4) = "surface_northward_wave_dissipation_stress"
-    expName(4) = "tau_ocn_wave_v"
-    expStdName(5) = "eastward_stokes_drift_current"
-    expName(5) = "stokes_u"
-    expStdName(6) = "northward_stokes_drift_current"
-    expName(6) = "stokes_v"
-
-    ! advertise import fields
+    numImport = 5
+    allocate(impStdName(numImport), impFldName(numImport), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of import field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+    impStdName( 1) = "eastward_wind_at_10m_height"
+    impFldName( 1) = "wind_u"
+    impStdName( 2) = "northward_wind_at_10m_height"
+    impFldName( 2) = "wind_v"
+    impStdName( 3) = "surface_eastward_sea_water_velocity"
+    impFldName( 3) = "ssc_u"
+    impStdName( 4) = "surface_northward_sea_water_velocity"
+    impFldName( 4) = "ssc_v"
+    impStdName( 5) = "air_sea_temperature_difference"
+    impFldName( 5) = "ast"
     do i = 1,numImport
       call NUOPC_StateAdvertiseField(importState, &
-        StandardName=trim(impStdName(i)), name=trim(impName(i)), rc=rc)
+        StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
     enddo
 
-    ! advertise export fields
+    ! exportable fields
+    numExport = 6
+    allocate(expStdName(numExport), expFldName(numExport), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of export field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+    expStdName( 1) = "surface_eastward_wind_to_wave_stress"
+    expFldName( 1) = "tau_atm_wav_u"
+    expStdName( 2) = "surface_northward_wind_to_wave_stress"
+    expFldName( 2) = "tau_atm_wav_v"
+    expStdName( 3) = "surface_eastward_wave_to_ocean_stress"
+    expFldName( 3) = "tau_wav_ocn_u"
+    expStdName( 4) = "surface_northward_wave_to_ocean_stress"
+    expFldName( 4) = "tau_wav_ocn_v"
+    expStdName( 5) = "eastward_stokes_drift_current"
+    expFldName( 5) = "sdc_u"
+    expStdName( 6) = "northward_stokes_drift_current"
+    expFldName( 6) = "sdc_v"
     do i = 1,numExport
       call NUOPC_StateAdvertiseField(exportState, &
-        StandardName=trim(expStdName(i)), name=trim(expName(i)), rc=rc)
+        StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -154,7 +181,7 @@ module WAV
 
     ! realize import fields
     do i = 1,numImport
-      field = ESMF_FieldCreate(name=trim(impName(i)), grid=gridIn, &
+      field = ESMF_FieldCreate(name=trim(impFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -169,7 +196,7 @@ module WAV
 
     ! realize export fields
     do i = 1,numExport
-      field = ESMF_FieldCreate(name=trim(expName(i)), grid=gridIn, &
+      field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -269,6 +296,39 @@ module WAV
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+  
+  subroutine Finalize(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    integer :: stat
+
+    rc = ESMF_SUCCESS
+
+    ! deallocate import field name arrays
+    deallocate(impStdName, impFldName, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of import field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    ! deallocate export field name arrays
+    deallocate(expStdName, expFldName, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of export field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
       return  ! bail out
 
   end subroutine

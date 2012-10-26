@@ -17,12 +17,12 @@ module ICE
   
   public SetServices
 
-  integer, parameter :: numImport = 2
-  character (ESMF_MAXSTR) :: impStdName(numImport)
-  character (ESMF_MAXSTR) :: impName(numImport)
-  integer, parameter :: numExport = 2
-  character (ESMF_MAXSTR) :: expStdName(numExport)
-  character (ESMF_MAXSTR) :: expName(numExport)
+  integer :: numImport
+  character(ESMF_MAXSTR), allocatable :: impStdName(:)
+  character(ESMF_MAXSTR), allocatable :: impFldName(:)
+  integer :: numExport
+  character(ESMF_MAXSTR), allocatable :: expStdName(:)
+  character(ESMF_MAXSTR), allocatable :: expFldName(:)
   
   !-----------------------------------------------------------------------------
   contains
@@ -55,6 +55,14 @@ module ICE
       file=__FILE__)) &
       return  ! bail out
     
+    ! set entry point for finalize method
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
+      userRoutine=Finalize, phase=1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
     ! attach specializing method(s)
     call ESMF_MethodAdd(gcomp, label=model_label_SetClock, &
       userRoutine=SetClock, rc=rc)
@@ -81,36 +89,59 @@ module ICE
     integer, intent(out) :: rc
 
     ! local variables    
+    integer :: stat
     integer :: i
     
     rc = ESMF_SUCCESS
 
     ! importable fields
-    impStdName(1) = "ice_surface_downward_eastward_stress"
-    impName(1) = "tau_ice_u"
-    impStdName(2) = "ice_surface_downward_northward_stress"
-    impName(1) = "tau_ice_v"
-
-    ! exportable fields
-    expStdName(1) = "eastward_ice_drift_velocity"
-    expName(1) = "ice_drift_u"
-    expStdName(2) = "northward_ice_drift_velocity"
-    expName(1) = "ice_drift_v"
-
-    ! advertise import fields
+    numImport = 4
+    allocate(impStdName(numImport), impFldName(numImport), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of import field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+    impStdName( 1) = "sea_ice_surface_downward_eastward_stress"
+    impFldName( 1) = "tau_atm_u"
+    impStdName( 2) = "sea_ice_surface_downward_northward_stress"
+    impFldName( 2) = "tau_atm_v"
+    impStdName( 3) = "sea_ice_basal_upward_eastward_stress"
+    impFldName( 3) = "tau_ocn_u"
+    impStdName( 4) = "sea_ice_basal_upward_northward_stress"
+    impFldName( 4) = "tau_ocn_v"
     do i = 1,numImport
       call NUOPC_StateAdvertiseField(importState, &
-        StandardName=trim(impStdName(i)), name=trim(impName(i)), rc=rc)
+        StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
     enddo
 
-    ! advertise export fields
+    ! exportable fields
+    numExport = 5
+    allocate(expStdName(numExport), expFldName(numExport), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of export field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+    expStdName( 1) = "sea_ice_eastward_drift_velocity"
+    expFldName( 1) = "ice_drift_u"
+    expStdName( 2) = "sea_ice_northward_drift_velocity"
+    expFldName( 2) = "ice_drift_v"
+    expStdName( 3) = "sea_ice_concentration"
+    expFldName( 3) = "ice_conc"
+    expStdName( 4) = "sea_ice_thickness"
+    expFldName( 4) = "ice_thick"
+    expStdName( 5) = "sea_ice_temperature"
+    expFldName( 5) = "ice_temp"
     do i = 1,numExport
       call NUOPC_StateAdvertiseField(exportState, &
-        StandardName=trim(expStdName(i)), name=trim(expName(i)), rc=rc)
+        StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -146,7 +177,7 @@ module ICE
 
     ! realize import fields
     do i = 1,numImport
-      field = ESMF_FieldCreate(name=trim(impName(i)), grid=gridIn, &
+      field = ESMF_FieldCreate(name=trim(impFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -161,7 +192,7 @@ module ICE
 
     ! realize export fields
     do i = 1,numExport
-      field = ESMF_FieldCreate(name=trim(expName(i)), grid=gridIn, &
+      field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -261,6 +292,39 @@ module ICE
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+  
+  subroutine Finalize(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    integer :: stat
+
+    rc = ESMF_SUCCESS
+
+    ! deallocate import field name arrays
+    deallocate(impStdName, impFldName, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of import field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    ! deallocate export field name arrays
+    deallocate(expStdName, expFldName, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of export field name arrays failed.", &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
       return  ! bail out
 
   end subroutine
