@@ -67,6 +67,7 @@ module MED
   !-----------------------------------------------------------------------------
 
   subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
+  use NUOPC
     type(ESMF_GridComp)  :: gcomp
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
@@ -102,6 +103,7 @@ module MED
     impStdName(15) = "sea_ice_temperature"
     do i = 1,numImport
       call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
+!       msg, msg, impFldName(i), rc)
         defaultShortName=impFldName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -140,6 +142,7 @@ module MED
     expStdName(13) = "sea_ice_basal_upward_northward_stress"
     do i = 1,numExport
       call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
+!       msg, msg, expFldName(i), rc)
         defaultShortName=expFldName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -282,14 +285,14 @@ module MED
 
     ! deallocate import field name arrays
     deallocate(impStdName, impFldName, stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Dellocation of import field name arrays failed.", &
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of import field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
     ! deallocate export field name arrays
     deallocate(expStdName, expFldName, stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Dellocation of export field name arrays failed.", &
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of export field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
   end subroutine

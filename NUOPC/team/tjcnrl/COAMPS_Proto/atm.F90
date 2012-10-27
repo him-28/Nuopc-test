@@ -1,3 +1,5 @@
+#define FILENAME "atm.F90"
+
 module ATM
 
   !-----------------------------------------------------------------------------
@@ -37,39 +39,29 @@ module ATM
     ! the NUOPC model component will register the generic methods
     call model_routine_SS(gcomp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
     
     ! set entry point for methods that require specific implementation
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       userRoutine=InitializeP0, phase=0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       userRoutine=InitializeP1, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
     
     ! set entry point for finalize method
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
       userRoutine=Finalize, phase=1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
     
     ! attach specializing method(s)
     call ESMF_MethodAdd(gcomp, label=model_label_Advance, &
       userRoutine=ModelAdvance, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
   end subroutine
   
@@ -93,18 +85,15 @@ module ATM
     allocate(impStdName(numImport), impFldName(numImport), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of import field name arrays failed.", &
-      line=__LINE__, &
-      file=__FILE__, &
-      rcToReturn=rc)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
     impStdName( 1) = "surface_downward_eastward_stress"
     impStdName( 2) = "surface_downward_northward_stress"
     do i = 1,numImport
       call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
+!       msg, msg, impFldName(i), rc)
         defaultShortName=impFldName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -112,8 +101,7 @@ module ATM
       call NUOPC_StateAdvertiseField(importState, &
         StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -125,19 +113,16 @@ module ATM
     allocate(expStdName(numExport), expFldName(numExport), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of export field name arrays failed.", &
-      line=__LINE__, &
-      file=__FILE__, &
-      rcToReturn=rc)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
     expStdName( 1) = "eastward_wind_at_10m_height"
     expStdName( 2) = "northward_wind_at_10m_height"
     expStdName( 3) = "air_temperature_at_2m_height"
     do i = 1,numExport
       call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
+!       msg, msg, expFldName(i), rc)
         defaultShortName=expFldName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -145,8 +130,7 @@ module ATM
       call NUOPC_StateAdvertiseField(exportState, &
         StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -176,9 +160,7 @@ module ATM
     gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
       100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 20, 100, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
     gridOut = gridIn ! for now out same as in
 
     ! realize import fields
@@ -186,16 +168,14 @@ module ATM
       field = ESMF_FieldCreate(name=trim(impFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       call NUOPC_StateRealizeField(importState, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -207,16 +187,14 @@ module ATM
       field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) then
+        line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -241,9 +219,7 @@ module ATM
     call ESMF_GridCompGet(gcomp, clock=clock, importState=importState, &
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
@@ -255,16 +231,12 @@ module ATM
     call NUOPC_ClockPrintCurrTime(clock, &
       "------>Advancing ATM from: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
     
     call NUOPC_ClockPrintStopTime(clock, &
       "---------------------> to: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
   end subroutine
 
@@ -285,19 +257,13 @@ module ATM
     deallocate(impStdName, impFldName, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of import field name arrays failed.", &
-      line=__LINE__, &
-      file=__FILE__, &
-      rcToReturn=rc)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
     ! deallocate export field name arrays
     deallocate(expStdName, expFldName, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of export field name arrays failed.", &
-      line=__LINE__, &
-      file=__FILE__, &
-      rcToReturn=rc)) &
-      return  ! bail out
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
   end subroutine
 
