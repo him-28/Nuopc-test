@@ -1,9 +1,9 @@
-#define FILENAME "coamps.F90"
+#define FILENAME "esm.F90"
 
-module COAMPS
+module ESM
 
   !-----------------------------------------------------------------------------
-  ! Driver Component for COAMPS with explicit time stepping
+  ! Driver Component for ESM with explicit time stepping
   !-----------------------------------------------------------------------------
 
   use ESMF
@@ -31,8 +31,8 @@ module COAMPS
 
   public SetServices
 
-  character (*), parameter :: label_DriverName = "COAMPS"
-  character (*), parameter :: label_InternalState = "COAMPS_InternalState"
+  character (*), parameter :: label_DriverName = "ESM"
+  character (*), parameter :: label_InternalState = "ESM_InternalState"
 
   integer, parameter :: med = 1
   integer, parameter :: atm = 2
@@ -367,8 +367,7 @@ module COAMPS
     enddo
     enddo
 
-    ! The default run sequence defined by the generic Driver Component is not
-    ! suitable for COAMPS. The default RunSeq must be overwritten.
+    ! override the default run sequence defined by the generic Driver
     call NUOPC_RunSequenceDeallocate(runSeq, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
