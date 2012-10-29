@@ -75,7 +75,7 @@ module ESM
     rc = ESMF_SUCCESS
 
     ! set active models
-    modelActive(med) = .true.
+    modelActive(med) = .true. ! mediator must always be active
     modelActive(atm) = .true.
     modelActive(ocn) = .true.
     modelActive(wav) = .true.
