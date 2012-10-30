@@ -10,8 +10,8 @@ module MED
   use NUOPC
   use NUOPC_Mediator, only: &
     model_routine_SS      => routine_SetServices, &
-!   model_type_IS         => type_InternalState, &
-!   model_label_IS        => label_InternalState, &
+    model_type_IS         => type_InternalState, &
+    model_label_IS        => label_InternalState, &
     model_label_Advance   => label_Advance
 
   implicit none
