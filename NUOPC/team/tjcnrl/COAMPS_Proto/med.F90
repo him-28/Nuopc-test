@@ -265,6 +265,12 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
     ! create a Grid object for Fields
     gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
       100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 20, 200, rc)
