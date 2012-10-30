@@ -111,7 +111,6 @@ module MED
     do i = 1,numImport
       call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
         defaultShortName=impFldName(i), rc=rc)
-!       msg, msg, impFldName(i), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
@@ -144,7 +143,6 @@ module MED
     do i = 1,numExport
       call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
         defaultShortName=expFldName(i), rc=rc)
-!       msg, msg, expFldName(i), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))

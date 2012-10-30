@@ -106,7 +106,6 @@ module ICE
     do i = 1,numImport
       call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
         defaultShortName=impFldName(i), rc=rc)
-!       msg, msg, impFldName(i), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
@@ -131,7 +130,6 @@ module ICE
     do i = 1,numExport
       call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
         defaultShortName=expFldName(i), rc=rc)
-!       msg, msg, expFldName(i), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))
@@ -226,7 +224,7 @@ module ICE
       endif
     enddo
 
-    ! realize active export fields
+    ! realize active export fields (& remove inactive)
     do i = 1,numExport
       expActive(i) = NUOPC_StateIsFieldConnected(exportState, expFldName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -235,21 +233,30 @@ module ICE
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
-      if (.not.expActive(i)) cycle
-      field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
-        typekind=ESMF_TYPEKIND_R8, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
+      if (expActive(i)) then
+        field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
+          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+        call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
+          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+      else
+        call ESMF_StateRemove(exportState, (/trim(expFldName(i))/), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i,', '//trim(expStdName(i))
+          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
       endif
     enddo
 
