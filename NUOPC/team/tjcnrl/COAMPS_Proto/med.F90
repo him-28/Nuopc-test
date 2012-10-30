@@ -82,8 +82,22 @@ module MED
     character(ESMF_MAXSTR) :: msg
     integer :: stat
     integer :: i
+    character(len=NUOPC_PhaseMapStringLength) :: initPhases(4)
 
     rc = ESMF_SUCCESS
+
+    ! define initialization phases
+    ! skip over IPDv01p2 because we want connected status set on
+    ! import/export fields prior to realization
+    initPhases(1) = "IPDv01p1=1"
+    initPhases(2) = "IPDv01p3=2"
+    initPhases(3) = "IPDv01p4=3"
+    initPhases(4) = "IPDv01p5=4"
+    call ESMF_AttributeSet(gcomp, &
+      name="InitializationPhaseMap", valueList=initPhases, &
+      convention="NUOPC", purpose="General", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! define importable fields
     numImport = 15
