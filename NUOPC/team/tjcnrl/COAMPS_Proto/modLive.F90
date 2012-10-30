@@ -514,6 +514,7 @@ module MODLive
     type(ESMF_State)              :: importState, exportState
     type(ESMF_Time)               :: currTime
     type(ESMF_TimeInterval)       :: timeStep
+    integer                       :: localPet
 
     rc = ESMF_SUCCESS
 
@@ -534,6 +535,11 @@ module MODLive
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    ! query the Component for PET info
+    call ESMF_GridCompGet(gcomp, localPet=localPet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
 
     ! Because of the way that the internal Clock was set in SetClock(),
@@ -543,19 +549,21 @@ module MODLive
     ! will come in by one internal timeStep advanced. This goes until the
     ! stopTime of the internal Clock has been reached.
 
-    call NUOPC_ClockPrintCurrTime(clock, &
-      "------>Advancing "//trim(cname)//" from: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+    if (localPet.eq.0) then
+      call NUOPC_ClockPrintCurrTime(clock, &
+        "------>Advancing "//trim(cname)//" from: ", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_ClockGet(clock, currTime=currTime, timeStep=timeStep, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+      call ESMF_ClockGet(clock, currTime=currTime, timeStep=timeStep, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
     
-    call NUOPC_TimePrint(currTime + timeStep, &
-      "---------------------> to: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+      call NUOPC_TimePrint(currTime + timeStep, &
+        "---------------------> to: ", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    endif
 
   end subroutine
 

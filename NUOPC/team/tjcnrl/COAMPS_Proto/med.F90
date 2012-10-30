@@ -346,6 +346,7 @@ module MED
     character(ESMF_MAXSTR)        :: cname
     type(ESMF_Clock)              :: clock
     type(ESMF_State)              :: importState, exportState
+    integer                       :: localPet
 
     rc = ESMF_SUCCESS
 
@@ -357,6 +358,11 @@ module MED
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(gcomp, clock=clock, &
       importState=importState, exportState=exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! query the Component for PET info
+    call ESMF_GridCompGet(gcomp, localPet=localPet, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -374,15 +380,17 @@ module MED
     !
     ! Where the timeStep is equal to the parent timeStep.
     
-    call NUOPC_ClockPrintCurrTime(clock, &
-      "-------->"//trim(cname)//" Advance() mediating for: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+    if (localPet.eq.0) then
+      call NUOPC_ClockPrintCurrTime(clock, &
+        "-------->"//trim(cname)//" Advance() mediating for: ", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call NUOPC_ClockPrintStopTime(clock, &
-      "----------------> model time step to: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+      call NUOPC_ClockPrintStopTime(clock, &
+        "----------------> model time step to: ", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    endif
 
   end subroutine
 
