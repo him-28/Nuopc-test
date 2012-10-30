@@ -376,22 +376,34 @@ module MODData
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
-      field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
-        typekind=ESMF_TYPEKIND_R8, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
-          ', '//trim(is%wrap%impStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
-          ', '//trim(is%wrap%impStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
+      connected = .true.
+      if (connected) then
+        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+        call NUOPC_StateRealizeField(importState, field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+      else
+        call ESMF_StateRemove(importState, (/trim(fname)/), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
       endif
     enddo
 
