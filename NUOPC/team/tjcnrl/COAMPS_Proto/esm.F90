@@ -38,14 +38,13 @@ module ESM
   integer, parameter :: wav = 4
   integer, parameter :: ice = 5
   integer, parameter :: modCount = 5
-  character (7) :: modName(modCount)
-  logical       :: modActive(modCount)
-  character (4) :: modType(modCount)
-  character (7) :: conName(modCount,modCount)
-  logical       :: conActive(modCount,modCount)
 
   type type_InternalStateStruct
-    integer :: placeholder
+    character(7), pointer :: modName(:)
+    logical     , pointer :: modActive(:)
+    character(4), pointer :: modType(:)
+    character(7), pointer :: conName(:,:)
+    logical     , pointer :: conActive(:,:)
   end type
 
   type type_InternalState
@@ -66,12 +65,44 @@ module ESM
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
     integer                            :: i, j
+    character(7), pointer              :: modName(:)
+    logical     , pointer              :: modActive(:)
+    character(4), pointer              :: modType(:)
+    character(7), pointer              :: conName(:,:)
+    logical     , pointer              :: conActive(:,:)
     type(ESMF_Time)                    :: startTime
     type(ESMF_Time)                    :: stopTime
     type(ESMF_TimeInterval)            :: timeStep
     type(ESMF_Clock)                   :: internalClock
 
     rc = ESMF_SUCCESS
+
+    ! allocate memory for this internal state and set it in the component
+    allocate(is%wrap, stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of internal state memory failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    call ESMF_UserCompSetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! allocate internal state arrays
+    allocate(is%wrap%modName(modCount), &
+             is%wrap%modActive(modCount), &
+             is%wrap%modType(modCount), &
+             is%wrap%conName(modCount,modCount), &
+             is%wrap%conActive(modCount,modCount), &
+             stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of internal state arrays failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+
+    ! set some useful pointers
+    modName   => is%wrap%modName
+    modActive => is%wrap%modActive
+    modType   => is%wrap%modType
+    conName   => is%wrap%conName
+    conActive => is%wrap%conActive
 
     ! set active models
     modActive(med) = .true. ! mediator must always be active
@@ -126,15 +157,6 @@ module ESM
 
     ! set name for this component
     call ESMF_GridCompSet(gcomp, name=label_DriverName, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! allocate memory for this internal state and set it in the component
-    allocate(is%wrap, stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Allocation of internal state memory failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call ESMF_UserCompSetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -197,6 +219,11 @@ module ESM
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
+    character(7), pointer              :: modName(:)
+    logical     , pointer              :: modActive(:)
+    character(4), pointer              :: modType(:)
+    character(7), pointer              :: conName(:,:)
+    logical     , pointer              :: conActive(:,:)
     integer                            :: i, j
 
     rc = ESMF_SUCCESS
@@ -223,6 +250,11 @@ module ESM
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
+    character(7), pointer              :: modName(:)
+    logical     , pointer              :: modActive(:)
+    character(4), pointer              :: modType(:)
+    character(7), pointer              :: conName(:,:)
+    logical     , pointer              :: conActive(:,:)
     integer                            :: i, j
     integer                            :: petCount, petLayout
     type(driver_type_PetList), pointer :: modPL(:)
@@ -238,13 +270,26 @@ module ESM
     ! set some useful pointers
     modPL => superIS%wrap%modelPetLists
 
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! set some useful pointers
+    modName   => is%wrap%modName
+    modActive => is%wrap%modActive
+    modType   => is%wrap%modType
+    conName   => is%wrap%conName
+    conActive => is%wrap%conActive
+
     ! get the petCount
     call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! allocate and set the model petLists
-    petLayout = 0
+    petLayout = 1
     select case (petLayout)
     case (1)
       if (modActive(med)) then
@@ -281,6 +326,11 @@ module ESM
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
+    character(7), pointer              :: modName(:)
+    logical     , pointer              :: modActive(:)
+    character(4), pointer              :: modType(:)
+    character(7), pointer              :: conName(:,:)
+    logical     , pointer              :: conActive(:,:)
     integer                            :: i, j
     type(ESMF_GridComp), pointer       :: modComp(:)
     type(ESMF_CplComp), pointer        :: conComp(:,:)
@@ -298,6 +348,19 @@ module ESM
     modComp => superIS%wrap%modelComp
     conComp => superIS%wrap%connectorComp
     runSeq => superIS%wrap%runSeq
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! set some useful pointers
+    modName   => is%wrap%modName
+    modActive => is%wrap%modActive
+    modType   => is%wrap%modType
+    conName   => is%wrap%conName
+    conActive => is%wrap%conActive
 
     ! set model component names
     do i = 1,modCount
@@ -486,19 +549,25 @@ module ESM
     integer, intent(out) :: rc
 
     ! local variables
-    character(ESMF_MAXSTR)           :: msg
-    integer                          :: localrc, stat
-    type(driver_type_IS)             :: superIS
-    type(type_InternalState)         :: is
-    integer                          :: i, j
+    character(ESMF_MAXSTR)             :: msg
+    integer                            :: localrc, stat
+    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: is
 
     rc = ESMF_SUCCESS
 
-    ! query Component for this internal State
+    ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! deallocate internal state arrays
+    deallocate(is%wrap%modName, is%wrap%modActive, is%wrap%modType, &
+               is%wrap%conName, is%wrap%conActive, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of internal state arrays failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
     ! deallocate internal state memory
     deallocate(is%wrap, stat=stat)
