@@ -371,8 +371,8 @@ module MODLive
         defaultShortName=fname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ', &
-          i,', '//trim(is%wrap%impStdName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -413,8 +413,8 @@ module MODLive
         defaultShortName=fname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ', &
-          i,', '//trim(is%wrap%expStdName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
