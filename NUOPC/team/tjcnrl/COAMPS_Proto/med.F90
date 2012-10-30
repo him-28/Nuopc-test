@@ -20,12 +20,8 @@ module MED
 
   integer :: numImport
   character(ESMF_MAXSTR), allocatable :: impStdName(:)
-  character(ESMF_MAXSTR), allocatable :: impFldName(:)
-  logical, allocatable                :: impActive(:)
   integer :: numExport
   character(ESMF_MAXSTR), allocatable :: expStdName(:)
-  character(ESMF_MAXSTR), allocatable :: expFldName(:)
-  logical, allocatable                :: expActive(:)
 
   !-----------------------------------------------------------------------------
   contains
@@ -35,7 +31,17 @@ module MED
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
 
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msg
+    integer                       :: localrc, stat
+
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
     
     ! the NUOPC model component will register the generic methods
     call model_routine_SS(gcomp, rc=rc)
@@ -79,12 +85,18 @@ module MED
     integer, intent(out) :: rc
 
     ! local variables    
-    character(ESMF_MAXSTR) :: msg
-    integer :: stat
-    integer :: i
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msg
+    integer                       :: stat
+    integer                       :: i
     character(len=NUOPC_PhaseMapStringLength) :: initPhases(4)
 
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! define initialization phases
     ! skip over IPDv01p2 because we want connected status set on
@@ -94,19 +106,17 @@ module MED
     initPhases(3) = "IPDv01p4=3"
     initPhases(4) = "IPDv01p5=4"
     call ESMF_AttributeSet(gcomp, &
-      name="InitializationPhaseMap", valueList=initPhases, &
+      name="InitializePhaseMap", valueList=initPhases, &
       convention="NUOPC", purpose="General", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! define importable fields
     numImport = 15
-    allocate(impStdName(numImport), impFldName(numImport), &
-      impActive(numImport), stat=stat)
+    allocate(impStdName(numImport), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of import field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    impActive(:) = .false.
     impStdName( 1) = "eastward_wind_at_10m_height"
     impStdName( 2) = "northward_wind_at_10m_height"
     impStdName( 3) = "air_temperature_at_2m_height"
@@ -122,25 +132,13 @@ module MED
     impStdName(13) = "sea_ice_concentration"
     impStdName(14) = "sea_ice_thickness"
     impStdName(15) = "sea_ice_temperature"
-    do i = 1,numImport
-      call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
-        defaultShortName=impFldName(i), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(impStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-    enddo
 
     ! define exportable fields
     numExport = 13
-    allocate(expStdName(numExport), expFldName(numExport), &
-      expActive(numExport), stat=stat)
+    allocate(expStdName(numExport), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of export field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    expActive(:) = .false.
     expStdName( 1) = "eastward_wind_at_10m_height"
     expStdName( 2) = "northward_wind_at_10m_height"
     expStdName( 3) = "air_sea_temperature_difference"
@@ -154,16 +152,6 @@ module MED
     expStdName(11) = "sea_ice_surface_downward_northward_stress"
     expStdName(12) = "sea_ice_basal_upward_eastward_stress"
     expStdName(13) = "sea_ice_basal_upward_northward_stress"
-    do i = 1,numExport
-      call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
-        defaultShortName=expFldName(i), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i,', '//trim(expStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-    enddo
 
   end subroutine
 
@@ -176,19 +164,26 @@ module MED
     integer, intent(out) :: rc
 
     ! local variables    
-    character(ESMF_MAXSTR) :: msg
-    integer :: stat
-    integer :: i
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msg
+    integer                       :: stat
+    integer                       :: i
 
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! advertise importable fields
     do i = 1,numImport
       call NUOPC_StateAdvertiseField(importState, &
-        StandardName=trim(impStdName(i)), name=trim(impFldName(i)), rc=rc)
+        StandardName=trim(impStdName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(impStdName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+          ', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -197,10 +192,11 @@ module MED
     ! advertise exportable fields
     do i = 1,numExport
       call NUOPC_StateAdvertiseField(exportState, &
-        StandardName=trim(expStdName(i)), name=trim(expFldName(i)), rc=rc)
+        StandardName=trim(expStdName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i,', '//trim(expStdName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+          ', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -217,13 +213,21 @@ module MED
     integer, intent(out) :: rc
 
     ! local variables    
-    character(ESMF_MAXSTR) :: msg
-    type(ESMF_Field)       :: field
-    type(ESMF_Grid)        :: gridIn
-    type(ESMF_Grid)        :: gridOut
-    integer                :: i
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msg
+    character(ESMF_MAXSTR)        :: fname
+    logical                       :: connected
+    type(ESMF_Field)              :: field
+    type(ESMF_Grid)               :: gridIn
+    type(ESMF_Grid)               :: gridOut
+    integer                       :: i
 
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! create a Grid object for Fields
     gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
@@ -232,72 +236,98 @@ module MED
       line=__LINE__, file=FILENAME)) return  ! bail out
     gridOut = gridIn ! for now out same as in
 
-    ! realize active import fields (& remove inactive)
+    ! realize connected import fields (& remove unconnected)
     do i = 1,numImport
-      impActive(i) = NUOPC_StateIsFieldConnected(importState, impFldName(i), rc=rc)
+      call NUOPC_FieldDictionaryGetEntry(trim(impStdName(i)), &
+        defaultShortName=fname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i,', '//trim(impStdName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(impStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
-      if (impActive(i)) then
-        field = ESMF_FieldCreate(name=trim(impFldName(i)), grid=gridIn, &
+      connected = NUOPC_StateIsFieldConnected(importState, trim(fname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
+          ', '//trim(impStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      if (connected) then
+        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
           typekind=ESMF_TYPEKIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(impStdName(i))
+          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+            ', '//trim(impStdName(i))
           call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
         call NUOPC_StateRealizeField(importState, field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(impStdName(i))
+          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+            ', '//trim(impStdName(i))
           call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       else
-        call ESMF_StateRemove(importState, (/trim(impFldName(i))/), rc=rc)
+        call ESMF_StateRemove(importState, (/trim(fname)/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i,', '//trim(impStdName(i))
+          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+            ', '//trim(impStdName(i))
           call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       endif
     enddo
 
-    ! realize active export fields (& remove inactive)
+    ! realize connected export fields (& remove unconnected)
     do i = 1,numExport
-      expActive(i) = NUOPC_StateIsFieldConnected(exportState, expFldName(i), rc=rc)
+      call NUOPC_FieldDictionaryGetEntry(trim(expStdName(i)), &
+        defaultShortName=fname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i,', '//trim(expStdName(i))
+        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(expStdName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
-      if (expActive(i)) then
-        field = ESMF_FieldCreate(name=trim(expFldName(i)), grid=gridIn, &
+      connected = NUOPC_StateIsFieldConnected(exportState, trim(fname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
+          ', '//trim(expStdName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      if (connected) then
+        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
           typekind=ESMF_TYPEKIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(expStdName(i))
+          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+            ', '//trim(expStdName(i))
           call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
         call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(expStdName(i))
+          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+            ', '//trim(expStdName(i))
           call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       else
-        call ESMF_StateRemove(exportState, (/trim(expFldName(i))/), rc=rc)
+        call ESMF_StateRemove(exportState, (/trim(fname)/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i,', '//trim(expStdName(i))
+          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+            ', '//trim(expStdName(i))
           call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
@@ -313,14 +343,19 @@ module MED
     integer, intent(out) :: rc
 
     ! local variables
-    character(ESMF_MAXSTR)        :: name
+    character(ESMF_MAXSTR)        :: cname
     type(ESMF_Clock)              :: clock
     type(ESMF_State)              :: importState, exportState
 
     rc = ESMF_SUCCESS
 
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
     ! query the Component for its clock, importState and exportState
-    call ESMF_GridCompGet(gcomp, name=name, clock=clock, &
+    call ESMF_GridCompGet(gcomp, clock=clock, &
       importState=importState, exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
@@ -340,7 +375,7 @@ module MED
     ! Where the timeStep is equal to the parent timeStep.
     
     call NUOPC_ClockPrintCurrTime(clock, &
-      "-------->"//trim(name)//" Advance() mediating for: ", rc=rc)
+      "-------->"//trim(cname)//" Advance() mediating for: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -360,18 +395,24 @@ module MED
     integer, intent(out) :: rc
 
     ! local variables
-    integer :: stat
+    character(ESMF_MAXSTR)        :: cname
+    integer                       :: stat
 
     rc = ESMF_SUCCESS
 
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
     ! deallocate import field name arrays
-    deallocate(impStdName, impFldName, impActive, stat=stat)
+    deallocate(impStdName, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of import field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
     ! deallocate export field name arrays
-    deallocate(expStdName, expFldName, expActive, stat=stat)
+    deallocate(expStdName, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of export field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out

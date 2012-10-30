@@ -58,12 +58,12 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-esmApp: esmApp.o esm.o con.o med.o atm.o ocn.o wav.o ice.o
+esmApp: esmApp.o esm.o con.o med.o modLive.o modData.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 esmApp.o: esm.o
-esm.o: con.o med.o atm.o ocn.o wav.o ice.o
+esm.o: con.o med.o modLive.o modData.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------

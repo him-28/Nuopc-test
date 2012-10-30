@@ -18,12 +18,10 @@ module ESM
     driver_label_SetModelServices => label_SetModelServices, &
     driver_label_Finalize         => label_Finalize
 
-  use CON, only: cplSS => SetServices
-  use MED, only: medSS => SetServices
-  use ATM, only: atmSS => SetServices
-  use OCN, only: ocnSS => SetServices
-  use WAV, only: wavSS => SetServices
-  use ICE, only: iceSS => SetServices
+  use CON,     only: cplSS     => SetServices
+  use MED,     only: medSS     => SetServices
+  use MODlive, only: modLiveSS => SetServices
+  use MODdata, only: modDataSS => SetServices
 
   implicit none
 
@@ -39,11 +37,12 @@ module ESM
   integer, parameter :: ocn = 3
   integer, parameter :: wav = 4
   integer, parameter :: ice = 5
-  integer, parameter :: modelCount = 5
-  character (3) :: modelName(modelCount) = (/'MED','ATM','OCN','WAV','ICE'/)
-  logical       :: modelActive(modelCount)
-  character (7) :: connectorName(modelCount,modelCount)
-  logical       :: connectorActive(modelCount,modelCount)
+  integer, parameter :: modCount = 5
+  character (7) :: modName(modCount)
+  logical       :: modActive(modCount)
+  character (4) :: modType(modCount)
+  character (7) :: conName(modCount,modCount)
+  logical       :: conActive(modCount,modCount)
 
   type type_InternalStateStruct
     integer :: placeholder
@@ -75,40 +74,54 @@ module ESM
     rc = ESMF_SUCCESS
 
     ! set active models
-    modelActive(med) = .true. ! mediator must always be active
-    modelActive(atm) = .true.
-    modelActive(ocn) = .true.
-    modelActive(wav) = .true.
-    modelActive(ice) = .true.
+    modActive(med) = .true. ! mediator must always be active
+    modActive(atm) = .true.
+    modActive(ocn) = .true.
+    modActive(wav) = .true.
+    modActive(ice) = .true.
+
+    ! set model types
+    modType(med) = 'live' ! mediator must always be live
+    modType(atm) = 'live'
+    modType(ocn) = 'live'
+    modType(wav) = 'live'
+    modType(ice) = 'live'
+
+    ! set model names
+    modName(med) = 'MED'
+    modName(atm) = 'ATM'//modType(atm)
+    modName(ocn) = 'OCN'//modType(ocn)
+    modName(wav) = 'WAV'//modType(wav)
+    modName(ice) = 'ICE'//modType(ice)
 
     ! set connector names
-    do j=1,modelCount
-    do i=1,modelCount
-      connectorName(i,j) = modelName(i)//'2'//modelName(j)
+    do j=1,modCount
+    do i=1,modCount
+      conName(i,j) = modName(i)(1:3)//'2'//modName(j)(1:3)
     enddo
     enddo
 
     ! set active connectors
-    connectorActive = .false.
-    if (modelActive(atm)) then
-      connectorActive(med,atm) = .true.
-      connectorActive(atm,med) = .true.
+    conActive = .false.
+    if (modActive(atm)) then
+      conActive(med,atm) = .true.
+      conActive(atm,med) = .true.
     endif
-    if (modelActive(ocn)) then
-      connectorActive(med,ocn) = .true.
-      connectorActive(ocn,med) = .true.
+    if (modActive(ocn)) then
+      conActive(med,ocn) = .true.
+      conActive(ocn,med) = .true.
     endif
-    if (modelActive(wav)) then
-      connectorActive(med,wav) = .true.
-      connectorActive(wav,med) = .true.
+    if (modActive(wav)) then
+      conActive(med,wav) = .true.
+      conActive(wav,med) = .true.
     endif
-    if (modelActive(ice)) then
-      connectorActive(med,ice) = .true.
-      connectorActive(ice,med) = .true.
+    if (modActive(ice)) then
+      conActive(med,ice) = .true.
+      conActive(ice,med) = .true.
     endif
-    if (modelActive(ocn).and.modelActive(wav)) then
-      connectorActive(ocn,wav) = .true.
-      connectorActive(wav,ocn) = .true.
+    if (modActive(ocn).and.modActive(wav)) then
+      conActive(ocn,wav) = .true.
+      conActive(wav,ocn) = .true.
     endif
 
     ! set name for this component
@@ -195,7 +208,7 @@ module ESM
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! set the modelCount
-    superIS%wrap%modelCount = modelCount
+    superIS%wrap%modelCount = modCount
 
   end subroutine
 
@@ -212,7 +225,7 @@ module ESM
     type(type_InternalState)           :: is
     integer                            :: i, j
     integer                            :: petCount, petLayout
-    type(driver_type_PetList), pointer :: modelPL(:)
+    type(driver_type_PetList), pointer :: modPL(:)
 
     rc = ESMF_SUCCESS
 
@@ -223,7 +236,7 @@ module ESM
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! set some useful pointers
-    modelPL => superIS%wrap%modelPetLists
+    modPL => superIS%wrap%modelPetLists
 
     ! get the petCount
     call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
@@ -234,23 +247,23 @@ module ESM
     petLayout = 0
     select case (petLayout)
     case (1)
-      if (modelActive(med)) then
-        allocate(modelPL(med)%petList(4))
-        modelPL(med)%petList = (/0,1,2,3/)
+      if (modActive(med)) then
+        allocate(modPL(med)%petList(4))
+        modPL(med)%petList = (/0,1,2,3/)
       endif
       j = 0
-      do i = 2,modelCount
-        if (modelActive(i)) then
-          allocate(modelPL(i)%petList(1))
-          modelPL(i)%petList = (/j/)
+      do i = 2,modCount
+        if (modActive(i)) then
+          allocate(modPL(i)%petList(1))
+          modPL(i)%petList = (/j/)
           j = j+1
         endif
       enddo
     case default
-      do i = 1,modelCount
-        if (modelActive(i)) then
-          allocate(modelPL(i)%petList(4))
-          modelPL(i)%petList = (/0,1,2,3/)
+      do i = 1,modCount
+        if (modActive(i)) then
+          allocate(modPL(i)%petList(4))
+          modPL(i)%petList = (/0,1,2,3/)
         endif
       enddo
     end select
@@ -269,8 +282,8 @@ module ESM
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
     integer                            :: i, j
-    type(ESMF_GridComp), pointer       :: modelComp(:)
-    type(ESMF_CplComp), pointer        :: connectorComp(:,:)
+    type(ESMF_GridComp), pointer       :: modComp(:)
+    type(ESMF_CplComp), pointer        :: conComp(:,:)
     type(NUOPC_RunSequence), pointer   :: runSeq(:)
 
     rc = ESMF_SUCCESS
@@ -282,32 +295,28 @@ module ESM
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! set some useful pointers
-    modelComp => superIS%wrap%modelComp
-    connectorComp => superIS%wrap%connectorComp
+    modComp => superIS%wrap%modelComp
+    conComp => superIS%wrap%connectorComp
     runSeq => superIS%wrap%runSeq
 
     ! set model component names
-    do i = 1,modelCount
-      call ESMF_GridCompSet(modelComp(i), name=modelName(i), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
+    do i = 1,modCount
+      call ESMF_GridCompSet(modComp(i), name=modName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//trim(modelName(i))
+        write(msg,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//trim(modName(i))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
 
     ! set connector component names
-    do j = 1,modelCount
-    do i = 1,modelCount
-      call ESMF_CplCompSet(connectorComp(i,j), name=connectorName(i,j), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
+    do j = 1,modCount
+    do i = 1,modCount
+      call ESMF_CplCompSet(conComp(i,j), name=conName(i,j), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//trim(connectorName(i,j))
+        write(msg,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//trim(conName(i,j))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -315,52 +324,70 @@ module ESM
     enddo
 
     ! SetServices for active models
-    if (modelActive(med)) then
-      call ESMF_GridCompSetServices(modelComp(med), medSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    i = med
+    if (modActive(i)) then
+      call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME) .or. &
+          ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_AttributeSet(modComp(i), name="Verbosity", value="high", &
+        convention="NUOPC", purpose="General", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
     endif
-    if (modelActive(atm)) then
-      call ESMF_GridCompSetServices(modelComp(atm), atmSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    endif
-    if (modelActive(ocn)) then
-      call ESMF_GridCompSetServices(modelComp(ocn), ocnSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    endif
-    if (modelActive(wav)) then
-      call ESMF_GridCompSetServices(modelComp(wav), wavSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    endif
-    if (modelActive(ice)) then
-      call ESMF_GridCompSetServices(modelComp(ice), iceSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    endif
+    do i = 2,modCount
+      if (.not.modActive(i)) cycle
+      select case (modType(i))
+      case ('live')
+        call ESMF_GridCompSetServices(modComp(i), modLiveSS, userRc=localrc, rc=rc)
+      case ('data')
+        call ESMF_GridCompSetServices(modComp(i), modDataSS, userRc=localrc, rc=rc)
+      end select
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME) .or. &
+          ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_AttributeSet(modComp(i), name="Verbosity", value="high", &
+        convention="NUOPC", purpose="General", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
 
     ! SetServices for active connectors
-    do j = 1,modelCount
-    do i = 1,modelCount
-      if (.not.connectorActive(i,j)) cycle
-      call ESMF_CplCompSetServices(connectorComp(i,j), cplSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//trim(connectorName(i,j))
+    do j = 1,modCount
+    do i = 1,modCount
+      if (.not.conActive(i,j)) cycle
+      call ESMF_CplCompSetServices(conComp(i,j), cplSS, userRc=localrc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME) .or. &
+          ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//trim(conName(i,j))
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_AttributeSet(conComp(i,j), name="Verbosity", value="high", &
+        convention="NUOPC", purpose="General", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msg,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//trim(conName(i,j))
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -374,77 +401,77 @@ module ESM
     call NUOPC_RunSequenceAdd(runSeq, 1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out    
-    if (modelActive(atm).and.modelActive(med)) then
+    if (modActive(atm).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=atm, j=med, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ocn).and.modelActive(med)) then
+    if (modActive(ocn).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=ocn, j=med, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(wav).and.modelActive(med)) then
+    if (modActive(wav).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=wav, j=med, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ice).and.modelActive(med)) then
+    if (modActive(ice).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=ice, j=med, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(med)) then
+    if (modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=med, j=0, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(atm).and.modelActive(med)) then
+    if (modActive(atm).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=med, j=atm, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ocn).and.modelActive(med)) then
+    if (modActive(ocn).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=med, j=ocn, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(wav).and.modelActive(med)) then
+    if (modActive(wav).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=med, j=wav, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ice).and.modelActive(med)) then
+    if (modActive(ice).and.modActive(med)) then
       call NUOPC_RunElementAdd(runSeq(1), i=med, j=ice, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ocn).and.modelActive(wav)) then
+    if (modActive(ocn).and.modActive(wav)) then
       call NUOPC_RunElementAdd(runSeq(1), i=ocn, j=wav, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ocn).and.modelActive(wav)) then
+    if (modActive(ocn).and.modActive(wav)) then
       call NUOPC_RunElementAdd(runSeq(1), i=wav, j=ocn, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(atm)) then
+    if (modActive(atm)) then
       call NUOPC_RunElementAdd(runSeq(1), i=atm, j=0, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ocn)) then
+    if (modActive(ocn)) then
       call NUOPC_RunElementAdd(runSeq(1), i=ocn, j=0, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(wav)) then
+    if (modActive(wav)) then
       call NUOPC_RunElementAdd(runSeq(1), i=wav, j=0, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    if (modelActive(ice)) then
+    if (modActive(ice)) then
       call NUOPC_RunElementAdd(runSeq(1), i=ice, j=0, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
