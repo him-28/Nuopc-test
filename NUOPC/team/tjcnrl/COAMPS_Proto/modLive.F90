@@ -56,6 +56,8 @@ module MODLive
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
+
     ! trap unsupported model names
     select case (cname(1:3))
       case ('ATM','OCN','WAV','ICE')
@@ -115,6 +117,8 @@ module MODLive
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -139,6 +143,8 @@ module MODLive
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP0', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -247,6 +253,8 @@ module MODLive
         is%wrap%expStdName( 5) = "sea_ice_temperature"
     end select
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -270,6 +278,8 @@ module MODLive
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP1', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -303,6 +313,8 @@ module MODLive
       endif
     enddo
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP1', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -330,6 +342,8 @@ module MODLive
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP2', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -456,6 +470,8 @@ module MODLive
       endif
     enddo
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP2', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -476,6 +492,8 @@ module MODLive
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetClock', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -510,6 +528,8 @@ module MODLive
     call NUOPC_GridCompSetClock(gcomp, clock, stabilityTimeStep, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetClock', ESMF_LOGMSG_INFO)
     
   end subroutine
 
@@ -534,6 +554,8 @@ module MODLive
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered ModelAdvance', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -577,6 +599,8 @@ module MODLive
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving ModelAdvance', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -598,6 +622,8 @@ module MODLive
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -622,6 +648,8 @@ module MODLive
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of internal state memory failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
 

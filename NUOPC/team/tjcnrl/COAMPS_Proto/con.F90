@@ -38,7 +38,17 @@ module CON
     type(ESMF_CplComp)  :: ccomp
     integer, intent(out) :: rc
 
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
 
     ! the NUOPC connector component will register the generic methods
     call con_routine_SS(ccomp, rc=rc)
@@ -65,6 +75,8 @@ module CON
       line=__LINE__, file=FILENAME)) return  ! bail out
 #endif
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -74,6 +86,7 @@ module CON
     integer, intent(out) :: rc
 
     ! local variables
+    character(ESMF_MAXSTR)        :: cname
     integer                       :: localrc
     type(con_type_IS)             :: is
 #ifdef WITHSTATEUSE
@@ -87,6 +100,13 @@ module CON
 #endif
 
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered ComputeRH', ESMF_LOGMSG_INFO)
     
     ! query Component for its internal State
     nullify(is%wrap)
@@ -149,6 +169,8 @@ module CON
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 #endif
+
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving ComputeRH', ESMF_LOGMSG_INFO)
  
   end subroutine
   
@@ -160,12 +182,20 @@ module CON
     integer, intent(out) :: rc
 
     ! local variables
+    character(ESMF_MAXSTR)        :: cname
     integer                       :: localrc
     type(con_type_IS)             :: is
     type(ESMF_FieldBundle)        :: interDstFields
     type(ESMF_RouteHandle)        :: rh1, rh2
 
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered ExecuteRH', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -195,6 +225,8 @@ module CON
       routehandle=rh2, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving ExecuteRH', ESMF_LOGMSG_INFO)
  
   end subroutine
 #endif
@@ -207,12 +239,20 @@ module CON
     integer, intent(out) :: rc
 
     ! local variables
+    character(ESMF_MAXSTR)        :: cname
     integer                       :: localrc
     type(con_type_IS)             :: is
     type(ESMF_FieldBundle)        :: interDstFields
     type(ESMF_RouteHandle)        :: rh1, rh2
 
     rc = ESMF_SUCCESS
+
+    ! query the Component for its name
+    call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered ReleaseRH', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -244,6 +284,8 @@ module CON
     ! Could destroy intermediate Fields and interDstFields FieldBundle here,
     ! but it is more convenient to let ESMF automatic garbage collection take
     ! care of them.
+
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving ReleaseRH', ESMF_LOGMSG_INFO)
 
   end subroutine
 #endif

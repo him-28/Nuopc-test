@@ -55,6 +55,8 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
+
     ! allocate memory for this internal state and set it in the component
     allocate(is%wrap, stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
@@ -63,7 +65,7 @@ module MED
     call ESMF_UserCompSetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    
+
     ! the NUOPC model component will register the generic methods
     call model_routine_SS(gcomp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -95,6 +97,8 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -119,6 +123,8 @@ module MED
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP0', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -181,6 +187,8 @@ module MED
     is%wrap%expStdName(12) = "sea_ice_basal_upward_eastward_stress"
     is%wrap%expStdName(13) = "sea_ice_basal_upward_northward_stress"
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -204,6 +212,8 @@ module MED
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP1', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -237,6 +247,8 @@ module MED
       endif
     enddo
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP1', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -264,6 +276,8 @@ module MED
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP2', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -376,6 +390,8 @@ module MED
       endif
     enddo
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP2', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -397,6 +413,8 @@ module MED
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered ModelAdvance', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -441,6 +459,8 @@ module MED
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
 
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving ModelAdvance', ESMF_LOGMSG_INFO)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -462,6 +482,8 @@ module MED
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -486,6 +508,8 @@ module MED
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of internal state memory failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+
+    call ESMF_LogWrite('<<<'//trim(cname)//' leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
 

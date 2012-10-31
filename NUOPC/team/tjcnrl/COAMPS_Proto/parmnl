@@ -1,9 +1,26 @@
 &esmnl
-!
-! modelActive: t or f
-! modelType: 'live' or 'data'
-! 1=ATM, 2=OCN, 3=WAV, 4=ICE
-!
-  modelActive = t, t, t, t,
-  modelType = 'live', 'live', 'live', 'live',
+
+  medPetCount = 4,
+  medPetlist = 0,1,2,3,
+
+  atmActive = t,
+  atmType = 'live',
+  atmPetCount = 1,
+  atmPetlist = 0,
+
+  ocnActive = t,
+  ocnType = 'live',
+  ocnPetCount = 1,
+  ocnPetlist = 1,
+
+  wavActive = t,
+  wavType = 'live',
+  wavPetCount = 1,
+  wavPetlist = 2,
+
+  iceActive = t,
+  iceType = 'live',
+  icePetCount = 1,
+  icePetlist = 3,
+  
 /

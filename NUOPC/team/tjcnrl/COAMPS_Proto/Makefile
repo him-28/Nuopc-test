@@ -17,9 +17,14 @@
 ## include line below. However, doing so will render this Makefile a lot less ##
 ## flexible and non-portable.                                                 ##
 ################################################################################
-
-export ESMF_RUNTIME_COMPLIANCECHECK=ON
 ESMFV = 6.1.0bs06
+CHECK = OFF
+BOPT = O
+NPROC = 4
+
+export ESMF_RUNTIME_COMPLIANCECHECK=$(CHECK)
+ESMF_BOPT = $(BOPT)
+
 HOST = $(shell hostname -s)
 ifeq ($(HOST),parche)
   ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk
@@ -78,4 +83,4 @@ edit:
 	gvim -p *.F90
 
 run: dust
-	mpirun -np 4 ./esmApp
+	mpirun -np $(NPROC) ./esmApp
