@@ -74,6 +74,10 @@ module ESM
     type(ESMF_Time)                    :: stopTime
     type(ESMF_TimeInterval)            :: timeStep
     type(ESMF_Clock)                   :: internalClock
+    logical                            :: modelActive(2:modCount)
+    character(4)                       :: modelType(2:modCount)
+
+    namelist / esmnl / modelActive, modelType
 
     rc = ESMF_SUCCESS
 
@@ -104,19 +108,28 @@ module ESM
     conName   => is%wrap%conName
     conActive => is%wrap%conActive
 
+    ! input namelist
+    open(33,file='parmnl',status='old')
+    read(33,nml=esmnl)
+    close(33)
+
     ! set active models
     modActive(med) = .true. ! mediator must always be active
-    modActive(atm) = .true.
-    modActive(ocn) = .true.
-    modActive(wav) = .true.
-    modActive(ice) = .true.
+    modActive(2:modCount) = modelActive(2:modCount)
 
     ! set model types
     modType(med) = 'live' ! mediator must always be live
-    modType(atm) = 'live'
-    modType(ocn) = 'live'
-    modType(wav) = 'live'
-    modType(ice) = 'live'
+    do i=2,modCount
+      select case (modelType(i))
+      case ('live','data')
+        modType(i) = modelType(i)
+      case default
+        call ESMF_LogWrite('Model type not supported: '//modelType(i), &
+          ESMF_LOGMSG_ERROR)
+        rc = ESMF_FAILURE
+        return  ! bail out
+      end select
+    enddo
 
     ! set model names
     modName(med) = 'MED'

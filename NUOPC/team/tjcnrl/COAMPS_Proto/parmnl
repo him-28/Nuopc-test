@@ -1,0 +1,9 @@
+&esmnl
+!
+! modelActive: t or f
+! modelType: 'live' or 'data'
+! 1=ATM, 2=OCN, 3=WAV, 4=ICE
+!
+  modelActive = t, t, t, t,
+  modelType = 'live', 'live', 'live', 'live',
+/
