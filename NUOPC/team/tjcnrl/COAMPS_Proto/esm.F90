@@ -29,6 +29,7 @@ module ESM
 
   public SetServices
 
+  logical      , parameter :: defaultVerbose = .false.
   character (*), parameter :: label_InternalState = "ESM_InternalState"
 
   integer, parameter :: med = 1
@@ -39,6 +40,7 @@ module ESM
   integer, parameter :: modCount = 5
 
   type type_InternalStateStruct
+    logical               :: verbose
     character(7), pointer :: modName(:)
     logical     , pointer :: modActive(:)
     character(4), pointer :: modType(:)
@@ -62,7 +64,7 @@ module ESM
 
     ! local variables
     character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msg
+    character(ESMF_MAXSTR)             :: msgString
     integer                            :: localrc, stat
     type(type_InternalState)           :: is
     integer                            :: i, j
@@ -83,6 +85,7 @@ module ESM
     ! define input namelist
     integer, parameter :: maxPetCount = 1000
     integer            :: iunit
+    logical      :: verbose
     logical      :: atmActive, ocnActive, wavActive, iceActive
     character(4) :: atmType, ocnType, wavType, iceType
     integer      :: medPetCount
@@ -90,7 +93,7 @@ module ESM
     integer      :: atmPetCount, ocnPetCount, wavPetCount, icePetCount
     integer      :: atmPetList(maxPetCount), ocnPetList(maxPetCount), &
                     wavPetList(maxPetCount), icePetList(maxPetCount)
-    namelist / esmnl / medPetCount, medPetList, &
+    namelist / esmnl / verbose, medPetCount, medPetList, &
       atmActive, atmType, atmPetCount, atmPetList, &
       ocnActive, ocnType, ocnPetCount, ocnPetList, &
       wavActive, wavType, wavPetCount, wavPetList, &
@@ -103,8 +106,6 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
-
     ! get the petCount
     call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -112,12 +113,13 @@ module ESM
 
     ! set namelist variable defaults
     if (petCount.gt.maxPetCount) then
-      write(msg,'(a,i0,a,i0)') 'petCount > maxPetCount: petCount = ', &
+      write(msgString,'(a,i0,a,i0)') 'petCount > maxPetCount: petCount = ', &
         petCount,',   maxPetCount = ',maxPetCount
-      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
       rc = ESMF_FAILURE
       return  ! bail out
     endif
+    verbose   = defaultVerbose
     atmActive = .false.
     ocnActive = .false.
     wavActive = .false.
@@ -163,6 +165,10 @@ module ESM
     call ESMF_UserCompSetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    is%wrap%verbose = verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
 
     ! allocate internal state arrays
     allocate(is%wrap%modName(modCount), &
@@ -225,9 +231,9 @@ module ESM
     modPetCount(ice) = icePetCount
     do i = 1,modCount
       if (modPetCount(i).gt.petCount) then
-        write(msg,'(a,i0,a,i0)') modName(i)//' petCount = ',modPetCount(i), &
+        write(msgString,'(a,i0,a,i0)') modName(i)//' petCount = ',modPetCount(i), &
           ' is greater than available petCount = ',petCount
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         rc = ESMF_FAILURE
         return  ! bail out
       endif
@@ -246,8 +252,8 @@ module ESM
     do i = 1,modCount
       petList => modPetLists(i)%petList
       if (any(petList.lt.0).or.any(petList.ge.petCount)) then
-        write(msg,'(a,i0,a)') modName(i)//' petList values must be in [0,',petCount,')'
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        write(msgString,'(a,i0,a)') modName(i)//' petList values must be in [0,',petCount,')'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         rc = ESMF_FAILURE
         return  ! bail out
       endif
@@ -329,6 +335,7 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -341,7 +348,10 @@ module ESM
 
     ! local variables
     character(ESMF_MAXSTR)             :: cname
+    character(ESMF_MAXSTR)             :: msgString
+    logical                            :: verbose
     type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: is
 
     rc = ESMF_SUCCESS
 
@@ -350,6 +360,14 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelCount', ESMF_LOGMSG_INFO)
 
     ! query component for super internal State
@@ -361,6 +379,7 @@ module ESM
     ! set the modelCount
     superIS%wrap%modelCount = modCount
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelCount', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -373,6 +392,8 @@ module ESM
 
     ! local variables
     character(ESMF_MAXSTR)             :: cname
+    character(ESMF_MAXSTR)             :: msgString
+    logical                            :: verbose
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
     integer                            :: i, j
@@ -384,17 +405,19 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelPetLists', ESMF_LOGMSG_INFO)
 
     ! query component for super internal State
     nullify(superIS%wrap)
     call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! query Component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -404,6 +427,7 @@ module ESM
       superIS%wrap%modelPetLists(i)%petList => is%wrap%modPetLists(i)%petList
     enddo
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelPetLists', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -416,7 +440,8 @@ module ESM
 
     ! local variables
     character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msg
+    character(ESMF_MAXSTR)             :: msgString
+    logical                            :: verbose
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
@@ -429,6 +454,7 @@ module ESM
     type(ESMF_GridComp), pointer       :: modComp(:)
     type(ESMF_CplComp), pointer        :: conComp(:,:)
     type(NUOPC_RunSequence), pointer   :: runSeq(:)
+    character(ESMF_MAXSTR)             :: verbosity
 
     rc = ESMF_SUCCESS
 
@@ -437,6 +463,14 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelServices', ESMF_LOGMSG_INFO)
 
     ! query Component for super internal State
@@ -463,25 +497,48 @@ module ESM
     conName   => is%wrap%conName
     conActive => is%wrap%conActive
 
-    ! set model component names
+    ! set verbosity for components
+    if (verbose) then
+      verbosity = "high"
+    else
+      verbosity = "low"
+    endif
+
+    ! set model component names and attributes
     do i = 1,modCount
       call ESMF_GridCompSet(modComp(i), name=modName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//trim(modName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_AttributeSet(modComp(i), name="Verbosity", value=trim(verbosity), &
+        convention="NUOPC", purpose="General", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
 
-    ! set connector component names
+    ! set connector component names and attributes
     do j = 1,modCount
     do i = 1,modCount
       call ESMF_CplCompSet(conComp(i,j), name=conName(i,j), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//trim(conName(i,j))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//trim(conName(i,j))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_AttributeSet(conComp(i,j), name="Verbosity", value=trim(verbosity), &
+        convention="NUOPC", purpose="General", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//trim(conName(i,j))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
@@ -495,16 +552,8 @@ module ESM
           line=__LINE__, file=FILENAME) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      call ESMF_AttributeSet(modComp(i), name="Verbosity", value="high", &
-        convention="NUOPC", purpose="General", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//trim(modName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     endif
@@ -520,16 +569,8 @@ module ESM
           line=__LINE__, file=FILENAME) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      call ESMF_AttributeSet(modComp(i), name="Verbosity", value="high", &
-        convention="NUOPC", purpose="General", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//trim(modName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
@@ -543,16 +584,8 @@ module ESM
           line=__LINE__, file=FILENAME) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//trim(conName(i,j))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      call ESMF_AttributeSet(conComp(i,j), name="Verbosity", value="high", &
-        convention="NUOPC", purpose="General", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//trim(conName(i,j))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//trim(conName(i,j))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
@@ -641,6 +674,7 @@ module ESM
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelServices', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -653,7 +687,8 @@ module ESM
 
     ! local variables
     character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msg
+    character(ESMF_MAXSTR)             :: msgString
+    logical                            :: verbose
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
@@ -666,11 +701,19 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
+
+    ! query Component for super internal State
+    nullify(superIS%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -689,6 +732,7 @@ module ESM
       msg="Deallocation of internal state memory failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -697,10 +741,6 @@ module ESM
 
   subroutine SetFieldDictionary(rc)
     integer, intent(out) :: rc
-
-    ! local variables
-    character(ESMF_MAXSTR)           :: msg
-    integer                          :: localrc, stat
 
     rc = ESMF_SUCCESS
 

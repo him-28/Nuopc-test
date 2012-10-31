@@ -21,9 +21,11 @@ module MODData
 
   public SetServices
 
+  character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "MOD_InternalState"
 
   type type_InternalStateStruct
+    logical :: verbose
     integer :: numImport
     character(ESMF_MAXSTR), pointer :: impStdName(:)
     integer :: numExport
@@ -45,8 +47,10 @@ module MODData
 
     ! local variables
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    character(ESMF_MAXSTR)        :: vrbString
     type(type_InternalState)      :: is
-    character(ESMF_MAXSTR)        :: msg
     integer                       :: localrc, stat
 
     rc = ESMF_SUCCESS
@@ -56,6 +60,18 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    ! determine verbosity
+    call ESMF_AttributeGet(gcomp, name="Verbosity", value=vrbString, &
+      defaultValue=defaultVerbosity, convention="NUOPC", purpose="General", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    if (trim(vrbString)=="high") then
+      verbose = .true.
+    else
+      verbose = .false.
+    endif
+
+    if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
 
     ! trap unsupported model names
@@ -76,6 +92,7 @@ module MODData
     call ESMF_UserCompSetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    is%wrap%verbose = verbose
 
     ! the NUOPC model component will register the generic methods
     call model_routine_SS(gcomp, rc=rc)
@@ -117,6 +134,7 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -131,9 +149,10 @@ module MODData
 
     ! local variables    
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
     type(type_InternalState)      :: is
-    character(ESMF_MAXSTR)        :: msg
-    integer                       :: stat
+    integer                       :: localrc, stat
     integer                       :: i
     character(len=NUOPC_PhaseMapStringLength) :: initPhases(4)
 
@@ -144,13 +163,15 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP0', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP0', ESMF_LOGMSG_INFO)
 
     ! define initialization phases
     ! skip over IPDv01p2 because we want connected status set on
@@ -253,6 +274,7 @@ module MODData
         is%wrap%expStdName( 5) = "sea_ice_temperature"
     end select
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -267,9 +289,10 @@ module MODData
 
     ! local variables    
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
     type(type_InternalState)      :: is
-    character(ESMF_MAXSTR)        :: msg
-    integer                       :: stat
+    integer                       :: localrc, stat
     integer                       :: i
 
     rc = ESMF_SUCCESS
@@ -279,13 +302,15 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP1', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP1', ESMF_LOGMSG_INFO)
 
     ! advertise importable fields
     do i = 1,is%wrap%numImport
@@ -293,9 +318,9 @@ module MODData
         StandardName=trim(is%wrap%impStdName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+        write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
           ', '//trim(is%wrap%impStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
@@ -306,13 +331,14 @@ module MODData
         StandardName=trim(is%wrap%expStdName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+        write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
         ', '//trim(is%wrap%expStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
     enddo
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP1', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -327,8 +353,10 @@ module MODData
 
     ! local variables    
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
     type(type_InternalState)      :: is
-    character(ESMF_MAXSTR)        :: msg
+    integer                       :: localrc, stat
     character(ESMF_MAXSTR)        :: fname
     logical                       :: connected
     type(ESMF_Field)              :: field
@@ -343,13 +371,15 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP2', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered InitializeP2', ESMF_LOGMSG_INFO)
 
     ! create a Grid object for Fields
     select case (cname(1:3))
@@ -385,9 +415,9 @@ module MODData
         defaultShortName=fname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
           ', '//trim(is%wrap%impStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       connected = .true.
@@ -396,26 +426,26 @@ module MODData
           typekind=ESMF_TYPEKIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
             ', '//trim(is%wrap%impStdName(i))
-          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
         call NUOPC_StateRealizeField(importState, field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
             ', '//trim(is%wrap%impStdName(i))
-          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       else
         call ESMF_StateRemove(importState, (/trim(fname)/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
             ', '//trim(is%wrap%impStdName(i))
-          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       endif
@@ -427,17 +457,17 @@ module MODData
         defaultShortName=fname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
           ', '//trim(is%wrap%expStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       connected = NUOPC_StateIsFieldConnected(exportState, trim(fname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msg,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
+        write(msgString,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
           ', '//trim(is%wrap%expStdName(i))
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       if (connected) then
@@ -445,31 +475,32 @@ module MODData
           typekind=ESMF_TYPEKIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
             ', '//trim(is%wrap%expStdName(i))
-          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
         call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
             ', '//trim(is%wrap%expStdName(i))
-          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       else
         call ESMF_StateRemove(exportState, (/trim(fname)/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msg,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
             ', '//trim(is%wrap%expStdName(i))
-          call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_ERROR)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
       endif
     enddo
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP2', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -482,7 +513,10 @@ module MODData
     
     ! local variables
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
     type(type_InternalState)      :: is
+    integer                       :: localrc, stat
     type(ESMF_Clock)              :: clock
     type(ESMF_TimeInterval)       :: stabilityTimeStep
 
@@ -493,19 +527,21 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetClock', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetClock', ESMF_LOGMSG_INFO)
+
     ! query the Component for its clock
     call ESMF_GridCompGet(gcomp, clock=clock, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-      
+
     ! initialize internal clock
     ! here: parent Clock and stability timeStep determine actual model timeStep
     !TODO: stabilityTimeStep should be read in from configuation
@@ -529,8 +565,9 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetClock', ESMF_LOGMSG_INFO)
-    
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -541,7 +578,10 @@ module MODData
 
     ! local variables
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
     type(type_InternalState)      :: is
+    integer                       :: localrc, stat
     type(ESMF_Clock)              :: clock
     type(ESMF_State)              :: importState, exportState
     type(ESMF_Time)               :: currTime
@@ -555,13 +595,15 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered ModelAdvance', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered ModelAdvance', ESMF_LOGMSG_INFO)
 
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(gcomp, clock=clock, &
@@ -599,6 +641,7 @@ module MODData
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving ModelAdvance', ESMF_LOGMSG_INFO)
 
   end subroutine
@@ -613,8 +656,10 @@ module MODData
 
     ! local variables
     character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: stat
+    integer                       :: localrc, stat
 
     rc = ESMF_SUCCESS
 
@@ -623,13 +668,15 @@ module MODData
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
-
     ! query Component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
 
     ! deallocate import field name arrays
     deallocate(is%wrap%impStdName, stat=stat)
@@ -649,6 +696,7 @@ module MODData
       msg="Deallocation of internal state memory failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
+    if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine

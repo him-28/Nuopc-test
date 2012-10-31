@@ -76,7 +76,7 @@ esm.o: con.o med.o modLive.o modData.o
 dust:
 	rm -f PET*.ESMF_LogFile
 clean:
-	rm -f esmApp *.o *.mod
+	rm -f esmApp *.o *.mod core*
 distclean: dust clean
 
 edit:
