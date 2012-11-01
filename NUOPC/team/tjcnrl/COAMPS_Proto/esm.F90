@@ -29,23 +29,21 @@ module ESM
 
   public SetServices
 
-  logical      , parameter :: defaultVerbose = .false.
+  logical      , parameter :: defaultVerbose = .true.
+  logical      , parameter :: defaultModActive = .true.
+  character (4), parameter :: defaultModType = 'live'
   character (*), parameter :: label_InternalState = "ESM_InternalState"
 
-  integer, parameter :: med = 1
-  integer, parameter :: atm = 2
-  integer, parameter :: ocn = 3
-  integer, parameter :: wav = 4
-  integer, parameter :: ice = 5
   integer, parameter :: modCount = 5
+  integer, parameter :: med = 1, atm = 2, ocn = 3, wav = 4, ice = 5
+  character (3) :: modShortNameLC(modCount) = (/'med','atm','ocn','wav','ice'/)
+  character (3) :: modShortNameUC(modCount) = (/'MED','ATM','OCN','WAV','ICE'/)
 
   type type_InternalStateStruct
     logical               :: verbose
     character(7), pointer :: modName(:)
     logical     , pointer :: modActive(:)
     character(4), pointer :: modType(:)
-    integer     , pointer :: modPetCount(:)
-    type(driver_type_PetList), pointer :: modPetLists(:)
     character(7), pointer :: conName(:,:)
     logical     , pointer :: conActive(:,:)
   end type
@@ -65,97 +63,57 @@ module ESM
     ! local variables
     character(ESMF_MAXSTR)             :: cname
     character(ESMF_MAXSTR)             :: msgString
+    logical                            :: verbose
     integer                            :: localrc, stat
     type(type_InternalState)           :: is
     integer                            :: i, j
-    integer                            :: petCount
+    type(ESMF_Config)                  :: config
+    logical                            :: configIsPresent
+    character(ESMF_MAXSTR)             :: label
     character(7), pointer              :: modName(:)
     logical     , pointer              :: modActive(:)
     character(4), pointer              :: modType(:)
     character(7), pointer              :: conName(:,:)
     logical     , pointer              :: conActive(:,:)
-    integer     , pointer              :: modPetCount(:)
-    type(driver_type_PetList), pointer :: modPetLists(:)
-    integer     , pointer              :: petList(:)
     type(ESMF_Time)                    :: startTime
     type(ESMF_Time)                    :: stopTime
     type(ESMF_TimeInterval)            :: timeStep
     type(ESMF_Clock)                   :: internalClock
 
-    ! define input namelist
-    integer, parameter :: maxPetCount = 1000
-    integer            :: iunit
-    logical      :: verbose
-    logical      :: atmActive, ocnActive, wavActive, iceActive
-    character(4) :: atmType, ocnType, wavType, iceType
-    integer      :: medPetCount
-    integer      :: medPetList(maxPetCount)
-    integer      :: atmPetCount, ocnPetCount, wavPetCount, icePetCount
-    integer      :: atmPetList(maxPetCount), ocnPetList(maxPetCount), &
-                    wavPetList(maxPetCount), icePetList(maxPetCount)
-    namelist / esmnl / verbose, medPetCount, medPetList, &
-      atmActive, atmType, atmPetCount, atmPetList, &
-      ocnActive, ocnType, ocnPetCount, ocnPetList, &
-      wavActive, wavType, wavPetCount, wavPetList, &
-      iceActive, iceType, icePetCount, icePetList
-
     rc = ESMF_SUCCESS
 
-    ! query the Component for its name
+    ! query the component for its name
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! get the petCount
-    call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
+    ! check/get/set the config
+    ! if config is not present the set it to be an empty config
+    call ESMF_GridCompGet(gcomp, configIsPresent=configIsPresent, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! set namelist variable defaults
-    if (petCount.gt.maxPetCount) then
-      write(msgString,'(a,i0,a,i0)') 'petCount > maxPetCount: petCount = ', &
-        petCount,',   maxPetCount = ',maxPetCount
-      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-      rc = ESMF_FAILURE
-      return  ! bail out
+    if (configIsPresent) then
+      call ESMF_GridCompGet(gcomp, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    else
+      config = ESMF_ConfigCreate(rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      call ESMF_GridCompSet(gcomp, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
     endif
-    verbose   = defaultVerbose
-    atmActive = .false.
-    ocnActive = .false.
-    wavActive = .false.
-    iceActive = .false.
-    atmType = 'live'
-    ocnType = 'live'
-    wavType = 'live'
-    iceType = 'live'
-    medPetCount = petCount
-    atmPetCount = petCount
-    ocnPetCount = petCount
-    wavPetCount = petCount
-    icePetCount = petCount
-    do i = 1,maxPetCount
-      if (i.le.petCount) then
-        medPetList(i) = i-1
-        atmPetList(i) = i-1
-        ocnPetList(i) = i-1
-        wavPetList(i) = i-1
-        icePetList(i) = i-1
-      else
-        medPetList(i) = -1
-        atmPetList(i) = -1
-        ocnPetList(i) = -1
-        wavPetList(i) = -1
-        icePetList(i) = -1
-      endif
-    enddo
 
-    ! input namelist
-    call ESMF_UtilIOUnitGet(iunit, rc=rc)
+    ! process config for verbose
+    label = 'verbose:'
+    call ESMF_ConfigGetAttribute(config, verbose, default=defaultVerbose, &
+      label=trim(label), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    open(iunit,file='parmnl',status='old')
-    read(iunit,nml=esmnl)
-    close(iunit)
+
+    if (verbose) &
+    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
 
     ! allocate memory for this internal state and set it in the component
     allocate(is%wrap, stat=stat)
@@ -167,15 +125,10 @@ module ESM
       line=__LINE__, file=FILENAME)) return  ! bail out
     is%wrap%verbose = verbose
 
-    if (verbose) &
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
-
     ! allocate internal state arrays
     allocate(is%wrap%modName(modCount), &
              is%wrap%modActive(modCount), &
              is%wrap%modType(modCount), &
-             is%wrap%modPetCount(modCount), &
-             is%wrap%modPetLists(modCount), &
              is%wrap%conName(modCount,modCount), &
              is%wrap%conActive(modCount,modCount), &
              stat=stat)
@@ -189,80 +142,54 @@ module ESM
     modType   => is%wrap%modType
     conName   => is%wrap%conName
     conActive => is%wrap%conActive
-    modPetCount => is%wrap%modPetCount
-    modPetLists => is%wrap%modPetLists
 
-    ! set active models
+    ! process config for modActive
     modActive(med) = .true. ! mediator must always be active
-    modActive(atm) = atmActive
-    modActive(ocn) = ocnActive
-    modActive(wav) = wavActive
-    modActive(ice) = iceActive
+    do i = 2,modCount
+      label = modShortNameLC(i)//'Active:'
+      call ESMF_ConfigGetAttribute(config, modActive(i), default=defaultModActive, &
+        label=trim(label), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
+          trim(label), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
 
-    ! set/check model types
+    ! process config for modType
     modType(med) = 'live' ! mediator must always be live
-    modType(atm) = atmType
-    modType(ocn) = ocnType
-    modType(wav) = wavType
-    modType(ice) = iceType
-    do i = 1,modCount
+    do i = 2,modCount
+      if (.not.modActive(i)) cycle
+      label = modShortNameLC(i)//'Type:'
+      call ESMF_ConfigGetAttribute(config, modType(i), default=defaultModType, &
+        label=trim(label), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
+          trim(label), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
       select case (modType(i))
       case ('live','data')
       case default
-        call ESMF_LogWrite('Model type not supported: '//modType(i), &
-          ESMF_LOGMSG_ERROR)
-        rc = ESMF_FAILURE
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+          msg=trim(cname)//': Model type not supported: '//modType(i))
         return  ! bail out
       end select
     enddo
 
     ! set model names
     modName(med) = 'MED'
-    modName(atm) = 'ATM'//modType(atm)
-    modName(ocn) = 'OCN'//modType(ocn)
-    modName(wav) = 'WAV'//modType(wav)
-    modName(ice) = 'ICE'//modType(ice)
-
-    ! set/check the model petCounts & allocate model PetLists
-    modPetCount(med) = medPetCount
-    modPetCount(atm) = atmPetCount
-    modPetCount(ocn) = ocnPetCount
-    modPetCount(wav) = wavPetCount
-    modPetCount(ice) = icePetCount
-    do i = 1,modCount
-      if (modPetCount(i).gt.petCount) then
-        write(msgString,'(a,i0,a,i0)') modName(i)//' petCount = ',modPetCount(i), &
-          ' is greater than available petCount = ',petCount
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        rc = ESMF_FAILURE
-        return  ! bail out
-      endif
-      allocate(modPetLists(i)%petList(modPetCount(i)), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of "//modName(i)//" petList array failed.", &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    enddo
-
-    ! set/check the model PetLists
-    modPetLists(med)%petList(1:medPetCount) = medPetList(1:medPetCount)
-    modPetLists(atm)%petList(1:atmPetCount) = atmPetList(1:atmPetCount)
-    modPetLists(ocn)%petList(1:ocnPetCount) = ocnPetList(1:ocnPetCount)
-    modPetLists(wav)%petList(1:wavPetCount) = wavPetList(1:wavPetCount)
-    modPetLists(ice)%petList(1:icePetCount) = icePetList(1:icePetCount)
-    do i = 1,modCount
-      petList => modPetLists(i)%petList
-      if (any(petList.lt.0).or.any(petList.ge.petCount)) then
-        write(msgString,'(a,i0,a)') modName(i)//' petList values must be in [0,',petCount,')'
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        rc = ESMF_FAILURE
-        return  ! bail out
-      endif
+    do i = 2,modCount
+      if (.not.modActive(i)) cycle
+      modName(i) = modShortNameUC(i)//modType(i)
     enddo
 
     ! set connector names
     do j = 1,modCount
     do i = 1,modCount
-      conName(i,j) = modName(i)(1:3)//'2'//modName(j)(1:3)
+      conName(i,j) = modShortNameUC(i)//'2'//modShortNameUC(j)
     enddo
     enddo
 
@@ -355,12 +282,12 @@ module ESM
 
     rc = ESMF_SUCCESS
 
-    ! query the Component for its name
+    ! query the component for its name
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! query Component for its internal State
+    ! query component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -394,18 +321,29 @@ module ESM
     character(ESMF_MAXSTR)             :: cname
     character(ESMF_MAXSTR)             :: msgString
     logical                            :: verbose
+    integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
     type(type_InternalState)           :: is
-    integer                            :: i, j
+    character(7), pointer              :: modName(:)
+    logical     , pointer              :: modActive(:)
+    character(4), pointer              :: modType(:)
+    character(7), pointer              :: conName(:,:)
+    logical     , pointer              :: conActive(:,:)
+    integer                            :: i, j, n
+    integer                            :: petCount
+    integer                            :: modPetCount(modCount)
+    type(ESMF_Config)                  :: config
+    character(ESMF_MAXSTR)             :: label
+    character(ESMF_MAXSTR)             :: petLayoutOption
 
     rc = ESMF_SUCCESS
 
-    ! query the Component for its name
+    ! query the component for its name
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! query Component for its internal State
+    ! query component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -415,17 +353,121 @@ module ESM
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelPetLists', ESMF_LOGMSG_INFO)
 
+    ! set some useful pointers
+    modName   => is%wrap%modName
+    modActive => is%wrap%modActive
+    modType   => is%wrap%modType
+    conName   => is%wrap%conName
+    conActive => is%wrap%conActive
+
     ! query component for super internal State
     nullify(superIS%wrap)
     call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! set the model petLists
-    do i = 1,modCount
-      if (.not.is%wrap%modActive(i)) cycle
-      superIS%wrap%modelPetLists(i)%petList => is%wrap%modPetLists(i)%petList
-    enddo
+    ! get the petCount
+    call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! query component for its config
+    call ESMF_GridCompGet(gcomp, config=config, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! process config for petLayoutOption
+    label = 'petLayoutOption:'
+    call ESMF_ConfigGetAttribute(config, petLayoutOption, default='sequential', &
+      label=trim(label), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! set the model petLists based on petLayoutOption
+    select case (trim(petLayoutOption))
+
+    ! petLayoutOption = sequential:
+    !   * components assigned to all pets
+    !   * no other config options required
+    case ('sequential')
+      i = med
+      allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of "//modName(i)//" petList array failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+      do j = 1,petCount
+        superIS%wrap%modelPetLists(i)%petList(j) = j-1
+      enddo
+      do i = 2,modCount
+        if (.not.modActive(i)) cycle
+        allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
+        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+          msg="Allocation of "//modName(i)//" petList array failed.", &
+          line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+        superIS%wrap%modelPetLists(i)%petList(:) = &
+          superIS%wrap%modelPetLists(med)%petList(:)
+      enddo
+
+    ! petLayoutOption = concurrent:
+    !   * components assigned to non-overlapping sets of pets
+    !   * requires config inputs for modPetCount for active mod = atm, ocn, wav, ice
+    !   * medPetCount is set to petCount
+    !   * requires \sum(modPetCount) = petCount
+    case ('concurrent')
+      i = med
+      allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of "//modName(i)//" petList array failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+      do j = 1,petCount
+        superIS%wrap%modelPetLists(i)%petList(j) = j-1
+      enddo
+      n = 0
+      do i = 2,modCount
+        if (.not.modActive(i)) cycle
+        label=modShortNameLC(i)//'PetCount:'
+        call ESMF_ConfigGetAttribute(config, petLayoutOption, label=trim(label), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+            msg=trim(cname)//': '//trim(label)//' is required when petLayoutOption'// &
+            ' = concurrent and '//modShortNameUC(i)//' is active')
+          return  ! bail out
+        endif
+        n = n + modPetCount(i)
+      enddo
+      if (n.ne.petCount) then
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+          msg=trim(cname)//': petLayoutOption = concurrent requires'// &
+          ' \sum(modPetCount) = petCount for active models')
+        return  ! bail out
+      endif
+      n = 0
+      do i = 2,modCount
+        if (.not.modActive(i)) cycle
+        allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
+        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+          msg="Allocation of "//modName(i)//" petList array failed.", &
+          line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+        do j = 1,modPetCount(i)
+          superIS%wrap%modelPetLists(i)%petList(j) = n
+          n = n + 1
+        enddo
+      enddo
+
+    ! petLayoutOption = specified:
+    !   * components assigned to explicitly specified sets of pets
+    !   * requires config inputs for modPetList for active mod = for atm, ocn, wav, ice
+    !   * medPetList optional, default is all pets
+    !   * requires min(modPetList) >= 0 && max(modPetList) < petCount
+!   case ('specified')
+
+    ! unsupported petLayoutOption
+    case default
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+       msg=trim(cname)//': petLayoutOption not supported: '//trim(petLayoutOption))
+      return  ! bail out
+    end select
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelPetLists', ESMF_LOGMSG_INFO)
@@ -458,12 +500,12 @@ module ESM
 
     rc = ESMF_SUCCESS
 
-    ! query the Component for its name
+    ! query the component for its name
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! query Component for its internal State
+    ! query component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -473,7 +515,7 @@ module ESM
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelServices', ESMF_LOGMSG_INFO)
 
-    ! query Component for super internal State
+    ! query component for super internal State
     nullify(superIS%wrap)
     call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -484,7 +526,7 @@ module ESM
     conComp => superIS%wrap%connectorComp
     runSeq => superIS%wrap%runSeq
 
-    ! query Component for its internal State
+    ! query component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -697,12 +739,12 @@ module ESM
 
     rc = ESMF_SUCCESS
 
-    ! query the Component for its name
+    ! query the component for its name
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! query Component for its internal State
+    ! query component for its internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -712,16 +754,14 @@ module ESM
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
 
-    ! query Component for super internal State
+    ! query component for super internal State
     nullify(superIS%wrap)
     call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! deallocate internal state arrays
-    ! note: deallocation of of petList arrays is done by NUOPC_Driver
     deallocate(is%wrap%modName, is%wrap%modActive, is%wrap%modType, &
-               is%wrap%modPetCount, is%wrap%modPetLists, &
                is%wrap%conName, is%wrap%conActive, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of internal state arrays failed.", &
