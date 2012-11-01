@@ -1,0 +1,5 @@
+* I notice that "recursive subroutine" is used in NUOPC_Driver.  Is this
+  required in components derived from NUOPC_Driver?
+
+* Need to document for NUOPC_<blah> at which point in the initialization
+  is the internal state available.

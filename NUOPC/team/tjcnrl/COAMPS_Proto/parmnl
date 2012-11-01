@@ -1,3 +1,18 @@
+!-------------------------------------------------------------------------------
+! ESM namelist variables
+!
+!   variable       | type           | default value       | allowed values
+!   ----------------------------------------------------------------------------
+!   verbose        | logical        | f                   | t, f
+!   medPetCount    | integer        | petCount            | [1,...,petCount]
+!   medPetList     | integer array  | (0:petCount-1)      | >=0 && < petCount
+!   <mod>Active    | logical        | t                   | t, f
+!   <mod>Type      | character(4)   | 'live'              | 'live', 'data'
+!   <mod>PetCount  | integer        | petCount            | [1,...,petCount]
+!   <mod>PetList   | integer array  | (0:petCount-1)      | >=0 && < petCount
+!
+!   * <mod> = atm, ocn, wav, or ice
+!-------------------------------------------------------------------------------
 &esmnl
 
   verbose = t,
