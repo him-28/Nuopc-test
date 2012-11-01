@@ -387,7 +387,8 @@ module ESM
     select case (trim(petLayoutOption))
 
     ! petLayoutOption = sequential:
-    !   * components assigned to all pets
+    !   * models defined on all pets
+    !   * mediator defined on all pets
     !   * no other config options required
     case ('sequential')
       i = med
@@ -409,7 +410,8 @@ module ESM
       enddo
 
     ! petLayoutOption = concurrent:
-    !   * components assigned to non-overlapping sets of pets
+    !   * models defined on non-overlapping sets of pets
+    !   * mediator defined on all pets
     !   * requires config inputs for modPetCount for active mod = atm, ocn, wav, ice
     !   * medPetCount is set to petCount
     !   * requires \sum(modPetCount) = petCount
@@ -434,6 +436,11 @@ module ESM
             ' = concurrent and '//modShortNameUC(i)//' is active')
           return  ! bail out
         endif
+        if (modPetCount(i).lt.1.or.modPetCount(i).ge.petCount) then
+          call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+            msg=trim(cname)//': '//trim(label)//' must be > 0 and < petCount')
+          return  ! bail out
+        endif
         n = n + modPetCount(i)
       enddo
       if (n.ne.petCount) then
@@ -456,9 +463,9 @@ module ESM
       enddo
 
     ! petLayoutOption = specified:
-    !   * components assigned to explicitly specified sets of pets
-    !   * requires config inputs for modPetList for active mod = for atm, ocn, wav, ice
+    !   * models defined on specified sets of pets
     !   * medPetList optional, default is all pets
+    !   * requires config inputs for modPetList for active mod = for atm, ocn, wav, ice
     !   * requires min(modPetList) >= 0 && max(modPetList) < petCount
 !   case ('specified')
 

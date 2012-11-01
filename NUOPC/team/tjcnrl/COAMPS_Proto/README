@@ -12,13 +12,15 @@ Build:
 Execution:
   - Optionally set environment variable ESMF_RUNTIME_COMPLIANCECHECK to ON.
     This can be done by setting CHECK=ON on gmake run command line.
-  - gmake run [CHECK=<ON|OFF>]
+  - Optionally set number of processors on command line: NPROC=<nproc>.
+    Default nproc is 1.
+  - Optionally set name of config file on command line: CONFIG=<config>.
+    Default is no input config file.
+  - gmake run [NPROC=<nproc>] [CONFIG=<config>] [CHECK=<ON|OFF>]
   
 Output:
   - PET*.Log files containing compliance checker output if turned on.
   - The prototype outputs time stepping information to stdout.
-  
-
 
 Code structure:
   - Makefile    - Makefile that is based on the standard esmf.mk mechanism.
@@ -28,3 +30,84 @@ Code structure:
   - med.F90     - The Mediator component, specializing generic NUOPC_Mediator.
   - modLive.F90 - The Live Model component(s), specializing generic NUOPC_Model.
   - modData.F90 - The Data Model component(s), specializing generic NUOPC_Model.
+
+ESMF Config input for ESM Driver (optional):
+
+                                       possible
+  keyword              type            values        default      description
+  ------------------------------------------------------------------------------
+  verbose:             logical         t, f          t            turn on verbose output
+
+  atmActive:           logical         t, f          t            enable/disable ATM model
+
+  ocnActive:           logical         t, f          t            enable/disable OCN model
+
+  wavActive:           logical         t, f          t            enable/disable WAV model
+
+  iceActive:           logical         t, f          t            enable/disable ICE model
+
+  atmType:             string          live          live         set ATM model type
+                                       data                         live: actual model
+                                                                    data: from files model
+
+  ocnType:             string          live          live         set OCN model type
+                                       data                         live: actual model
+                                                                    data: from files model
+
+  wavType:             string          live          live         set WAV model type
+                                       data                         live: actual model
+                                                                    data: from files model
+
+  iceType:             string          live          live         set ICE model type
+                                       data                         live: actual model
+                                                                    data: from files model
+
+  petLayoutOption:     string          sequential    sequential   set the type of PET layout
+                                       concurrent                   sequential:
+                                       specified                      active models defined on all PETs
+                                                                      MED defined on all PETs
+                                                                      no other config options required
+                                                                    concurrent:
+                                                                      active models defined on non-overlapping sets of PETs
+                                                                      MED defined on all PETs
+                                                                      requires <mod>PetCount input for active models
+                                                                    specified:
+                                                                      active models defined on specified sets of PETs
+                                                                      medPetList optional, default is MED defined on all PETs
+                                                                      requires <mod>PetList input for active models
+
+  atmPetCount:         integer         [1,petCount)  none          number of PETs for ATM model
+                                                                   required when petLayoutOption = concurrent & atmActive = t
+                                                                   sum(atmPetCount) == petCount
+
+  ocnPetCount:         integer         [1,petCount)  none          number of PETs for OCN model
+                                                                   required when petLayoutOption = concurrent & ocnActive = t
+                                                                   sum(ocnPetCount) == petCount
+
+  wavPetCount:         integer         [1,petCount)  none          number of PETs for WAV model
+                                                                   required when petLayoutOption = concurrent & wavActive = t
+                                                                   sum(wavPetCount) == petCount
+
+  icePetCount:         integer         [1,petCount)  none          number of PETs for ICE model
+                                                                   required when petLayoutOption = concurrent & iceActive = t
+                                                                   sum(icePetCount) == petCount
+
+  medPetList:          integer array   [0:petCount)  none          PET list for MED model
+                                                                   optional when petLayoutOption = specified
+                                                                   min(medPetList) >= 0 && max(medPetList) < petCount
+
+  atmPetList:          integer array   [0:petCount)  none          PET list for ATM model
+                                                                   required when petLayoutOption = specified & atmActive = t
+                                                                   min(atmPetList) >= 0 && max(atmPetList) < petCount
+
+  ocnPetList:          integer array   [0:petCount)  none          PET list for OCN model
+                                                                   required when petLayoutOption = specified & ocnActive = t
+                                                                   min(ocnPetList) >= 0 && max(ocnPetList) < petCount
+
+  wavPetList:          integer array   [0:petCount)  none          PET list for WAV model
+                                                                   required when petLayoutOption = specified & wavActive = t
+                                                                   min(wavPetList) >= 0 && max(wavPetList) < petCount
+
+  icePetList:          integer array   [0:petCount)  none          PET list for ICE model
+                                                                   required when petLayoutOption = specified & iceActive = t
+                                                                   min(icePetList) >= 0 && max(icePetList) < petCount
