@@ -25,19 +25,25 @@ NPROC = 4
 export ESMF_RUNTIME_COMPLIANCECHECK=$(CHECK)
 ESMF_BOPT = $(BOPT)
 
+OS = $(shell uname -s)
 HOST = $(shell hostname -s)
-ifeq ($(HOST),parche)
-  ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk
-else
-ifeq ($(HOST),tinosa)
-  ESMFMKFILE = /common/esmf/$(ESMFV)/esmf.mk
+DOMAIN = $(shell hostname | cut -f2-4 -d.)
+ifeq ($(DOMAIN),nrlssc.navy.mil)
+  ifeq ($(OS),Linux)
+    ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk
+  else
+  ifeq ($(OS),Darwin)
+    ESMFMKFILE = /common/esmf/$(ESMFV)/esmf.mk
+  else
+    $(error OS $(OS) not supported at $(DOMAIN))
+  endif
+  endif
 else
 ifeq ($(HOST),Tinosa)
   ESMFMKFILE = /common/esmf/$(ESMFV)/esmf.mk
 else
 ifneq ($(origin ESMFMKFILE), environment)
   $(error Environment variable ESMFMKFILE was not set.)
-endif
 endif
 endif
 endif
