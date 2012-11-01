@@ -89,4 +89,4 @@ edit:
 	gvim -p *.F90
 
 run: dust
-	mpirun -np $(NPROC) ./esmApp
+	mpirun -np $(NPROC) ./esmApp $(CONFIG)
