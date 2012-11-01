@@ -673,6 +673,7 @@ module ESM
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
+    if (verbose) call NUOPC_RunSequencePrint(runSeq(1))
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelServices', ESMF_LOGMSG_INFO)

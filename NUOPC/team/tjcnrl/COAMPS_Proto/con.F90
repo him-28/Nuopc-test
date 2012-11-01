@@ -53,7 +53,7 @@ module CON
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
-    character(ESMF_MAXSTR)        :: vrbString
+    character(ESMF_MAXSTR)        :: verbosity
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
 
@@ -65,11 +65,11 @@ module CON
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! determine verbosity
-    call ESMF_AttributeGet(ccomp, name="Verbosity", value=vrbString, &
+    call ESMF_AttributeGet(ccomp, name="Verbosity", value=verbosity, &
       defaultValue=defaultVerbosity, convention="NUOPC", purpose="General", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    if (trim(vrbString)=="high") then
+    if (trim(verbosity)=="high") then
       verbose = .true.
     else
       verbose = .false.
