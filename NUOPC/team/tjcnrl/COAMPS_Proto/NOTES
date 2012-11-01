@@ -3,3 +3,7 @@
 
 * Need to document for NUOPC_<blah> at which point in the initialization
   is the internal state available.
+
+* ESMF_ConfigFindLabel automatically reports error to log when label is
+  not found.  This means that ESMF_ConfigGetAttribute calls report error
+  to the log even though a default value was provided.
