@@ -66,7 +66,7 @@ module ESM
     logical                            :: verbose
     integer                            :: localrc, stat
     type(type_InternalState)           :: is
-    integer                            :: i, j
+    integer                            :: i, j, k
     type(ESMF_Config)                  :: config
     logical                            :: configIsPresent
     character(ESMF_MAXSTR)             :: label
@@ -75,9 +75,12 @@ module ESM
     character(4), pointer              :: modType(:)
     character(7), pointer              :: conName(:,:)
     logical     , pointer              :: conActive(:,:)
+    integer(ESMF_KIND_I4)              :: time(6)
     type(ESMF_Time)                    :: startTime
     type(ESMF_Time)                    :: stopTime
     type(ESMF_TimeInterval)            :: timeStep
+    type(ESMF_TimeInterval)            :: timeDiff
+    type(ESMF_TimeInterval)            :: zeroTimeInterval
     type(ESMF_Clock)                   :: internalClock
 
     rc = ESMF_SUCCESS
@@ -87,8 +90,7 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! check/get/set the config
-    ! if config is not present the set it to be an empty config
+    ! check/get the config (config is required)
     call ESMF_GridCompGet(gcomp, configIsPresent=configIsPresent, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
@@ -97,12 +99,9 @@ module ESM
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     else
-      config = ESMF_ConfigCreate(rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      call ESMF_GridCompSet(gcomp, config=config, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+        msg=trim(cname)//': missing required config')
+      return  ! bail out
     endif
 
     ! process config for verbose
@@ -114,6 +113,73 @@ module ESM
 
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
+
+    ! process config for required startTime input
+    label = 'startTime:'
+    call ESMF_ConfigGetAttribute(config, time, count=6, label=trim(label), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) then
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+        msg=trim(cname)//': missing required config input: '// &
+        trim(label)//' YYYY MM DD hh mm ss')
+      return  ! bail out
+    endif
+    if (verbose) then
+      write(msgString,'(a,6(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=1,6)
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    endif
+    call ESMF_TimeSet(startTime, yy=time(1), mm=time(2), dd=time(3), &
+      h=time(4), m=time(5), s=time(6), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! process config for required stopTime input
+    label = 'stopTime:'
+    call ESMF_ConfigGetAttribute(config, time, count=6, label=trim(label), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) then
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+        msg=trim(cname)//': missing required config input: '// &
+        trim(label)//' YYYY MM DD hh mm ss')
+      return  ! bail out
+    endif
+    if (verbose) then
+      write(msgString,'(a,6(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=1,6)
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    endif
+    call ESMF_TimeSet(stopTime, yy=time(1), mm=time(2), dd=time(3), &
+      h=time(4), m=time(5), s=time(6), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! process config for required timeStep input
+    label = 'timeStep:'
+    call ESMF_ConfigGetAttribute(config, time(4:6), count=3, label=trim(label), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) then
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+        msg=trim(cname)//': missing required config input: '// &
+        trim(label)//' hh mm ss')
+      return  ! bail out
+    endif
+    if (verbose) then
+      write(msgString,'(a,3(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=4,6)
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    endif
+    call ESMF_TimeIntervalSet(timeStep, h=time(4), m=time(5), s=time(6), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! check that simulation time is multiple of timeStep
+    call ESMF_TimeIntervalSet(zeroTimeInterval, h=0, m=0, s=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    timeDiff = stopTime - startTime
+    if (mod(timeDiff,timeStep) .ne. zeroTimeInterval) then
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+        msg=trim(cname)//': simulation time is not a multiple of timeStep')
+      return  ! bail out
+    endif
 
     ! allocate memory for this internal state and set it in the component
     allocate(is%wrap, stat=stat)
@@ -262,16 +328,7 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! set the driver clock
-    call ESMF_TimeIntervalSet(timeStep, m=15, rc=rc) ! 15 minute steps
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_TimeSet(startTime, yy=2010, mm=6, dd=1, h=0, m=0, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_TimeSet(stopTime, yy=2010, mm=6, dd=1, h=1, m=0, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+    ! create/set the driver clock
     internalClock = ESMF_ClockCreate(name=trim(cname)//" Clock", &
       timeStep=timeStep, startTime=startTime, stopTime=stopTime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
