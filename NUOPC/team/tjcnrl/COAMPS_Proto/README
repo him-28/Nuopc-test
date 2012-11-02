@@ -53,6 +53,9 @@ ESMF Config input for ESM Driver:
   verbose:             logical         t, f          t            turn on verbose output
                                                                   * optional
 
+  medActive:           logical         t, f          t            enable/disable MED model
+                                                                  * optional
+
   atmActive:           logical         t, f          t            enable/disable ATM model
                                                                   * optional
 
@@ -89,7 +92,7 @@ ESMF Config input for ESM Driver:
                                        concurrent                 * optional
                                        specified                  * sequential:
                                                                       active models defined on all PETs
-                                                                      MED defined on all PETs
+                                                                      active MED defined on all PETs
                                                                       no other config options required
                                                                   * concurrent:
                                                                       active models defined on non-overlapping sets of PETs
@@ -101,8 +104,8 @@ ESMF Config input for ESM Driver:
                                                                       requires <mod>PetList input for active models
                                                                       medPetList optional, default is MED defined on all PETs
 
-  medPetCount:         integer         [1,petCount)  none        number of PETs for ATM model
-                                                                 * optional when petLayoutOption = concurrent
+  medPetCount:         integer         [1,petCount)  none        number of PETs for MED model
+                                                                 * optional when petLayoutOption = concurrent & medActive = t
 
   atmPetCount:         integer         [1,petCount)  none        number of PETs for ATM model
                                                                  * required when petLayoutOption = concurrent & atmActive = t
@@ -117,7 +120,7 @@ ESMF Config input for ESM Driver:
                                                                  * required when petLayoutOption = concurrent & iceActive = t
 
   medPetList::         integer table   [0:petCount)  none        PET list for MED model
-                                                                 * optional when petLayoutOption = specified
+                                                                 * optional when petLayoutOption = specified & medActive = t
                                                                  * min(medPetList) >= 0 && max(medPetList) < petCount
                                                                  * table must be terminated with :: on single line
 
