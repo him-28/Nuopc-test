@@ -69,45 +69,45 @@ ESMF Config input for ESM Driver (optional):
                                                                       no other config options required
                                                                     concurrent:
                                                                       active models defined on non-overlapping sets of PETs
-                                                                      MED defined on all PETs
                                                                       requires <mod>PetCount input for active models
+                                                                      medPetCount optional, default is MED defined on all PETs
+                                                                      sum(<mod>PetCount) <= petCount
                                                                     specified:
                                                                       active models defined on specified sets of PETs
-                                                                      medPetList optional, default is MED defined on all PETs
                                                                       requires <mod>PetList input for active models
+                                                                      medPetList optional, default is MED defined on all PETs
+
+  medPetCount:         integer         [1,petCount)  none          number of PETs for ATM model
+                                                                   optional when petLayoutOption = concurrent
 
   atmPetCount:         integer         [1,petCount)  none          number of PETs for ATM model
                                                                    required when petLayoutOption = concurrent & atmActive = t
-                                                                   sum(atmPetCount) == petCount
 
   ocnPetCount:         integer         [1,petCount)  none          number of PETs for OCN model
                                                                    required when petLayoutOption = concurrent & ocnActive = t
-                                                                   sum(ocnPetCount) == petCount
 
   wavPetCount:         integer         [1,petCount)  none          number of PETs for WAV model
                                                                    required when petLayoutOption = concurrent & wavActive = t
-                                                                   sum(wavPetCount) == petCount
 
   icePetCount:         integer         [1,petCount)  none          number of PETs for ICE model
                                                                    required when petLayoutOption = concurrent & iceActive = t
-                                                                   sum(icePetCount) == petCount
 
-  medPetList:          integer array   [0:petCount)  none          PET list for MED model
+  medPetList::         integer table   [0:petCount)  none          PET list for MED model
                                                                    optional when petLayoutOption = specified
                                                                    min(medPetList) >= 0 && max(medPetList) < petCount
 
-  atmPetList:          integer array   [0:petCount)  none          PET list for ATM model
+  atmPetList::         integer table   [0:petCount)  none          PET list for ATM model
                                                                    required when petLayoutOption = specified & atmActive = t
                                                                    min(atmPetList) >= 0 && max(atmPetList) < petCount
 
-  ocnPetList:          integer array   [0:petCount)  none          PET list for OCN model
+  ocnPetList::         integer table   [0:petCount)  none          PET list for OCN model
                                                                    required when petLayoutOption = specified & ocnActive = t
                                                                    min(ocnPetList) >= 0 && max(ocnPetList) < petCount
 
-  wavPetList:          integer array   [0:petCount)  none          PET list for WAV model
+  wavPetList::         integer table   [0:petCount)  none          PET list for WAV model
                                                                    required when petLayoutOption = specified & wavActive = t
                                                                    min(wavPetList) >= 0 && max(wavPetList) < petCount
 
-  icePetList:          integer array   [0:petCount)  none          PET list for ICE model
+  icePetList::         integer table   [0:petCount)  none          PET list for ICE model
                                                                    required when petLayoutOption = specified & iceActive = t
                                                                    min(icePetList) >= 0 && max(icePetList) < petCount
