@@ -90,4 +90,5 @@ edit:
 	gvim -p *.F90
 
 run: dust
+	-@echo ESMF_RUNTIME_COMPLIANCECHECK=$(CHECK)
 	mpirun -np $(NPROC) ./esmApp $(CONFIG)
