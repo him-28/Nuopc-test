@@ -793,9 +793,9 @@ module ESM
     if (modActive(i)) then
       call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME) .or. &
+          line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
+          line=__LINE__, file=FILENAME, rcToReturn=rc)) then
         write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -810,9 +810,9 @@ module ESM
         call ESMF_GridCompSetServices(modComp(i), modDataSS, userRc=localrc, rc=rc)
       end select
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME) .or. &
+          line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
+          line=__LINE__, file=FILENAME, rcToReturn=rc)) then
         write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
@@ -825,9 +825,9 @@ module ESM
       if (.not.conActive(i,j)) cycle
       call ESMF_CplCompSetServices(conComp(i,j), cplSS, userRc=localrc, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME) .or. &
+          line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
+          line=__LINE__, file=FILENAME, rcToReturn=rc)) then
         write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//trim(conName(i,j))
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
