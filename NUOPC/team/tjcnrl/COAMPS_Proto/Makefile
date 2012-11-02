@@ -27,7 +27,11 @@ ESMF_BOPT = $(BOPT)
 
 OS = $(shell uname -s)
 HOST = $(shell hostname -s)
-DOMAIN = $(shell hostname | cut -f2-4 -d.)
+ifneq ($(findstring $(HOST),Tinosa tinosa),)
+  DOMAIN = nrlssc.navy.mil
+else
+  DOMAIN = $(shell hostname | cut -f2-4 -d.)
+endif
 ifeq ($(DOMAIN),nrlssc.navy.mil)
   ifeq ($(OS),Linux)
     ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk
@@ -39,12 +43,8 @@ ifeq ($(DOMAIN),nrlssc.navy.mil)
   endif
   endif
 else
-ifeq ($(HOST),Tinosa)
-  ESMFMKFILE = /common/esmf/$(ESMFV)/esmf.mk
-else
 ifneq ($(origin ESMFMKFILE), environment)
   $(error Environment variable ESMFMKFILE was not set.)
-endif
 endif
 endif
 

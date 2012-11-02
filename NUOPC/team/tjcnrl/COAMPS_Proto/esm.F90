@@ -156,6 +156,16 @@ module ESM
         return  ! bail out
       endif
     enddo
+    if (verbose) then
+      do i = 1,modCount
+        if (modActive(i)) then
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is active'
+        else
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
+        endif
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      enddo
+    endif
 
     ! process config for modType
     modType(med) = 'live' ! mediator must always be live
@@ -177,6 +187,10 @@ module ESM
           msg=trim(cname)//': Model type not supported: '//modType(i))
         return  ! bail out
       end select
+      if (verbose) then
+        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      endif
     enddo
 
     ! set model names
@@ -214,6 +228,15 @@ module ESM
     if (modActive(ocn).and.modActive(wav)) then
       conActive(ocn,wav) = .true.
       conActive(wav,ocn) = .true.
+    endif
+    if (verbose) then
+      do j = 1,modCount
+      do i = 1,modCount
+        if (.not.conActive(i,j)) cycle
+        write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      enddo
+      enddo
     endif
 
     ! NUOPC_Driver registers the generic methods
@@ -331,9 +354,11 @@ module ESM
     logical     , pointer              :: conActive(:,:)
     integer                            :: i, j
     integer                            :: k, l, m, n
+    integer                            :: k1, k2
     integer                            :: modStart
     integer                            :: petCount
     integer                            :: modPetCount(modCount)
+    integer     , pointer              :: modPetList(:)
     type(ESMF_Config)                  :: config
     character(ESMF_MAXSTR)             :: label
     character(ESMF_MAXSTR)             :: petLayoutOption
@@ -385,6 +410,10 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': petLayoutOption = '//trim(petLayoutOption), &
+    ESMF_LOGMSG_INFO)
+
     ! set the model petLists based on petLayoutOption
     select case (trim(petLayoutOption))
 
@@ -393,22 +422,16 @@ module ESM
     !   * MED defined on all pets
     !   * no other config options required
     case ('sequential')
-      i = med
-      allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of "//modName(i)//" petList array failed.", &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-      do j = 1,petCount
-        superIS%wrap%modelPetLists(i)%petList(j) = j-1
-      enddo
-      do i = 2,modCount
+      do i = 1,modCount
         if (.not.modActive(i)) cycle
         allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of "//modName(i)//" petList array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-        superIS%wrap%modelPetLists(i)%petList(:) = &
-          superIS%wrap%modelPetLists(med)%petList(:)
+        modPetList => superIS%wrap%modelPetLists(i)%petList
+        do j = 1,petCount
+          modPetList(j) = j-1
+        enddo
       enddo
 
     ! petLayoutOption = concurrent
@@ -421,12 +444,18 @@ module ESM
       call ESMF_ConfigFindLabel(config, label=trim(label), rc=rc)
       if (rc.ne.ESMF_SUCCESS) then
         modPetCount(med) = petCount
+        if (verbose) then
+          write(msgString,'(a,i0)') trim(cname)//': '// &
+            modShortNameUC(med)//' PET count: ',modPetCount(med)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+        endif
         allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of "//modName(i)//" petList array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+        modPetList => superIS%wrap%modelPetLists(med)%petList
         do j = 1,petCount
-          superIS%wrap%modelPetLists(med)%petList(j) = j-1
+          modPetList(j) = j-1
         enddo
         modStart = 2
       else
@@ -443,6 +472,11 @@ module ESM
             msg=trim(cname)//': '//trim(label)//' is required when petLayoutOption'// &
             ' = concurrent and '//modShortNameUC(i)//' is active')
           return  ! bail out
+        endif
+        if (verbose) then
+          write(msgString,'(a,i0)') trim(cname)//': '// &
+            modShortNameUC(i)//' PET count: ',modPetCount(i)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
         endif
         if (modPetCount(i).lt.1.or.modPetCount(i).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
@@ -464,8 +498,9 @@ module ESM
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of "//modName(i)//" petList array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+        modPetList => superIS%wrap%modelPetLists(i)%petList
         do j = 1,modPetCount(i)
-          superIS%wrap%modelPetLists(i)%petList(j) = n
+          modPetList(j) = n
           n = n + 1
         enddo
       enddo
@@ -480,12 +515,18 @@ module ESM
       call ESMF_ConfigGetDim(config, m, n, label=trim(label), rc=rc)
       if (rc.ne.ESMF_SUCCESS) then
         modPetCount(med) = petCount
+        if (verbose) then
+          write(msgString,'(a,i0)') trim(cname)//': '// &
+            modShortNameUC(med)//' PET count: ',modPetCount(med)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+        endif
         allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of "//modName(i)//" petList array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+        modPetList => superIS%wrap%modelPetLists(med)%petList
         do j = 1,petCount
-          superIS%wrap%modelPetLists(med)%petList(j) = j-1
+          modPetList(j) = j-1
         enddo
         modStart = 2
       else
@@ -503,15 +544,22 @@ module ESM
           return  ! bail out
         endif
         modPetCount(i) = m*n
-        if (modPetCount(i).lt.1.or.modPetCount(i).ge.petCount) then
+        if (verbose) then
+          write(msgString,'(a,i0)') trim(cname)//': '// &
+            modShortNameUC(i)//' PET count: ',modPetCount(i)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+        endif
+        if (modPetCount(i).lt.1.or.modPetCount(i).gt.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//modShortNameUC(i)//' PET count must be > 0 and < petCount')
+            msg=trim(cname)//': '//modShortNameUC(i)// &
+            ' PET count must be > 0 and <= petCount')
           return  ! bail out
         endif
         allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of "//modName(i)//" petList array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+        modPetList => superIS%wrap%modelPetLists(i)%petList
         call ESMF_ConfigFindLabel(config, trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
@@ -524,13 +572,13 @@ module ESM
           call ESMF_ConfigNextLine(config, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=FILENAME)) then
-            write(msgString,'(a,i0,a)') trim(cname)//': '//trim(label)//' next line ',l,' failed'
+            write(msgString,'(a,i0,a)') trim(cname)//': '//trim(label)// &
+              ' next line ',l,' failed'
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, msg=trim(msgString))
             return  ! bail out
           endif
           do k = 1,n
-            call ESMF_ConfigGetAttribute(config, &
-              superIS%wrap%modelPetLists(i)%petList((l-1)*n+k), rc=rc)
+            call ESMF_ConfigGetAttribute(config, modPetList((l-1)*n+k), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=FILENAME)) then
               write(msgString,'(a,i0,a,i0,a)') trim(cname)//': '//trim(label)// &
@@ -540,8 +588,19 @@ module ESM
             endif
           enddo
         enddo
-        if (minval(superIS%wrap%modelPetLists(i)%petList).lt.1.or. &
-            maxval(superIS%wrap%modelPetLists(i)%petList).ge.petCount) then
+        if (verbose) then
+          n = (len(msgString)-len(trim(cname)//':'))/7
+          m = ceiling(real(modPetCount(i))/real(n))
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' PET list: '
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+          do l = 1,m
+            k1 = min((l-1)*n+1,modPetCount(i))
+            k2 = min((l-1)*n+n,modPetCount(i))
+            write(msgString,'(a,100i7)') trim(cname)//':', (modPetList(k),k=k1,k2)
+            call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+          enddo
+        endif
+        if (minval(modPetList).lt.0.or.maxval(modPetList).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
             msg=trim(cname)//': '//trim(label)//' must be > 0 and < petCount')
           return  ! bail out

@@ -33,8 +33,8 @@ Code structure:
 
 ESMF Config input for ESM Driver (optional):
 
-                                       possible
-  keyword              type            values        default      description
+  label                                possible
+  (colons required)    type            values        default      description
   ------------------------------------------------------------------------------
   verbose:             logical         t, f          t            turn on verbose output
 
@@ -95,19 +95,24 @@ ESMF Config input for ESM Driver (optional):
   medPetList::         integer table   [0:petCount)  none          PET list for MED model
                                                                    optional when petLayoutOption = specified
                                                                    min(medPetList) >= 0 && max(medPetList) < petCount
+                                                                   table must be terminated with :: on single line
 
   atmPetList::         integer table   [0:petCount)  none          PET list for ATM model
                                                                    required when petLayoutOption = specified & atmActive = t
                                                                    min(atmPetList) >= 0 && max(atmPetList) < petCount
+                                                                   table must be terminated with :: on single line
 
   ocnPetList::         integer table   [0:petCount)  none          PET list for OCN model
                                                                    required when petLayoutOption = specified & ocnActive = t
                                                                    min(ocnPetList) >= 0 && max(ocnPetList) < petCount
+                                                                   table must be terminated with :: on single line
 
   wavPetList::         integer table   [0:petCount)  none          PET list for WAV model
                                                                    required when petLayoutOption = specified & wavActive = t
                                                                    min(wavPetList) >= 0 && max(wavPetList) < petCount
+                                                                   table must be terminated with :: on single line
 
   icePetList::         integer table   [0:petCount)  none          PET list for ICE model
                                                                    required when petLayoutOption = specified & iceActive = t
                                                                    min(icePetList) >= 0 && max(icePetList) < petCount
+                                                                   table must be terminated with :: on single line
