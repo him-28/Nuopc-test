@@ -167,7 +167,7 @@ module MED
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! define importable fields
-    is%wrap%numImport = 15
+    is%wrap%numImport = 17
     allocate(is%wrap%impStdName(is%wrap%numImport), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of import field name arrays failed.", &
@@ -187,9 +187,11 @@ module MED
     is%wrap%impStdName(13) = "sea_ice_concentration"
     is%wrap%impStdName(14) = "sea_ice_thickness"
     is%wrap%impStdName(15) = "sea_ice_temperature"
+    is%wrap%impStdName(16) = "eastward_stokes_drift_current"
+    is%wrap%impStdName(17) = "northward_stokes_drift_current"
 
     ! define exportable fields
-    is%wrap%numExport = 13
+    is%wrap%numExport = 15
     allocate(is%wrap%expStdName(is%wrap%numExport), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of export field name arrays failed.", &
@@ -207,6 +209,8 @@ module MED
     is%wrap%expStdName(11) = "sea_ice_surface_downward_northward_stress"
     is%wrap%expStdName(12) = "sea_ice_basal_upward_eastward_stress"
     is%wrap%expStdName(13) = "sea_ice_basal_upward_northward_stress"
+    is%wrap%expStdName(14) = "eastward_stokes_drift_current"
+    is%wrap%expStdName(15) = "northward_stokes_drift_current"
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)

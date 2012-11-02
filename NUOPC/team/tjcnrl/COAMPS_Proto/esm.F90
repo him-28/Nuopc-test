@@ -277,27 +277,14 @@ module ESM
 
     ! set active connectors
     conActive = .false.
-    if (modActive(atm).and.modActive(med)) then
-      conActive(med,atm) = .true.
-      conActive(atm,med) = .true.
-    endif
-    if (modActive(ocn).and.modActive(med)) then
-      conActive(med,ocn) = .true.
-      conActive(ocn,med) = .true.
-    endif
-    if (modActive(wav).and.modActive(med)) then
-      conActive(med,wav) = .true.
-      conActive(wav,med) = .true.
-    endif
-    if (modActive(ice).and.modActive(med)) then
-      conActive(med,ice) = .true.
-      conActive(ice,med) = .true.
-    endif
-    if (modActive(ocn).and.modActive(wav)) then
-      conActive(ocn,wav) = .true.
-      conActive(wav,ocn) = .true.
-    endif
-    if (.not.modActive(med)) then
+    if (modActive(med)) then
+      do i = 2,modCount
+        if (modActive(i)) then
+          conActive(i,med) = .true.
+          conActive(med,i) = .true.
+        endif
+      enddo
+    else
       do j = 2,modCount
       do i = 2,modCount
         if (i.eq.j) cycle
@@ -858,91 +845,38 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out    
     if (modActive(med)) then
-      if (modActive(atm).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=atm, j=med, phase=1, rc=rc)
+      do i = 2,modCount
+        if (.not.conActive(i,med)) cycle
+        call NUOPC_RunElementAdd(runSeq(1), i=i, j=med, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ocn).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=ocn, j=med, phase=1, rc=rc)
+      enddo
+      call NUOPC_RunElementAdd(runSeq(1), i=med, j=0, phase=1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      do j = 2,modCount
+        if (.not.conActive(med,j)) cycle
+        call NUOPC_RunElementAdd(runSeq(1), i=med, j=j, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(wav).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=wav, j=med, phase=1, rc=rc)
+      enddo
+      do i = 2,modCount
+        if (.not.modActive(i)) cycle
+        call NUOPC_RunElementAdd(runSeq(1), i=i, j=0, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ice).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=ice, j=med, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=med, j=0, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(atm).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=med, j=atm, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ocn).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=med, j=ocn, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(wav).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=med, j=wav, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ice).and.modActive(med)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=med, j=ice, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ocn).and.modActive(wav)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=ocn, j=wav, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ocn).and.modActive(wav)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=wav, j=ocn, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(atm)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=atm, j=0, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ocn)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=ocn, j=0, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(wav)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=wav, j=0, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
-      if (modActive(ice)) then
-        call NUOPC_RunElementAdd(runSeq(1), i=ice, j=0, phase=1, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) return  ! bail out
-      endif
+      enddo
     else
-      do j = 1,modCount
-      do i = 1,modCount
+      do j = 2,modCount
+      do i = 2,modCount
+        if (i.eq.j) cycle
         if (.not.conActive(i,j)) cycle
         call NUOPC_RunElementAdd(runSeq(1), i=i, j=j, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
       enddo
-      do i = 1,modCount
+      do i = 2,modCount
         if (.not.modActive(i)) cycle
         call NUOPC_RunElementAdd(runSeq(1), i=i, j=0, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
