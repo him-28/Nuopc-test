@@ -20,8 +20,18 @@ module ESM
 
   use CON,     only: cplSS     => SetServices
   use MED,     only: medSS     => SetServices
-  use MODlive, only: modLiveSS => SetServices
-  use MODdata, only: modDataSS => SetServices
+
+  use MODlive, only: atmLiveSS => SetServices
+  use MODdata, only: atmDataSS => SetServices
+
+  use MODlive, only: ocnLiveSS => SetServices
+  use MODdata, only: ocnDataSS => SetServices
+
+  use MODlive, only: wavLiveSS => SetServices
+  use MODdata, only: wavDataSS => SetServices
+
+  use MODlive, only: iceLiveSS => SetServices
+  use MODdata, only: iceDataSS => SetServices
 
   implicit none
 
@@ -791,25 +801,39 @@ module ESM
     enddo
 
     ! SetServices for active models
-    i = med
-    if (modActive(i)) then
-      call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
-          ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-    endif
-    do i = 2,modCount
+    do i = 1,modCount
       if (.not.modActive(i)) cycle
-      select case (modType(i))
-      case ('live')
-        call ESMF_GridCompSetServices(modComp(i), modLiveSS, userRc=localrc, rc=rc)
-      case ('data')
-        call ESMF_GridCompSetServices(modComp(i), modDataSS, userRc=localrc, rc=rc)
+      select case (modShortNameLC(i))
+      case ('med')
+        call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
+      case ('atm')
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), atmLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), atmDataSS, userRc=localrc, rc=rc)
+        end select
+      case ('ocn')
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), ocnLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), ocnDataSS, userRc=localrc, rc=rc)
+        end select
+      case ('wav')
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), wavLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), wavDataSS, userRc=localrc, rc=rc)
+        end select
+      case ('ice')
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), iceLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), iceDataSS, userRc=localrc, rc=rc)
+        end select
       end select
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
