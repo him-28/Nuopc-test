@@ -76,7 +76,7 @@ module MODLive
 
     ! trap unsupported model names
     select case (cname(1:3))
-      case ('ATM','OCN','WAV','ICE')
+      case ('ATM','OCN','WAV','ICE','LND')
       case default
         call ESMF_LogWrite('Model name not supported: '//cname(1:3), &
           ESMF_LOGMSG_ERROR)
@@ -127,6 +127,7 @@ module MODLive
           userRoutine=SetClock, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
+      case ('LND')
     end select
 
     call ESMF_MethodAdd(gcomp, label=model_label_Advance, &
@@ -227,6 +228,8 @@ module MODLive
         is%wrap%impStdName( 2) = "sea_ice_surface_downward_northward_stress"
         is%wrap%impStdName( 3) = "sea_ice_basal_upward_eastward_stress"
         is%wrap%impStdName( 4) = "sea_ice_basal_upward_northward_stress"
+      case ('LND')
+        is%wrap%numImport = 0
     end select
 
     ! define exportable fields
@@ -272,6 +275,8 @@ module MODLive
         is%wrap%expStdName( 3) = "sea_ice_concentration"
         is%wrap%expStdName( 4) = "sea_ice_thickness"
         is%wrap%expStdName( 5) = "sea_ice_temperature"
+      case ('LND')
+        is%wrap%numExport = 0
     end select
 
     if (verbose) &
@@ -404,6 +409,12 @@ module MODLive
       case ('ICE')
         gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
           100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 100, 20, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) return  ! bail out
+        gridOut = gridIn ! for now out same as in
+      case ('LND')
+        gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
+          100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 20, 100, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
@@ -560,6 +571,7 @@ module MODLive
         call ESMF_TimeIntervalSet(stabilityTimeStep, m=5, rc=rc) ! 5 minute steps
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
+      case ('LND')
     end select
     call NUOPC_GridCompSetClock(gcomp, clock, stabilityTimeStep, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -679,16 +691,20 @@ module MODLive
     call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
 
     ! deallocate import field name arrays
-    deallocate(is%wrap%impStdName, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of import field name arrays failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    if (associated(is%wrap%impStdName)) then
+      deallocate(is%wrap%impStdName, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg="Deallocation of import field name arrays failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
 
     ! deallocate export field name arrays
-    deallocate(is%wrap%expStdName, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of export field name arrays failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    if (associated(is%wrap%expStdName)) then
+      deallocate(is%wrap%expStdName, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg="Deallocation of export field name arrays failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
 
     ! deallocate internal state memory
     deallocate(is%wrap, stat=stat)
