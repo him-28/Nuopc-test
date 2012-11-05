@@ -7,3 +7,7 @@
 * ESMF_ConfigFindLabel automatically reports error to log when label is
   not found.  This means that ESMF_ConfigGetAttribute calls report error
   to the log even though a default value was provided.
+  - submitted to esmf-support
+
+* Need to update documentation for NUOPC_RunSequence.  New API has j = 0
+  indicating connector to driver.

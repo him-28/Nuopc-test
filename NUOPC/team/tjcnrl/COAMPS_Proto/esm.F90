@@ -233,7 +233,7 @@ module ESM
     endif
 
     ! process config for modType
-    modType(med) = 'live' ! mediator must always be live
+    modType(med) = '' ! mediator type is not used
     do i = 2,modCount
       if (.not.modActive(i)) cycle
       label = modShortNameLC(i)//'Type:'
@@ -838,6 +838,7 @@ module ESM
     enddo
 
     ! override the default run sequence defined by the generic Driver
+    ! notes: j = 0 indicates connector to driver; j < 0 indicates model run
     call NUOPC_RunSequenceDeallocate(runSeq, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
@@ -851,7 +852,7 @@ module ESM
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
-      call NUOPC_RunElementAdd(runSeq(1), i=med, j=0, phase=1, rc=rc)
+      call NUOPC_RunElementAdd(runSeq(1), i=med, j=-1, phase=1, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
       do j = 2,modCount
@@ -862,7 +863,7 @@ module ESM
       enddo
       do i = 2,modCount
         if (.not.modActive(i)) cycle
-        call NUOPC_RunElementAdd(runSeq(1), i=i, j=0, phase=1, rc=rc)
+        call NUOPC_RunElementAdd(runSeq(1), i=i, j=-1, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
@@ -878,7 +879,7 @@ module ESM
       enddo
       do i = 2,modCount
         if (.not.modActive(i)) cycle
-        call NUOPC_RunElementAdd(runSeq(1), i=i, j=0, phase=1, rc=rc)
+        call NUOPC_RunElementAdd(runSeq(1), i=i, j=-1, phase=1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
