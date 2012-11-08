@@ -27,30 +27,30 @@ module ESM
   use CON,     only: cplSS     => SetServices
   use MED,     only: medSS     => SetServices
 
-  #ifdef INCLUDE_ATM
+#ifdef INCLUDE_ATM
   use MODlive, only: atmLiveSS => SetServices
   use MODdata, only: atmDataSS => SetServices
-  #endif
+#endif
 
-  #ifdef INCLUDE_OCN
+#ifdef INCLUDE_OCN
   use MODlive, only: ocnLiveSS => SetServices
   use MODdata, only: ocnDataSS => SetServices
-  #endif
+#endif
 
-  #ifdef INCLUDE_WAV
+#ifdef INCLUDE_WAV
   use MODlive, only: wavLiveSS => SetServices
   use MODdata, only: wavDataSS => SetServices
-  #endif
+#endif
 
-  #ifdef INCLUDE_ICE
+#ifdef INCLUDE_ICE
   use MODlive, only: iceLiveSS => SetServices
   use MODdata, only: iceDataSS => SetServices
-  #endif
+#endif
 
-  #ifdef INCLUDE_LND
+#ifdef INCLUDE_LND
   use MODlive, only: lndLiveSS => SetServices
   use MODdata, only: lndDataSS => SetServices
-  #endif
+#endif
 
   implicit none
 
@@ -122,67 +122,67 @@ module ESM
 
     ! report on compiled modules
     call ESMF_LogWrite(trim(cname)//': compiled with    MED module', ESMF_LOGMSG_INFO)
-    #ifdef INCLUDE_ATM
+#ifdef INCLUDE_ATM
     call ESMF_LogWrite(trim(cname)//': compiled with    ATM module', ESMF_LOGMSG_INFO)
-    #else
+#else
     call ESMF_LogWrite(trim(cname)//': compiled without ATM module', ESMF_LOGMSG_INFO)
-    #endif
-    #ifdef INCLUDE_OCN
+#endif
+#ifdef INCLUDE_OCN
     call ESMF_LogWrite(trim(cname)//': compiled with    OCN module', ESMF_LOGMSG_INFO)
-    #else
+#else
     call ESMF_LogWrite(trim(cname)//': compiled without OCN module', ESMF_LOGMSG_INFO)
-    #endif
-    #ifdef INCLUDE_WAV
+#endif
+#ifdef INCLUDE_WAV
     call ESMF_LogWrite(trim(cname)//': compiled with    WAV module', ESMF_LOGMSG_INFO)
-    #else
+#else
     call ESMF_LogWrite(trim(cname)//': compiled without WAV module', ESMF_LOGMSG_INFO)
-    #endif
-    #ifdef INCLUDE_ICE
+#endif
+#ifdef INCLUDE_ICE
     call ESMF_LogWrite(trim(cname)//': compiled with    ICE module', ESMF_LOGMSG_INFO)
-    #else
+#else
     call ESMF_LogWrite(trim(cname)//': compiled without ICE module', ESMF_LOGMSG_INFO)
-    #endif
-    #ifdef INCLUDE_LND
+#endif
+#ifdef INCLUDE_LND
     call ESMF_LogWrite(trim(cname)//': compiled with    LND module', ESMF_LOGMSG_INFO)
-    #else
+#else
     call ESMF_LogWrite(trim(cname)//': compiled without LND module', ESMF_LOGMSG_INFO)
-    #endif
+#endif
 
     ! set model count, model index mapping, and model short names
     modCount = 1
     med = modCount
     modShortNameLC(med) = 'med'
     modShortNameUC(med) = 'MED'
-    #ifdef INCLUDE_ATM
+#ifdef INCLUDE_ATM
     modCount = modCount + 1
     atm = modCount
     modShortNameLC(atm) = 'atm'
     modShortNameUC(atm) = 'ATM'
-    #endif
-    #ifdef INCLUDE_OCN
+#endif
+#ifdef INCLUDE_OCN
     modCount = modCount + 1
     ocn = modCount
     modShortNameLC(ocn) = 'ocn'
     modShortNameUC(ocn) = 'OCN'
-    #endif
-    #ifdef INCLUDE_WAV
+#endif
+#ifdef INCLUDE_WAV
     modCount = modCount + 1
     wav = modCount
     modShortNameLC(wav) = 'wav'
     modShortNameUC(wav) = 'WAV'
-    #endif
-    #ifdef INCLUDE_ICE
+#endif
+#ifdef INCLUDE_ICE
     modCount = modCount + 1
     ice = modCount
     modShortNameLC(ice) = 'ice'
     modShortNameUC(ice) = 'ICE'
-    #endif
-    #ifdef INCLUDE_LND
+#endif
+#ifdef INCLUDE_LND
     modCount = modCount + 1
     lnd = modCount
     modShortNameLC(lnd) = 'lnd'
     modShortNameUC(lnd) = 'LND'
-    #endif
+#endif
     do i = 1,modCount
       write(msgString,'(a,i0)') trim(cname)//': '//modShortNameUC(i)//' model index: ',i
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
@@ -891,50 +891,50 @@ module ESM
       case ('med')
         call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
       case ('atm')
-        #ifdef INCLUDE_ATM
+#ifdef INCLUDE_ATM
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), atmLiveSS, userRc=localrc, rc=rc)
         case ('data')
           call ESMF_GridCompSetServices(modComp(i), atmDataSS, userRc=localrc, rc=rc)
         end select
-        #endif
+#endif
       case ('ocn')
-        #ifdef INCLUDE_OCN
+#ifdef INCLUDE_OCN
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), ocnLiveSS, userRc=localrc, rc=rc)
         case ('data')
           call ESMF_GridCompSetServices(modComp(i), ocnDataSS, userRc=localrc, rc=rc)
         end select
-        #endif
+#endif
       case ('wav')
-        #ifdef INCLUDE_WAV
+#ifdef INCLUDE_WAV
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), wavLiveSS, userRc=localrc, rc=rc)
         case ('data')
           call ESMF_GridCompSetServices(modComp(i), wavDataSS, userRc=localrc, rc=rc)
         end select
-        #endif
+#endif
       case ('ice')
-        #ifdef INCLUDE_ICE
+#ifdef INCLUDE_ICE
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), iceLiveSS, userRc=localrc, rc=rc)
         case ('data')
           call ESMF_GridCompSetServices(modComp(i), iceDataSS, userRc=localrc, rc=rc)
         end select
-        #endif
+#endif
       case ('lnd')
-        #ifdef INCLUDE_LND
+#ifdef INCLUDE_LND
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), lndLiveSS, userRc=localrc, rc=rc)
         case ('data')
           call ESMF_GridCompSetServices(modComp(i), lndDataSS, userRc=localrc, rc=rc)
         end select
-        #endif
+#endif
       end select
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
