@@ -1,16 +1,38 @@
 #define FILENAME "esm.F90"
 
+!-------------------------------------------------------------------------------
+! Define connector & mediator component modules
+!-------------------------------------------------------------------------------
+#define MODULE_CON CON
+#define MODULE_MED MED
+
+!-------------------------------------------------------------------------------
+! Define included model component modules
+!-------------------------------------------------------------------------------
 #define INCLUDE_ATM
+#define MODULE_ATMlive MODlive
+#define MODULE_ATMdata MODdata
+
 #define INCLUDE_OCN
+#define MODULE_OCNlive MODlive
+#define MODULE_OCNdata MODdata
+
 #define INCLUDE_WAV
+#define MODULE_WAVlive MODlive
+#define MODULE_WAVdata MODdata
+
 #define INCLUDE_ICE
+#define MODULE_ICElive MODlive
+#define MODULE_ICEdata MODdata
+
 #undef  INCLUDE_LND
+#define MODULE_LNDlive MODlive
+#define MODULE_LNDdata MODdata
 
+!-------------------------------------------------------------------------------
+! Driver component with explicit time stepping
+!-------------------------------------------------------------------------------
 module ESM
-
-  !-----------------------------------------------------------------------------
-  ! Driver Component for ESM with explicit time stepping
-  !-----------------------------------------------------------------------------
 
   use ESMF
   use NUOPC
@@ -24,32 +46,32 @@ module ESM
     driver_label_SetModelServices => label_SetModelServices, &
     driver_label_Finalize         => label_Finalize
 
-  use CON,     only: cplSS     => SetServices
-  use MED,     only: medSS     => SetServices
+  use MODULE_CON    , only: cplSS     => SetServices
+  use MODULE_MED    , only: medSS     => SetServices
 
 #ifdef INCLUDE_ATM
-  use MODlive, only: atmLiveSS => SetServices
-  use MODdata, only: atmDataSS => SetServices
+  use MODULE_ATMlive, only: atmLiveSS => SetServices
+  use MODULE_ATMdata, only: atmDataSS => SetServices
 #endif
 
 #ifdef INCLUDE_OCN
-  use MODlive, only: ocnLiveSS => SetServices
-  use MODdata, only: ocnDataSS => SetServices
+  use MODULE_OCNlive, only: ocnLiveSS => SetServices
+  use MODULE_OCNdata, only: ocnDataSS => SetServices
 #endif
 
 #ifdef INCLUDE_WAV
-  use MODlive, only: wavLiveSS => SetServices
-  use MODdata, only: wavDataSS => SetServices
+  use MODULE_WAVlive, only: wavLiveSS => SetServices
+  use MODULE_WAVdata, only: wavDataSS => SetServices
 #endif
 
 #ifdef INCLUDE_ICE
-  use MODlive, only: iceLiveSS => SetServices
-  use MODdata, only: iceDataSS => SetServices
+  use MODULE_ICElive, only: iceLiveSS => SetServices
+  use MODULE_ICEdata, only: iceDataSS => SetServices
 #endif
 
 #ifdef INCLUDE_LND
-  use MODlive, only: lndLiveSS => SetServices
-  use MODdata, only: lndDataSS => SetServices
+  use MODULE_LNDlive, only: lndLiveSS => SetServices
+  use MODULE_LNDdata, only: lndDataSS => SetServices
 #endif
 
   implicit none
@@ -61,26 +83,22 @@ module ESM
   logical     , parameter :: defaultVerbose = .true.
   logical     , parameter :: defaultModActive = .true.
   character(4), parameter :: defaultModType = 'live'
-  character(*), parameter :: label_InternalState = "ESM_InternalState"
 
   integer, parameter :: maxModCount = 6
-  integer :: modCount
-  integer :: med, atm, ocn, wav, ice, lnd
+  integer      :: modCount
+  integer      :: med, atm, ocn, wav, ice, lnd
   character(3) :: modShortNameLC(maxModCount)
   character(3) :: modShortNameUC(maxModCount)
+  character(7) :: modName(maxModCount)
+  logical      :: modActive(maxModCount)
+  character(4) :: modType(maxModCount)
+  character(7) :: conName(maxModCount,maxModCount)
+  logical      :: conActive(maxModCount,maxModCount)
 
-  type type_InternalStateStruct
-    logical               :: verbose
-    character(7), pointer :: modName(:)
-    logical     , pointer :: modActive(:)
-    character(4), pointer :: modType(:)
-    character(7), pointer :: conName(:,:)
-    logical     , pointer :: conActive(:,:)
-  end type
-
-  type type_InternalState
-    type(type_InternalStateStruct), pointer :: wrap
-  end type
+  character(ESMF_MAXSTR) :: cname
+  character(ESMF_MAXSTR) :: msgString
+  logical                :: verbose
+  type(ESMF_Config)      :: config
 
   !-----------------------------------------------------------------------------
   contains
@@ -91,20 +109,10 @@ module ESM
     integer, intent(out) :: rc
 
     ! local variables
-    character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msgString
-    logical                            :: verbose
     integer                            :: localrc, stat
-    type(type_InternalState)           :: is
     integer                            :: i, j, k
-    type(ESMF_Config)                  :: config
     logical                            :: configIsPresent
     character(ESMF_MAXSTR)             :: label
-    character(7), pointer              :: modName(:)
-    logical     , pointer              :: modActive(:)
-    character(4), pointer              :: modType(:)
-    character(7), pointer              :: conName(:,:)
-    logical     , pointer              :: conActive(:,:)
     integer(ESMF_KIND_I4)              :: time(6)
     type(ESMF_Time)                    :: startTime
     type(ESMF_Time)                    :: stopTime
@@ -119,6 +127,20 @@ module ESM
     call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! check/get the config (config is required)
+    call ESMF_GridCompGet(gcomp, configIsPresent=configIsPresent, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    if (configIsPresent) then
+      call ESMF_GridCompGet(gcomp, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    else
+      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+        msg=trim(cname)//': missing required config')
+      return  ! bail out
+    endif
 
     ! report on compiled modules
     call ESMF_LogWrite(trim(cname)//': compiled with    MED module', ESMF_LOGMSG_INFO)
@@ -188,20 +210,6 @@ module ESM
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
 
-    ! check/get the config (config is required)
-    call ESMF_GridCompGet(gcomp, configIsPresent=configIsPresent, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    if (configIsPresent) then
-      call ESMF_GridCompGet(gcomp, config=config, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-    else
-      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-        msg=trim(cname)//': missing required config')
-      return  ! bail out
-    endif
-
     ! process config for verbose
     label = 'verbose:'
     call ESMF_ConfigGetAttribute(config, verbose, default=defaultVerbose, &
@@ -209,8 +217,100 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    if (verbose) &
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetServices', ESMF_LOGMSG_INFO)
+    ! process config for modActive
+    do i = 1,modCount
+      label = modShortNameLC(i)//'Active:'
+      call ESMF_ConfigGetAttribute(config, modActive(i), default=defaultModActive, &
+        label=trim(label), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
+          trim(label), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
+    if (verbose) then
+      do i = 1,modCount
+        if (modActive(i)) then
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is     active'
+        else
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
+        endif
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      enddo
+    endif
+
+    ! process config for modType
+    modType(med) = '' ! mediator type is not used
+    do i = 2,modCount
+      if (.not.modActive(i)) cycle
+      label = modShortNameLC(i)//'Type:'
+      call ESMF_ConfigGetAttribute(config, modType(i), default=defaultModType, &
+        label=trim(label), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
+          trim(label), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      select case (modType(i))
+      case ('live','data')
+      case default
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+          msg=trim(cname)//': Model type not supported: '//modType(i))
+        return  ! bail out
+      end select
+    enddo
+    if (verbose) then
+      do i = 2,modCount
+        if (.not.modActive(i)) cycle
+        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      enddo
+    endif
+
+    ! set model names
+    do i = 1,modCount
+      if (.not.modActive(i)) cycle
+      modName(i) = modShortNameUC(i)//modType(i)
+    enddo
+
+    ! set connector names
+    do j = 1,modCount
+    do i = 1,modCount
+      conName(i,j) = modShortNameUC(i)//'2'//modShortNameUC(j)
+    enddo
+    enddo
+
+    ! set active connectors
+    conActive = .false.
+    if (modActive(med)) then
+      do i = 2,modCount
+        if (modActive(i)) then
+          conActive(i,med) = .true.
+          conActive(med,i) = .true.
+        endif
+      enddo
+    else
+      do j = 2,modCount
+      do i = 2,modCount
+        if (i.eq.j) cycle
+        if (modActive(i).and.modActive(j)) then
+          conActive(i,j) = .true.
+          conActive(j,i) = .true.
+        endif
+      enddo
+      enddo
+    endif
+    if (verbose) then
+      do j = 1,modCount
+      do i = 1,modCount
+        if (.not.conActive(i,j)) cycle
+        write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      enddo
+      enddo
+    endif
 
     ! process config for required startTime input
     label = 'startTime:'
@@ -279,126 +379,6 @@ module ESM
       return  ! bail out
     endif
 
-    ! allocate memory for this internal state and set it in the component
-    allocate(is%wrap, stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Allocation of internal state memory failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call ESMF_UserCompSetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    is%wrap%verbose = verbose
-
-    ! allocate internal state arrays
-    allocate(is%wrap%modName(modCount), &
-             is%wrap%modActive(modCount), &
-             is%wrap%modType(modCount), &
-             is%wrap%conName(modCount,modCount), &
-             is%wrap%conActive(modCount,modCount), &
-             stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Allocation of internal state arrays failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-
-    ! set some useful pointers
-    modName   => is%wrap%modName
-    modActive => is%wrap%modActive
-    modType   => is%wrap%modType
-    conName   => is%wrap%conName
-    conActive => is%wrap%conActive
-
-    ! process config for modActive
-    do i = 1,modCount
-      label = modShortNameLC(i)//'Active:'
-      call ESMF_ConfigGetAttribute(config, modActive(i), default=defaultModActive, &
-        label=trim(label), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
-          trim(label), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-    enddo
-    if (verbose) then
-      do i = 1,modCount
-        if (modActive(i)) then
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is active'
-        else
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
-        endif
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-      enddo
-    endif
-
-    ! process config for modType
-    modType(med) = '' ! mediator type is not used
-    do i = 2,modCount
-      if (.not.modActive(i)) cycle
-      label = modShortNameLC(i)//'Type:'
-      call ESMF_ConfigGetAttribute(config, modType(i), default=defaultModType, &
-        label=trim(label), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
-          trim(label), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      select case (modType(i))
-      case ('live','data')
-      case default
-        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-          msg=trim(cname)//': Model type not supported: '//modType(i))
-        return  ! bail out
-      end select
-      if (verbose) then
-        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-      endif
-    enddo
-
-    ! set model names
-    do i = 1,modCount
-      if (.not.modActive(i)) cycle
-      modName(i) = modShortNameUC(i)//modType(i)
-    enddo
-
-    ! set connector names
-    do j = 1,modCount
-    do i = 1,modCount
-      conName(i,j) = modShortNameUC(i)//'2'//modShortNameUC(j)
-    enddo
-    enddo
-
-    ! set active connectors
-    conActive = .false.
-    if (modActive(med)) then
-      do i = 2,modCount
-        if (modActive(i)) then
-          conActive(i,med) = .true.
-          conActive(med,i) = .true.
-        endif
-      enddo
-    else
-      do j = 2,modCount
-      do i = 2,modCount
-        if (i.eq.j) cycle
-        if (modActive(i).and.modActive(j)) then
-          conActive(i,j) = .true.
-          conActive(j,i) = .true.
-        endif
-      enddo
-      enddo
-    endif
-    if (verbose) then
-      do j = 1,modCount
-      do i = 1,modCount
-        if (.not.conActive(i,j)) cycle
-        write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-      enddo
-      enddo
-    endif
-
     ! NUOPC_Driver registers the generic methods
     call driver_routine_SS(gcomp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -417,10 +397,6 @@ module ESM
       userRoutine=SetModelServices, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_MethodAdd(gcomp, label=driver_label_Finalize, &
-      userRoutine=Finalize, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! create/set the driver clock
     internalClock = ESMF_ClockCreate(name=trim(cname)//" Clock", &
@@ -436,9 +412,6 @@ module ESM
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    if (verbose) &
-    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -448,28 +421,9 @@ module ESM
     integer, intent(out) :: rc
 
     ! local variables
-    character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msgString
-    logical                            :: verbose
     type(driver_type_IS)               :: superIS
-    type(type_InternalState)           :: is
 
     rc = ESMF_SUCCESS
-
-    ! query the component for its name
-    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! query component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    verbose = is%wrap%verbose
-
-    if (verbose) &
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelCount', ESMF_LOGMSG_INFO)
 
     ! query component for super internal State
     nullify(superIS%wrap)
@@ -480,9 +434,6 @@ module ESM
     ! set the modelCount
     superIS%wrap%modelCount = modCount
 
-    if (verbose) &
-    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelCount', ESMF_LOGMSG_INFO)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -492,17 +443,8 @@ module ESM
     integer, intent(out) :: rc
 
     ! local variables
-    character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msgString
-    logical                            :: verbose
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
-    type(type_InternalState)           :: is
-    character(7), pointer              :: modName(:)
-    logical     , pointer              :: modActive(:)
-    character(4), pointer              :: modType(:)
-    character(7), pointer              :: conName(:,:)
-    logical     , pointer              :: conActive(:,:)
     integer                            :: i, j
     integer                            :: k, l, m, n, p
     integer                            :: k1, k2
@@ -510,34 +452,11 @@ module ESM
     integer                            :: petCount
     integer                            :: modPetCount(maxModCount)
     integer     , pointer              :: modPetList(:)
-    type(ESMF_Config)                  :: config
     character(ESMF_MAXSTR)             :: label
     character(ESMF_MAXSTR)             :: petLayoutOption
     integer     , allocatable          :: list(:), ncol(:)
 
     rc = ESMF_SUCCESS
-
-    ! query the component for its name
-    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! query component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    verbose = is%wrap%verbose
-
-    if (verbose) &
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelPetLists', ESMF_LOGMSG_INFO)
-
-    ! set some useful pointers
-    modName   => is%wrap%modName
-    modActive => is%wrap%modActive
-    modType   => is%wrap%modType
-    conName   => is%wrap%conName
-    conActive => is%wrap%conActive
 
     ! query component for super internal State
     nullify(superIS%wrap)
@@ -547,11 +466,6 @@ module ESM
 
     ! get the petCount
     call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! query component for its config
-    call ESMF_GridCompGet(gcomp, config=config, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -699,10 +613,10 @@ module ESM
         endif
         if (verbose) then
           write(msgString,'(a,i0)') trim(cname)//': '// &
-            modShortNameUC(i)//' petList number of rows: ',m
+            modShortNameUC(i)//' petList table number of rows: ',m
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           write(msgString,'(a,i0)') trim(cname)//': '// &
-            modShortNameUC(i)//' petList max number of columns: ',n
+            modShortNameUC(i)//' petList table max number of columns: ',n
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
         endif
         allocate(list(n), ncol(m), stat=stat)
@@ -775,22 +689,29 @@ module ESM
           msg="Deallocation of "//modName(i)//" petList table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         if (verbose) then
-          n = (len(msgString)-len(trim(cname)//':'))/7
+          n = 10
           m = ceiling(real(modPetCount(i))/real(n))
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' PET list: '
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' petList:'
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           do l = 1,m
             k1 = min((l-1)*n+1,modPetCount(i))
             k2 = min((l-1)*n+n,modPetCount(i))
-            write(msgString,'(a,100i7)') trim(cname)//':', (modPetList(k),k=k1,k2)
+            write(msgString,'(a,100i7)') trim(cname)//': ', (modPetList(k),k=k1,k2)
             call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           enddo
         endif
         if (minval(modPetList).lt.0.or.maxval(modPetList).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//trim(label)//' must be > 0 and < petCount')
+            msg=trim(cname)//': '//modShortNameUC(i)//' petList must be > 0 and < petCount')
           return  ! bail out
         endif
+        do j = 1,modPetCount(i)
+          if (count(modPetList.eq.modPetList(j)).gt.1) then
+            call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+              msg=trim(cname)//': '//modShortNameUC(i)//' petList has duplicate entries')
+            return  ! bail out
+          endif
+        enddo
       enddo
 
     ! unsupported petLayoutOption
@@ -799,9 +720,6 @@ module ESM
        msg=trim(cname)//': petLayoutOption not supported: '//trim(petLayoutOption))
       return  ! bail out
     end select
-
-    if (verbose) &
-    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelPetLists', ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -812,17 +730,8 @@ module ESM
     integer, intent(out) :: rc
 
     ! local variables
-    character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msgString
-    logical                            :: verbose
     integer                            :: localrc, stat
     type(driver_type_IS)               :: superIS
-    type(type_InternalState)           :: is
-    character(7), pointer              :: modName(:)
-    logical     , pointer              :: modActive(:)
-    character(4), pointer              :: modType(:)
-    character(7), pointer              :: conName(:,:)
-    logical     , pointer              :: conActive(:,:)
     integer                            :: i, j
     type(ESMF_GridComp), pointer       :: modComp(:)
     type(ESMF_CplComp), pointer        :: conComp(:,:)
@@ -830,21 +739,6 @@ module ESM
     character(ESMF_MAXSTR)             :: verbosity
 
     rc = ESMF_SUCCESS
-
-    ! query the component for its name
-    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! query component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    verbose = is%wrap%verbose
-
-    if (verbose) &
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered SetModelServices', ESMF_LOGMSG_INFO)
 
     ! query component for super internal State
     nullify(superIS%wrap)
@@ -856,19 +750,6 @@ module ESM
     modComp => superIS%wrap%modelComp
     conComp => superIS%wrap%connectorComp
     runSeq => superIS%wrap%runSeq
-
-    ! query component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! set some useful pointers
-    modName   => is%wrap%modName
-    modActive => is%wrap%modActive
-    modType   => is%wrap%modType
-    conName   => is%wrap%conName
-    conActive => is%wrap%conActive
 
     ! set verbosity for components
     if (verbose) then
@@ -923,8 +804,8 @@ module ESM
       select case (modShortNameLC(i))
       case ('med')
         call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
-      case ('atm')
 #ifdef INCLUDE_ATM
+      case ('atm')
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), atmLiveSS, userRc=localrc, rc=rc)
@@ -932,8 +813,8 @@ module ESM
           call ESMF_GridCompSetServices(modComp(i), atmDataSS, userRc=localrc, rc=rc)
         end select
 #endif
-      case ('ocn')
 #ifdef INCLUDE_OCN
+      case ('ocn')
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), ocnLiveSS, userRc=localrc, rc=rc)
@@ -941,8 +822,8 @@ module ESM
           call ESMF_GridCompSetServices(modComp(i), ocnDataSS, userRc=localrc, rc=rc)
         end select
 #endif
-      case ('wav')
 #ifdef INCLUDE_WAV
+      case ('wav')
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), wavLiveSS, userRc=localrc, rc=rc)
@@ -950,8 +831,8 @@ module ESM
           call ESMF_GridCompSetServices(modComp(i), wavDataSS, userRc=localrc, rc=rc)
         end select
 #endif
-      case ('ice')
 #ifdef INCLUDE_ICE
+      case ('ice')
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), iceLiveSS, userRc=localrc, rc=rc)
@@ -959,8 +840,8 @@ module ESM
           call ESMF_GridCompSetServices(modComp(i), iceDataSS, userRc=localrc, rc=rc)
         end select
 #endif
-      case ('lnd')
 #ifdef INCLUDE_LND
+      case ('lnd')
         select case (modType(i))
         case ('live')
           call ESMF_GridCompSetServices(modComp(i), lndLiveSS, userRc=localrc, rc=rc)
@@ -1043,65 +924,6 @@ module ESM
       enddo
     endif
     if (verbose) call NUOPC_RunSequencePrint(runSeq(1))
-
-    if (verbose) &
-    call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetModelServices', ESMF_LOGMSG_INFO)
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
-  subroutine Finalize(gcomp, rc)
-    type(ESMF_GridComp)  :: gcomp
-    integer, intent(out) :: rc
-
-    ! local variables
-    character(ESMF_MAXSTR)             :: cname
-    character(ESMF_MAXSTR)             :: msgString
-    logical                            :: verbose
-    integer                            :: localrc, stat
-    type(driver_type_IS)               :: superIS
-    type(type_InternalState)           :: is
-    integer                            :: i, j
-
-    rc = ESMF_SUCCESS
-
-    ! query the component for its name
-    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! query component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    verbose = is%wrap%verbose
-
-    if (verbose) &
-    call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
-
-    ! query component for super internal State
-    nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! deallocate internal state arrays
-    deallocate(is%wrap%modName, is%wrap%modActive, is%wrap%modType, &
-               is%wrap%conName, is%wrap%conActive, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of internal state arrays failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-
-    ! deallocate internal state memory
-    deallocate(is%wrap, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of internal state memory failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-
-    if (verbose) &
-    call ESMF_LogWrite('<<<'//trim(cname)//' leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
 
