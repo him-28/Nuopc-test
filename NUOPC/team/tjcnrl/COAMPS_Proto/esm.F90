@@ -454,6 +454,7 @@ module ESM
     integer     , pointer              :: modPetList(:)
     character(ESMF_MAXSTR)             :: label
     character(ESMF_MAXSTR)             :: petLayoutOption
+    logical                            :: isPresent
     integer     , allocatable          :: list(:), ncol(:)
 
     rc = ESMF_SUCCESS
@@ -509,8 +510,8 @@ module ESM
       modStart = 1
       if (modActive(med)) then
         label=modShortNameLC(med)//'PetCount:'
-        call ESMF_ConfigFindLabel(config, label=trim(label), rc=rc)
-        if (rc.ne.ESMF_SUCCESS) then
+        call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
+        if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
           if (verbose) then
             write(msgString,'(a,i0)') trim(cname)//': '// &
@@ -581,8 +582,8 @@ module ESM
       modStart = 1
       if (modActive(med)) then
         label=modShortNameLC(med)//'PetList::'
-        call ESMF_ConfigFindLabel(config, trim(label), rc=rc)
-        if (rc.ne.ESMF_SUCCESS) then
+        call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
+        if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
           if (verbose) then
             write(msgString,'(a,i0)') trim(cname)//': '// &

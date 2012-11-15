@@ -2,7 +2,7 @@ README for COAMPS NUOPC prototype
 ---------------------------------------------------
 
 Dependencies: 
-  - ESMF v6.1.0bs06 with NUOPC at HEAD
+  - ESMF v6.1.0bs07
   
 
 Build:
