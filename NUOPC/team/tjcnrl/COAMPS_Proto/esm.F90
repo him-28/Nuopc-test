@@ -228,17 +228,13 @@ module ESM
           trim(label), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      if (modActive(i)) then
+        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is     active'
+      else
+        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
+      endif
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
-    if (verbose) then
-      do i = 1,modCount
-        if (modActive(i)) then
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is     active'
-        else
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
-        endif
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-      enddo
-    endif
 
     ! process config for modType
     modType(med) = '' ! mediator type is not used
@@ -260,14 +256,9 @@ module ESM
           msg=trim(cname)//': Model type not supported: '//modType(i))
         return  ! bail out
       end select
+      write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
-    if (verbose) then
-      do i = 2,modCount
-        if (.not.modActive(i)) cycle
-        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-      enddo
-    endif
 
     ! set model names
     do i = 1,modCount
@@ -302,15 +293,13 @@ module ESM
       enddo
       enddo
     endif
-    if (verbose) then
-      do j = 1,modCount
-      do i = 1,modCount
-        if (.not.conActive(i,j)) cycle
-        write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-      enddo
-      enddo
-    endif
+    do j = 1,modCount
+    do i = 1,modCount
+      if (.not.conActive(i,j)) cycle
+      write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    enddo
+    enddo
 
     ! process config for required startTime input
     label = 'startTime:'
@@ -322,10 +311,8 @@ module ESM
         trim(label)//' YYYY MM DD hh mm ss')
       return  ! bail out
     endif
-    if (verbose) then
-      write(msgString,'(a,6(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=1,6)
-      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-    endif
+    write(msgString,'(a,6(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=1,6)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     call ESMF_TimeSet(startTime, yy=time(1), mm=time(2), dd=time(3), &
       h=time(4), m=time(5), s=time(6), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -341,10 +328,8 @@ module ESM
         trim(label)//' YYYY MM DD hh mm ss')
       return  ! bail out
     endif
-    if (verbose) then
-      write(msgString,'(a,6(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=1,6)
-      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-    endif
+    write(msgString,'(a,6(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=1,6)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     call ESMF_TimeSet(stopTime, yy=time(1), mm=time(2), dd=time(3), &
       h=time(4), m=time(5), s=time(6), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -360,10 +345,8 @@ module ESM
         trim(label)//' hh mm ss')
       return  ! bail out
     endif
-    if (verbose) then
-      write(msgString,'(a,3(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=4,6)
-      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-    endif
+    write(msgString,'(a,3(a,i0))') trim(cname)//': '//trim(label),(' ',time(k),k=4,6)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     call ESMF_TimeIntervalSet(timeStep, h=time(4), m=time(5), s=time(6), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
@@ -476,8 +459,6 @@ module ESM
       label=trim(label), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-
-    if (verbose) &
     call ESMF_LogWrite(trim(cname)//': petLayoutOption = '//trim(petLayoutOption), &
     ESMF_LOGMSG_INFO)
 
@@ -924,7 +905,7 @@ module ESM
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
     endif
-    if (verbose) call NUOPC_RunSequencePrint(runSeq(1))
+    call NUOPC_RunSequencePrint(runSeq(1))
 
   end subroutine
 
