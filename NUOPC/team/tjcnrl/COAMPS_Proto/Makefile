@@ -17,7 +17,7 @@
 ## include line below. However, doing so will render this Makefile a lot less ##
 ## flexible and non-portable.                                                 ##
 ################################################################################
-ESMFV = 6.1.0bs07
+ESMFV = 6.1.0bs08
 CHECK = OFF
 BOPT = O
 NPROC = 1
