@@ -75,7 +75,7 @@ module ESM
 #endif
 
   implicit none
-
+  save
   private
 
   public SetServices
