@@ -1,14 +1,13 @@
 #define FILENAME "esm.F90"
 
 !-------------------------------------------------------------------------------
-! Define connector & mediator component modules
+! Define included component modules
 !-------------------------------------------------------------------------------
 #define MODULE_CON CON
+
+#define INCLUDE_MED
 #define MODULE_MED MED
 
-!-------------------------------------------------------------------------------
-! Define included model component modules
-!-------------------------------------------------------------------------------
 #define INCLUDE_ATM
 #define MODULE_ATMlive MODlive
 #define MODULE_ATMdata MODdata
@@ -29,6 +28,7 @@
 #define MODULE_LNDlive MODlive
 #define MODULE_LNDdata MODdata
 
+
 !-------------------------------------------------------------------------------
 ! Driver component with explicit time stepping
 !-------------------------------------------------------------------------------
@@ -47,28 +47,25 @@ module ESM
     driver_label_Finalize         => label_Finalize
 
   use MODULE_CON    , only: cplSS     => SetServices
+#ifdef INCLUDE_MED
   use MODULE_MED    , only: medSS     => SetServices
-
+#endif
 #ifdef INCLUDE_ATM
   use MODULE_ATMlive, only: atmLiveSS => SetServices
   use MODULE_ATMdata, only: atmDataSS => SetServices
 #endif
-
 #ifdef INCLUDE_OCN
   use MODULE_OCNlive, only: ocnLiveSS => SetServices
   use MODULE_OCNdata, only: ocnDataSS => SetServices
 #endif
-
 #ifdef INCLUDE_WAV
   use MODULE_WAVlive, only: wavLiveSS => SetServices
   use MODULE_WAVdata, only: wavDataSS => SetServices
 #endif
-
 #ifdef INCLUDE_ICE
   use MODULE_ICElive, only: iceLiveSS => SetServices
   use MODULE_ICEdata, only: iceDataSS => SetServices
 #endif
-
 #ifdef INCLUDE_LND
   use MODULE_LNDlive, only: lndLiveSS => SetServices
   use MODULE_LNDdata, only: lndDataSS => SetServices
@@ -90,8 +87,8 @@ module ESM
   character(3) :: modShortNameLC(maxModCount)
   character(3) :: modShortNameUC(maxModCount)
   character(7) :: modName(maxModCount)
-  logical      :: modActive(maxModCount)
   character(4) :: modType(maxModCount)
+  logical      :: modActive(maxModCount)
   character(7) :: conName(maxModCount,maxModCount)
   logical      :: conActive(maxModCount,maxModCount)
 
@@ -143,7 +140,11 @@ module ESM
     endif
 
     ! report on compiled modules
+#ifdef INCLUDE_MED
     call ESMF_LogWrite(trim(cname)//': compiled with    MED module', ESMF_LOGMSG_INFO)
+#else
+    call ESMF_LogWrite(trim(cname)//': compiled without MED module', ESMF_LOGMSG_INFO)
+#endif
 #ifdef INCLUDE_ATM
     call ESMF_LogWrite(trim(cname)//': compiled with    ATM module', ESMF_LOGMSG_INFO)
 #else
@@ -171,10 +172,13 @@ module ESM
 #endif
 
     ! set model count, model index mapping, and model short names
-    modCount = 1
+    modCount = 0
+#ifdef INCLUDE_MED
+    modCount = modCount + 1
     med = modCount
     modShortNameLC(med) = 'med'
     modShortNameUC(med) = 'MED'
+#endif
 #ifdef INCLUDE_ATM
     modCount = modCount + 1
     atm = modCount
@@ -237,8 +241,12 @@ module ESM
     enddo
 
     ! process config for modType
+#ifdef INCLUDE_MED
     modType(med) = '' ! mediator type is not used
     do i = 2,modCount
+#else
+    do i = 1,modCount
+#endif
       if (.not.modActive(i)) cycle
       label = modShortNameLC(i)//'Type:'
       call ESMF_ConfigGetAttribute(config, modType(i), default=defaultModType, &
@@ -275,6 +283,7 @@ module ESM
 
     ! set active connectors
     conActive = .false.
+#ifdef INCLUDE_MED
     if (modActive(med)) then
       do i = 2,modCount
         if (modActive(i)) then
@@ -293,6 +302,17 @@ module ESM
       enddo
       enddo
     endif
+#else
+    do j = 1,modCount
+    do i = 1,modCount
+      if (i.eq.j) cycle
+      if (modActive(i).and.modActive(j)) then
+        conActive(i,j) = .true.
+        conActive(j,i) = .true.
+      endif
+    enddo
+    enddo
+#endif
     do j = 1,modCount
     do i = 1,modCount
       if (.not.conActive(i,j)) cycle
@@ -489,6 +509,7 @@ module ESM
     !   * requires \sum(<mod>PetCount) <= petCount
     case ('concurrent')
       modStart = 1
+#ifdef INCLUDE_MED
       if (modActive(med)) then
         label=modShortNameLC(med)//'PetCount:'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
@@ -510,6 +531,7 @@ module ESM
           modStart = 2
         endif
       endif
+#endif
       n = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
@@ -561,6 +583,7 @@ module ESM
     !   * requires min(<mod>PetList) >= 0 && max(<mod>PetList) < petCount
     case ('specified')
       modStart = 1
+#ifdef INCLUDE_MED
       if (modActive(med)) then
         label=modShortNameLC(med)//'PetList::'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
@@ -582,6 +605,7 @@ module ESM
           modStart = 2
         endif
       endif
+#endif
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
         label=modShortNameLC(i)//'PetList::'
@@ -745,7 +769,7 @@ module ESM
       call ESMF_GridCompSet(modComp(i), name=modName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//trim(modName(i))
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -753,7 +777,7 @@ module ESM
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//trim(modName(i))
+        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -765,7 +789,7 @@ module ESM
       call ESMF_CplCompSet(conComp(i,j), name=conName(i,j), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//trim(conName(i,j))
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -773,7 +797,7 @@ module ESM
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//trim(conName(i,j))
+        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -784,8 +808,10 @@ module ESM
     do i = 1,modCount
       if (.not.modActive(i)) cycle
       select case (modShortNameLC(i))
+#ifdef INCLUDE_MED
       case ('med')
         call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
+#endif
 #ifdef INCLUDE_ATM
       case ('atm')
         select case (modType(i))
@@ -836,7 +862,7 @@ module ESM
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//trim(modName(i))
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -851,7 +877,7 @@ module ESM
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//trim(conName(i,j))
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -866,6 +892,7 @@ module ESM
     call NUOPC_RunSequenceAdd(runSeq, 1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out    
+#ifdef INCLUDE_MED
     if (modActive(med)) then
       do i = 2,modCount
         if (.not.conActive(i,med)) cycle
@@ -905,6 +932,23 @@ module ESM
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
     endif
+#else
+    do j = 1,modCount
+    do i = 1,modCount
+      if (i.eq.j) cycle
+      if (.not.conActive(i,j)) cycle
+      call NUOPC_RunElementAdd(runSeq(1), i=i, j=j, phase=1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    enddo
+    enddo
+    do i = 1,modCount
+      if (.not.modActive(i)) cycle
+      call NUOPC_RunElementAdd(runSeq(1), i=i, j=-1, phase=1, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    enddo
+#endif
     call NUOPC_RunSequencePrint(runSeq(1))
 
   end subroutine
