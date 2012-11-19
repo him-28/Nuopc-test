@@ -1,18 +1,18 @@
-#define FILENAME "esmApp.F90"
+#define FILENAME "mainApp.F90"
 
-program esmApp
+program mainApp
 
   !-----------------------------------------------------------------------------
-  ! Generic ESM application driver
+  ! Generic application driver
   !-----------------------------------------------------------------------------
 
   use ESMF
-  use ESM, only: esmSS => SetServices
+  use DRV, only: drvSS => SetServices
 
   implicit none
 
   integer                 :: rc, urc
-  type(ESMF_GridComp)     :: esmComp
+  type(ESMF_GridComp)     :: gcomp
   integer                 :: argCount
   type(ESMF_Config)       :: config
   character(ESMF_MAXSTR)  :: configFile
@@ -24,11 +24,11 @@ program esmApp
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
   ! Create the earth system Component
-  esmComp = ESMF_GridCompCreate(name="ESM", rc=rc)
+  gcomp = ESMF_GridCompCreate(name="DRV", rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-  ! Set config for the earth system Component
+  ! Set config for the driver Component
   call ESMF_UtilGetArgC(argCount, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -42,41 +42,41 @@ program esmApp
     call ESMF_ConfigLoadFile(config, trim(configFile), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call ESMF_GridCompSet(esmComp, config=config, rc=rc)
+    call ESMF_GridCompSet(gcomp, config=config, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   endif
     
-  ! SetServices for the earth system Component
-  call ESMF_GridCompSetServices(esmComp, esmSS, userRc=urc, rc=rc)
+  ! SetServices for the driver Component
+  call ESMF_GridCompSetServices(gcomp, drvSS, userRc=urc, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
     
-  ! Call Initialize for the earth system Component
-  call ESMF_GridCompInitialize(esmComp, userRc=urc, rc=rc)
+  ! Call Initialize for the driver Component
+  call ESMF_GridCompInitialize(gcomp, userRc=urc, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   
-  ! Call Run  for earth the system Component
-  call ESMF_GridCompRun(esmComp, userRc=urc, rc=rc)
+  ! Call Run for the driver Component
+  call ESMF_GridCompRun(gcomp, userRc=urc, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   
-  ! Call Finalize for the earth system Component
-  call ESMF_GridCompFinalize(esmComp, userRc=urc, rc=rc)
+  ! Call Finalize for the driver Component
+  call ESMF_GridCompFinalize(gcomp, userRc=urc, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
     
-  ! Destroy the earth system Component
-  call ESMF_GridCompDestroy(esmComp, rc=rc)
+  ! Destroy the driver Component
+  call ESMF_GridCompDestroy(gcomp, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
   

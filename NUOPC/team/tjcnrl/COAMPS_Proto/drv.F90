@@ -1,4 +1,4 @@
-#define FILENAME "esm.F90"
+#define FILENAME "drv.F90"
 
 !-------------------------------------------------------------------------------
 ! Define included component modules
@@ -32,7 +32,7 @@
 !-------------------------------------------------------------------------------
 ! Driver component with explicit time stepping
 !-------------------------------------------------------------------------------
-module ESM
+module DRV
 
   use ESMF
   use NUOPC
