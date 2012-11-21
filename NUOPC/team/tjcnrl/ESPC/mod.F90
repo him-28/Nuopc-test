@@ -1,9 +1,9 @@
-#define FILENAME "modLive.F90"
+#define FILENAME "mod.F90"
 
-module MODLive
+module MOD
 
   !-----------------------------------------------------------------------------
-  ! Live MODEL Component.
+  ! MODEL Component.
   !-----------------------------------------------------------------------------
 
   use ESMF
