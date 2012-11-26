@@ -34,6 +34,7 @@ Code structure:
   - con.F90     - The Connector component, specializing generic NUOPC_Connector
   - med.F90     - The Mediator component, specializing generic NUOPC_Mediator
   - mod.F90     - The Model component(s), specializing generic NUOPC_Model
+  - mbg.F90     - The Model "background" component(s), specializing generic NUOPC_Model
 
 
 ESMF Config input for ESM Driver:
