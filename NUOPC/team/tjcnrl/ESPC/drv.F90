@@ -20,15 +20,7 @@ module DRV
 
   use ESMF
   use NUOPC
-  use NUOPC_Driver, only: &
-    driver_routine_SS             => routine_SetServices, &
-    driver_type_IS                => type_InternalState, &
-    driver_type_PetList           => type_PetList, &
-    driver_label_IS               => label_InternalState, &
-    driver_label_SetModelCount    => label_SetModelCount, &
-    driver_label_SetModelPetLists => label_SetModelPetLists, &
-    driver_label_SetModelServices => label_SetModelServices, &
-    driver_label_Finalize         => label_Finalize
+  use NUOPC_Driver
 
   use MODULE_CON, only: cplSS => SetServices
 #ifdef MODULE_MED
@@ -366,20 +358,20 @@ module DRV
     endif
 
     ! NUOPC_Driver registers the generic methods
-    call driver_routine_SS(gcomp, rc=rc)
+    call routine_SetServices(gcomp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! attach specializing method(s)
-    call ESMF_MethodAdd(gcomp, label=driver_label_SetModelCount, &
+    call ESMF_MethodAdd(gcomp, label=label_SetModelCount, &
       userRoutine=SetModelCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_MethodAdd(gcomp, label=driver_label_SetModelPetLists, &
+    call ESMF_MethodAdd(gcomp, label=label_SetModelPetLists, &
       userRoutine=SetModelPetLists, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_MethodAdd(gcomp, label=driver_label_SetModelServices, &
+    call ESMF_MethodAdd(gcomp, label=label_SetModelServices, &
       userRoutine=SetModelServices, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
@@ -402,13 +394,13 @@ module DRV
     integer, intent(out) :: rc
 
     ! local variables
-    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: superIS
 
     rc = ESMF_SUCCESS
 
     ! query component for super internal State
     nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -425,7 +417,7 @@ module DRV
 
     ! local variables
     integer                            :: localrc, stat
-    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: superIS
     integer                            :: i, j
     integer                            :: k, l, m, n, p
     integer                            :: k1, k2
@@ -442,7 +434,7 @@ module DRV
 
     ! query component for super internal State
     nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -767,7 +759,7 @@ module DRV
 
     ! local variables
     integer                            :: localrc, stat
-    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: superIS
     integer                            :: i, j
     type(ESMF_GridComp), pointer       :: modComp(:)
     type(ESMF_CplComp), pointer        :: conComp(:,:)
@@ -778,7 +770,7 @@ module DRV
 
     ! query component for super internal State
     nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
