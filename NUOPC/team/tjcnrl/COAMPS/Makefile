@@ -51,6 +51,11 @@ endif
 
 include $(ESMFMKFILE)
 
+#ESMF_F90COMPILECPPFLAGS += -DMODULE_MED=MED
+#ESMF_F90COMPILECPPFLAGS += -DMODULE_OBG=MBG
+#ESMF_F90COMPILECPPFLAGS += -DMODULE_WBG=MBG
+#ESMF_F90COMPILECPPFLAGS += -DUSE_MODIFIED_STANDARD_NAMES
+
 ################################################################################
 ################################################################################
 

@@ -272,8 +272,13 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 4,6
+#ifdef USE_MODIFIED_STANDARD_NAMES
+      call NUOPC_StateAdvertiseField(state, &
+        StandardName='background_'//trim(is%wrap%impStdName(i)), rc=rc)
+#else
       call NUOPC_StateAdvertiseField(state, &
         StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+#endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
@@ -291,8 +296,13 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 7,12
+#ifdef USE_MODIFIED_STANDARD_NAMES
+      call NUOPC_StateAdvertiseField(state, &
+        StandardName='background_'//trim(is%wrap%impStdName(i)), rc=rc)
+#else
       call NUOPC_StateAdvertiseField(state, &
         StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+#endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
@@ -420,8 +430,13 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 4,6
+#ifdef USE_MODIFIED_STANDARD_NAMES
+      call NUOPC_FieldDictionaryGetEntry('background_'//trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+#else
       call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
         defaultShortName=fname, rc=rc)
+#endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
@@ -472,8 +487,13 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 7,12
+#ifdef USE_MODIFIED_STANDARD_NAMES
+      call NUOPC_FieldDictionaryGetEntry('background_'//trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+#else
       call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
         defaultShortName=fname, rc=rc)
+#endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &

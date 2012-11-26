@@ -209,6 +209,11 @@ module MBG
         is%wrap%expStdName( 5) = "eastward_stokes_drift_current"
         is%wrap%expStdName( 6) = "northward_stokes_drift_current"
     end select
+#ifdef USE_MODIFIED_STANDARD_NAMES
+    do i = 1,is%wrap%numExport
+      is%wrap%expStdName(i) = 'background_'//is%wrap%expStdName(i)
+    enddo
+#endif
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)

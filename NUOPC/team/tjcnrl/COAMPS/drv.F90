@@ -4,13 +4,10 @@
 ! Define included component modules
 !-------------------------------------------------------------------------------
 #define MODULE_CON CON
-#define MODULE_MED MED
 #define MODULE_ATM MOD
 #define MODULE_OCN MOD
 #define MODULE_WAV MOD
 #define MODULE_ICE MOD
-#define MODULE_OBG MBG
-#define MODULE_WBG MBG
 
 
 !-------------------------------------------------------------------------------
