@@ -182,13 +182,13 @@ module MED
     is%wrap%impStdName( 8) = "surface_northward_wind_to_wave_stress"
     is%wrap%impStdName( 9) = "surface_eastward_wave_to_ocean_stress"
     is%wrap%impStdName(10) = "surface_northward_wave_to_ocean_stress"
-    is%wrap%impStdName(11) = "sea_ice_eastward_drift_velocity"
-    is%wrap%impStdName(12) = "sea_ice_northward_drift_velocity"
-    is%wrap%impStdName(13) = "sea_ice_concentration"
-    is%wrap%impStdName(14) = "sea_ice_thickness"
-    is%wrap%impStdName(15) = "sea_ice_temperature"
-    is%wrap%impStdName(16) = "eastward_stokes_drift_current"
-    is%wrap%impStdName(17) = "northward_stokes_drift_current"
+    is%wrap%impStdName(11) = "eastward_stokes_drift_current"
+    is%wrap%impStdName(12) = "northward_stokes_drift_current"
+    is%wrap%impStdName(13) = "sea_ice_eastward_drift_velocity"
+    is%wrap%impStdName(14) = "sea_ice_northward_drift_velocity"
+    is%wrap%impStdName(15) = "sea_ice_concentration"
+    is%wrap%impStdName(16) = "sea_ice_thickness"
+    is%wrap%impStdName(17) = "sea_ice_temperature"
 
     ! define exportable fields
     is%wrap%numExport = 15
@@ -232,6 +232,7 @@ module MED
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
     integer                       :: i
+    type(ESMF_State)              :: state
 
     rc = ESMF_SUCCESS
 
@@ -253,6 +254,44 @@ module MED
     ! advertise importable fields
     do i = 1,is%wrap%numImport
       call NUOPC_StateAdvertiseField(importState, &
+        StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
+
+    ! advertise importable fields for OBG
+    state = ESMF_StateCreate(name="Import OBG", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    call ESMF_StateAdd(importState, (/state/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    do i = 4,6
+      call NUOPC_StateAdvertiseField(state, &
+        StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
+
+    ! advertise importable fields for WBG
+    state = ESMF_StateCreate(name="Import WBG", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    call ESMF_StateAdd(importState, (/state/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    do i = 7,12
+      call NUOPC_StateAdvertiseField(state, &
         StandardName=trim(is%wrap%impStdName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -301,6 +340,7 @@ module MED
     type(ESMF_Grid)               :: gridIn
     type(ESMF_Grid)               :: gridOut
     integer                       :: i
+    type(ESMF_State)              :: state
 
     rc = ESMF_SUCCESS
 
@@ -365,6 +405,110 @@ module MED
         endif
       else
         call ESMF_StateRemove(importState, (/trim(fname)/), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+      endif
+    enddo
+
+    ! realize connected OBG import fields (& remove unconnected)
+    call ESMF_StateGet(importState, itemName="Import OBG", nestedState=state, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    do i = 4,6
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      connected = NUOPC_StateIsFieldConnected(state, trim(fname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      if (connected) then
+        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+        call NUOPC_StateRealizeField(state, field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+      else
+        call ESMF_StateRemove(state, (/trim(fname)/), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+      endif
+    enddo
+
+    ! realize connected WBG import fields (& remove unconnected)
+    call ESMF_StateGet(importState, itemName="Import WBG", nestedState=state, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    do i = 7,12
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      connected = NUOPC_StateIsFieldConnected(state, trim(fname), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      if (connected) then
+        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+        call NUOPC_StateRealizeField(state, field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+            ', '//trim(is%wrap%impStdName(i))
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+          return  ! bail out
+        endif
+      else
+        call ESMF_StateRemove(state, (/trim(fname)/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
