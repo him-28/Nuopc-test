@@ -36,15 +36,7 @@ module DRV
 
   use ESMF
   use NUOPC
-  use NUOPC_Driver, only: &
-    driver_routine_SS             => routine_SetServices, &
-    driver_type_IS                => type_InternalState, &
-    driver_type_PetList           => type_PetList, &
-    driver_label_IS               => label_InternalState, &
-    driver_label_SetModelCount    => label_SetModelCount, &
-    driver_label_SetModelPetLists => label_SetModelPetLists, &
-    driver_label_SetModelServices => label_SetModelServices, &
-    driver_label_Finalize         => label_Finalize
+  use NUOPC_Driver
 
   use MODULE_CON    , only: cplSS     => SetServices
 #ifdef INCLUDE_MED
@@ -322,7 +314,7 @@ module DRV
     enddo
 
     ! process config for required startTime input
-    label = 'startTime:'
+    label = 'start_time:'
     call ESMF_ConfigGetAttribute(config, time, count=6, label=trim(label), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) then
@@ -339,7 +331,7 @@ module DRV
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! process config for required stopTime input
-    label = 'stopTime:'
+    label = 'stop_time:'
     call ESMF_ConfigGetAttribute(config, time, count=6, label=trim(label), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) then
@@ -356,7 +348,7 @@ module DRV
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! process config for required timeStep input
-    label = 'timeStep:'
+    label = 'time_step:'
     call ESMF_ConfigGetAttribute(config, time(4:6), count=3, label=trim(label), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) then
@@ -383,35 +375,30 @@ module DRV
     endif
 
     ! NUOPC_Driver registers the generic methods
-    call driver_routine_SS(gcomp, rc=rc)
+    call routine_SetServices(gcomp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! attach specializing method(s)
-    call ESMF_MethodAdd(gcomp, label=driver_label_SetModelCount, &
+    call ESMF_MethodAdd(gcomp, label=label_SetModelCount, &
       userRoutine=SetModelCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_MethodAdd(gcomp, label=driver_label_SetModelPetLists, &
+    call ESMF_MethodAdd(gcomp, label=label_SetModelPetLists, &
       userRoutine=SetModelPetLists, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_MethodAdd(gcomp, label=driver_label_SetModelServices, &
+    call ESMF_MethodAdd(gcomp, label=label_SetModelServices, &
       userRoutine=SetModelServices, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! create/set the driver clock
-    internalClock = ESMF_ClockCreate(name=trim(cname)//" Clock", &
+    internalClock = ESMF_ClockCreate(name=trim(cname)//"_clock", &
       timeStep=timeStep, startTime=startTime, stopTime=stopTime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     call ESMF_GridCompSet(gcomp, clock=internalClock, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! add required fields to NUOPC field dictionary
-    call SetFieldDictionary(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -424,13 +411,13 @@ module DRV
     integer, intent(out) :: rc
 
     ! local variables
-    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: superIS
 
     rc = ESMF_SUCCESS
 
     ! query component for super internal State
     nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -447,7 +434,7 @@ module DRV
 
     ! local variables
     integer                            :: localrc, stat
-    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: superIS
     integer                            :: i, j
     integer                            :: k, l, m, n, p
     integer                            :: k1, k2
@@ -464,7 +451,7 @@ module DRV
 
     ! query component for super internal State
     nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -474,12 +461,12 @@ module DRV
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! process config for petLayoutOption
-    label = 'petLayoutOption:'
+    label = 'pet_layout_option:'
     call ESMF_ConfigGetAttribute(config, petLayoutOption, default='sequential', &
       label=trim(label), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_LogWrite(trim(cname)//': petLayoutOption = '//trim(petLayoutOption), &
+    call ESMF_LogWrite(trim(cname)//': '//trim(label)//' '//trim(petLayoutOption), &
     ESMF_LOGMSG_INFO)
 
     ! set the model petLists based on petLayoutOption
@@ -504,14 +491,14 @@ module DRV
 
     ! petLayoutOption = concurrent
     !   * active models defined on non-overlapping sets of PETs
-    !   * requires <mod>PetCount input for active models
-    !   * medPetCount optional, default is MED defined on all PETs
-    !   * requires \sum(<mod>PetCount) <= petCount
+    !   * requires <MOD>_pet_count input for active models
+    !   * MED_pet_count optional, default is MED defined on all PETs
+    !   * requires \sum(<MOD>_pet_count) <= petCount
     case ('concurrent')
       modStart = 1
 #ifdef INCLUDE_MED
       if (modActive(med)) then
-        label=modShortNameLC(med)//'PetCount:'
+        label=modShortNameLC(med)//'_pet_count:'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
         if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
@@ -522,7 +509,7 @@ module DRV
           endif
           allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
           if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-            msg="Allocation of "//modName(i)//" petList array failed.", &
+            msg="Allocation of "//modName(i)//" PET list array failed.", &
             line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
           modPetList => superIS%wrap%modelPetLists(med)%petList
           do j = 1,petCount
@@ -535,12 +522,12 @@ module DRV
       n = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-        label=modShortNameLC(i)//'PetCount:'
+        label=modShortNameLC(i)//'_pet_count:'
         call ESMF_ConfigGetAttribute(config, modPetCount(i), label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//trim(label)//' is required when petLayoutOption'// &
+            msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
             ' = concurrent and '//modShortNameUC(i)//' is active')
           return  ! bail out
         endif
@@ -551,15 +538,15 @@ module DRV
         endif
         if (modPetCount(i).lt.1.or.modPetCount(i).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//trim(label)//' must be > 0 and < petCount')
+            msg=trim(cname)//': '//trim(label)//' must be > 0 and < # PETs')
           return  ! bail out
         endif
         n = n + modPetCount(i)
       enddo
       if (n.gt.petCount) then
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-          msg=trim(cname)//': petLayoutOption = concurrent requires'// &
-          ' \sum(<mod>PetCount) <= petCount for active models')
+          msg=trim(cname)//': pet_layout_option = concurrent requires'// &
+          ' \sum(<MOD>_pet_count) <= # PETs for active models')
         return  ! bail out
       endif
       n = 0
@@ -567,7 +554,7 @@ module DRV
         if (.not.modActive(i)) cycle
         allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modName(i)//" petList array failed.", &
+          msg="Allocation of "//modName(i)//" PET list array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         modPetList => superIS%wrap%modelPetLists(i)%petList
         do j = 1,modPetCount(i)
@@ -578,14 +565,14 @@ module DRV
 
     ! petLayoutOption = specified
     !   * active models defined on specified sets of PETs
-    !   * requires <mod>PetList input for active models
-    !   * medPetList optional, default is MED defined on all PETs
-    !   * requires min(<mod>PetList) >= 0 && max(<mod>PetList) < petCount
+    !   * requires <MOD>_pet_list input for active models
+    !   * MED_pet_list optional, default is MED defined on all PETs
+    !   * requires min(<MOD>_pet_list) >= 0 && max(<MOD>_pet_list) < petCount
     case ('specified')
       modStart = 1
 #ifdef INCLUDE_MED
       if (modActive(med)) then
-        label=modShortNameLC(med)//'PetList::'
+        label=modShortNameLC(med)//'_pet_list::'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
         if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
@@ -596,7 +583,7 @@ module DRV
           endif
           allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
           if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-            msg="Allocation of "//modName(i)//" petList array failed.", &
+            msg="Allocation of "//modName(i)//" PET list array failed.", &
             line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
           modPetList => superIS%wrap%modelPetLists(med)%petList
           do j = 1,petCount
@@ -608,26 +595,26 @@ module DRV
 #endif
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-        label=modShortNameLC(i)//'PetList::'
+        label=modShortNameLC(i)//'_pet_list::'
         call ESMF_ConfigGetDim(config, m, n, label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//trim(label)//' is required when petLayoutOption'// &
+            msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
             ' = specified and '//modShortNameUC(i)//' is active')
           return  ! bail out
         endif
         if (verbose) then
           write(msgString,'(a,i0)') trim(cname)//': '// &
-            modShortNameUC(i)//' petList table number of rows: ',m
+            trim(label)//' table number of rows: ',m
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           write(msgString,'(a,i0)') trim(cname)//': '// &
-            modShortNameUC(i)//' petList table max number of columns: ',n
+            trim(label)//' table max number of columns: ',n
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
         endif
         allocate(list(n), ncol(m), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modName(i)//" petList table failed.", &
+          msg="Allocation of "//modName(i)//" PET list table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         do p = 1,2
           if (p.eq.2) then
@@ -639,12 +626,12 @@ module DRV
             if (modPetCount(i).lt.1.or.modPetCount(i).gt.petCount) then
               call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
                 msg=trim(cname)//': '//modShortNameUC(i)// &
-                ' PET count must be > 0 and <= petCount')
+                ' PET count must be > 0 and <= # PETs')
               return  ! bail out
             endif
             allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
             if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-              msg="Allocation of "//modName(i)//" petList array failed.", &
+              msg="Allocation of "//modName(i)//" PET list array failed.", &
               line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
             modPetList => superIS%wrap%modelPetLists(i)%petList
           endif
@@ -652,7 +639,7 @@ module DRV
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=FILENAME)) then
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-              msg=trim(cname)//': '//trim(label)//' is required when petLayoutOption'// &
+              msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
               ' = specified and '//modShortNameUC(i)//' is active')
             return  ! bail out
           endif
@@ -692,12 +679,12 @@ module DRV
         enddo
         deallocate(list, ncol, stat=stat)
         if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-          msg="Deallocation of "//modName(i)//" petList table failed.", &
+          msg="Deallocation of "//modName(i)//" PET list table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         if (verbose) then
           n = 10
           m = ceiling(real(modPetCount(i))/real(n))
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' petList:'
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' PET list:'
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           do l = 1,m
             k1 = min((l-1)*n+1,modPetCount(i))
@@ -708,13 +695,13 @@ module DRV
         endif
         if (minval(modPetList).lt.0.or.maxval(modPetList).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//modShortNameUC(i)//' petList must be > 0 and < petCount')
+            msg=trim(cname)//': '//modShortNameUC(i)//' PET list ids must be > 0 and < # PETs')
           return  ! bail out
         endif
         do j = 1,modPetCount(i)
           if (count(modPetList.eq.modPetList(j)).gt.1) then
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-              msg=trim(cname)//': '//modShortNameUC(i)//' petList has duplicate entries')
+              msg=trim(cname)//': '//modShortNameUC(i)//' PET list has duplicate entries')
             return  ! bail out
           endif
         enddo
@@ -723,7 +710,7 @@ module DRV
     ! unsupported petLayoutOption
     case default
       call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-       msg=trim(cname)//': petLayoutOption not supported: '//trim(petLayoutOption))
+       msg=trim(cname)//': pet_layout_option not supported: '//trim(petLayoutOption))
       return  ! bail out
     end select
 
@@ -737,7 +724,7 @@ module DRV
 
     ! local variables
     integer                            :: localrc, stat
-    type(driver_type_IS)               :: superIS
+    type(type_InternalState)           :: superIS
     integer                            :: i, j
     type(ESMF_GridComp), pointer       :: modComp(:)
     type(ESMF_CplComp), pointer        :: conComp(:,:)
@@ -748,7 +735,7 @@ module DRV
 
     ! query component for super internal State
     nullify(superIS%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, driver_label_IS, superIS, rc)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -775,9 +762,16 @@ module DRV
       endif
       call ESMF_AttributeSet(modComp(i), name="Verbosity", value=trim(verbosity), &
         convention="NUOPC", purpose="General", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//modName(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_GridCompSet(modComp(i), config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -795,9 +789,16 @@ module DRV
       endif
       call ESMF_AttributeSet(conComp(i,j), name="Verbosity", value=trim(verbosity), &
         convention="NUOPC", purpose="General", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//conName(i,j)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_CplCompSet(conComp(i,j), config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,2i2,a)') 'Set config: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -950,177 +951,6 @@ module DRV
     enddo
 #endif
     call NUOPC_RunSequencePrint(runSeq(1))
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
-  subroutine SetFieldDictionary(rc)
-    integer, intent(out) :: rc
-
-    rc = ESMF_SUCCESS
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "eastward_wind_at_10m_height", &
-       canonicalUnits="m s-1", &
-       defaultLongName="N/A", &
-       defaultShortName="wind_10m_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "northward_wind_at_10m_height", &
-       canonicalUnits="m s-1", &
-       defaultLongName="N/A", &
-       defaultShortName="wind_10m_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "air_temperature_at_2m_height", &
-       canonicalUnits="K", &
-       defaultLongName="N/A", &
-       defaultShortName="air_temp_2m", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "surface_eastward_wind_to_wave_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_atm_wav_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "surface_northward_wind_to_wave_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_atm_wav_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "surface_eastward_wave_to_ocean_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_wav_ocn_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "surface_northward_wave_to_ocean_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_wav_ocn_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_eastward_drift_velocity", &
-       canonicalUnits="m s-1", &
-       defaultLongName="N/A", &
-       defaultShortName="ice_drift_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_northward_drift_velocity", &
-       canonicalUnits="m s-1", &
-       defaultLongName="N/A", &
-       defaultShortName="ice_drift_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_concentration", &
-       canonicalUnits="ice", &
-       defaultLongName="N/A", &
-       defaultShortName="ice_conc", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_thickness", &
-       canonicalUnits="m", &
-       defaultLongName="N/A", &
-       defaultShortName="ice_thick", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_temperature", &
-       canonicalUnits="K", &
-       defaultLongName="N/A", &
-       defaultShortName="ice_temp", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_surface_downward_eastward_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_ocn_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_surface_downward_northward_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_ocn_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_surface_downward_eastward_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_atm_ice_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_surface_downward_northward_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_atm_ice_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_basal_upward_eastward_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_ocn_ice_u", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_FieldDictionaryAddEntry( &
-       "sea_ice_basal_upward_northward_stress", &
-       canonicalUnits="Pa", &
-       defaultLongName="N/A", &
-       defaultShortName="tau_ocn_ice_v", &
-       rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
 
   end subroutine
 

@@ -475,7 +475,7 @@ module DRV
     ! petLayoutOption = concurrent
     !   * active models defined on non-overlapping sets of PETs
     !   * requires <MOD>_pet_count input for active models
-    !   * medPetCount optional, default is MED defined on all PETs
+    !   * MED_pet_count optional, default is MED defined on all PETs
     !   * requires \sum(<MOD>_pet_count) <= petCount
     case ('concurrent')
       modStart = 1
