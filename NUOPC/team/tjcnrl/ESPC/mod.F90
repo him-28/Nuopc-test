@@ -482,7 +482,7 @@ module MOD
         return  ! bail out
       endif
       if (connected) then
-        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+        field = ESMF_FieldCreate(name=trim(fname), grid=gridOut, &
           typekind=ESMF_TYPEKIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
