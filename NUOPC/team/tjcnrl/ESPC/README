@@ -1,4 +1,4 @@
-README for COAMPS prototype
+README for ESPC prototype
 ---------------------------------------------------
 
 Dependencies: 
@@ -33,7 +33,8 @@ Code structure:
   - drv.F90     - The Driver component, specializing generic NUOPC_Driver
   - con.F90     - The Connector component, specializing generic NUOPC_Connector
   - med.F90     - The Mediator component, specializing generic NUOPC_Mediator
-  - mod.F90     - The Model component(s), specializing generic NUOPC_Model
+  - modLive.F90 - The Live Model component(s), specializing generic NUOPC_Model
+  - modData.F90 - The Data Model component(s), specializing generic NUOPC_Model
 
 
 ESMF Config input for ESM Driver:
@@ -58,6 +59,12 @@ ESMF Config input for ESM Driver:
   <MOD>_active:        logical         t, f          t           enable/disable <MOD> model
                                                                  * MOD = MED, ATM, OCN, WAV, ICE, LND
                                                                  * optional
+
+  <mod>Type:           string          live          live        set <MOD> model type
+                                       data                      * mod = atm, ocn, wav, ice, lnd
+                                                                 * optional
+                                                                 * live: actual model
+                                                                 * data: from files model
 
   pet_layout_option:   string          sequential    sequential  set the type of PET layout
                                        concurrent                * optional

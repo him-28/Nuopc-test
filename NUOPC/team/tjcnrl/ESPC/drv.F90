@@ -4,13 +4,29 @@
 ! Define included component modules
 !-------------------------------------------------------------------------------
 #define MODULE_CON CON
+
+#define INCLUDE_MED
 #define MODULE_MED MED
-#define MODULE_ATM MOD
-#define MODULE_OCN MOD
-#define MODULE_WAV MOD
-#define MODULE_ICE MOD
-#define MODULE_OBG MBG
-#define MODULE_WBG MBG
+
+#define INCLUDE_ATM
+#define MODULE_ATMlive MODlive
+#define MODULE_ATMdata MODdata
+
+#define INCLUDE_OCN
+#define MODULE_OCNlive MODlive
+#define MODULE_OCNdata MODdata
+
+#define INCLUDE_WAV
+#define MODULE_WAVlive MODlive
+#define MODULE_WAVdata MODdata
+
+#define INCLUDE_ICE
+#define MODULE_ICElive MODlive
+#define MODULE_ICEdata MODdata
+
+#undef  INCLUDE_LND
+#define MODULE_LNDlive MODlive
+#define MODULE_LNDdata MODdata
 
 
 !-------------------------------------------------------------------------------
@@ -22,30 +38,29 @@ module DRV
   use NUOPC
   use NUOPC_Driver
 
-  use MODULE_CON, only: cplSS => SetServices
-#ifdef MODULE_MED
-  use MODULE_MED, only: medSS => SetServices
+  use MODULE_CON    , only: cplSS     => SetServices
+#ifdef INCLUDE_MED
+  use MODULE_MED    , only: medSS     => SetServices
 #endif
-#ifdef MODULE_ATM
-  use MODULE_ATM, only: atmSS => SetServices
+#ifdef INCLUDE_ATM
+  use MODULE_ATMlive, only: atmLiveSS => SetServices
+  use MODULE_ATMdata, only: atmDataSS => SetServices
 #endif
-#ifdef MODULE_OCN
-  use MODULE_OCN, only: ocnSS => SetServices
+#ifdef INCLUDE_OCN
+  use MODULE_OCNlive, only: ocnLiveSS => SetServices
+  use MODULE_OCNdata, only: ocnDataSS => SetServices
 #endif
-#ifdef MODULE_WAV
-  use MODULE_WAV, only: wavSS => SetServices
+#ifdef INCLUDE_WAV
+  use MODULE_WAVlive, only: wavLiveSS => SetServices
+  use MODULE_WAVdata, only: wavDataSS => SetServices
 #endif
-#ifdef MODULE_ICE
-  use MODULE_ICE, only: iceSS => SetServices
+#ifdef INCLUDE_ICE
+  use MODULE_ICElive, only: iceLiveSS => SetServices
+  use MODULE_ICEdata, only: iceDataSS => SetServices
 #endif
-#ifdef MODULE_LND
-  use MODULE_LND, only: lndSS => SetServices
-#endif
-#ifdef MODULE_OBG
-  use MODULE_OBG, only: obgSS => SetServices
-#endif
-#ifdef MODULE_WBG
-  use MODULE_WBG, only: wbgSS => SetServices
+#ifdef INCLUDE_LND
+  use MODULE_LNDlive, only: lndLiveSS => SetServices
+  use MODULE_LNDdata, only: lndDataSS => SetServices
 #endif
 
   implicit none
@@ -56,16 +71,17 @@ module DRV
 
   logical     , parameter :: defaultVerbose = .true.
   logical     , parameter :: defaultModActive = .true.
+  character(4), parameter :: defaultModType = 'live'
 
-  integer, parameter :: maxModCount = 8
+  integer, parameter :: maxModCount = 6
   integer      :: modCount
   integer      :: med, atm, ocn, wav, ice, lnd
-  integer      :: obg, wbg
-  character(3) :: modNameLC(maxModCount)
-  character(3) :: modNameUC(maxModCount)
+  character(3) :: modShortNameLC(maxModCount)
+  character(3) :: modShortNameUC(maxModCount)
+  character(7) :: modName(maxModCount)
+  character(4) :: modType(maxModCount)
   logical      :: modActive(maxModCount)
-  character(7) :: conNameUC(maxModCount,maxModCount)
-  character(7) :: conNameLC(maxModCount,maxModCount)
+  character(7) :: conName(maxModCount,maxModCount)
   logical      :: conActive(maxModCount,maxModCount)
 
   character(ESMF_MAXSTR) :: cname
@@ -116,99 +132,77 @@ module DRV
     endif
 
     ! report on compiled modules
-#ifdef MODULE_MED
+#ifdef INCLUDE_MED
     call ESMF_LogWrite(trim(cname)//': compiled with    MED module', ESMF_LOGMSG_INFO)
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without MED module', ESMF_LOGMSG_INFO)
 #endif
-#ifdef MODULE_ATM
+#ifdef INCLUDE_ATM
     call ESMF_LogWrite(trim(cname)//': compiled with    ATM module', ESMF_LOGMSG_INFO)
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without ATM module', ESMF_LOGMSG_INFO)
 #endif
-#ifdef MODULE_OCN
+#ifdef INCLUDE_OCN
     call ESMF_LogWrite(trim(cname)//': compiled with    OCN module', ESMF_LOGMSG_INFO)
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without OCN module', ESMF_LOGMSG_INFO)
 #endif
-#ifdef MODULE_WAV
+#ifdef INCLUDE_WAV
     call ESMF_LogWrite(trim(cname)//': compiled with    WAV module', ESMF_LOGMSG_INFO)
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without WAV module', ESMF_LOGMSG_INFO)
 #endif
-#ifdef MODULE_ICE
+#ifdef INCLUDE_ICE
     call ESMF_LogWrite(trim(cname)//': compiled with    ICE module', ESMF_LOGMSG_INFO)
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without ICE module', ESMF_LOGMSG_INFO)
 #endif
-#ifdef MODULE_LND
+#ifdef INCLUDE_LND
     call ESMF_LogWrite(trim(cname)//': compiled with    LND module', ESMF_LOGMSG_INFO)
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without LND module', ESMF_LOGMSG_INFO)
 #endif
-#ifdef MODULE_OBG
-    call ESMF_LogWrite(trim(cname)//': compiled with    OBG module', ESMF_LOGMSG_INFO)
-#else
-    call ESMF_LogWrite(trim(cname)//': compiled without OBG module', ESMF_LOGMSG_INFO)
-#endif
-#ifdef MODULE_WBG
-    call ESMF_LogWrite(trim(cname)//': compiled with    WBG module', ESMF_LOGMSG_INFO)
-#else
-    call ESMF_LogWrite(trim(cname)//': compiled without WBG module', ESMF_LOGMSG_INFO)
-#endif
 
-    ! set model count, model index mapping, and model names
+    ! set model count, model index mapping, and model short names
     modCount = 0
-#ifdef MODULE_MED
+#ifdef INCLUDE_MED
     modCount = modCount + 1
     med = modCount
-    modNameLC(med) = 'med'
-    modNameUC(med) = 'MED'
+    modShortNameLC(med) = 'med'
+    modShortNameUC(med) = 'MED'
 #endif
-#ifdef MODULE_ATM
+#ifdef INCLUDE_ATM
     modCount = modCount + 1
     atm = modCount
-    modNameLC(atm) = 'atm'
-    modNameUC(atm) = 'ATM'
+    modShortNameLC(atm) = 'atm'
+    modShortNameUC(atm) = 'ATM'
 #endif
-#ifdef MODULE_OCN
+#ifdef INCLUDE_OCN
     modCount = modCount + 1
     ocn = modCount
-    modNameLC(ocn) = 'ocn'
-    modNameUC(ocn) = 'OCN'
+    modShortNameLC(ocn) = 'ocn'
+    modShortNameUC(ocn) = 'OCN'
 #endif
-#ifdef MODULE_WAV
+#ifdef INCLUDE_WAV
     modCount = modCount + 1
     wav = modCount
-    modNameLC(wav) = 'wav'
-    modNameUC(wav) = 'WAV'
+    modShortNameLC(wav) = 'wav'
+    modShortNameUC(wav) = 'WAV'
 #endif
-#ifdef MODULE_ICE
+#ifdef INCLUDE_ICE
     modCount = modCount + 1
     ice = modCount
-    modNameLC(ice) = 'ice'
-    modNameUC(ice) = 'ICE'
+    modShortNameLC(ice) = 'ice'
+    modShortNameUC(ice) = 'ICE'
 #endif
-#ifdef MODULE_LND
+#ifdef INCLUDE_LND
     modCount = modCount + 1
     lnd = modCount
-    modNameLC(lnd) = 'lnd'
-    modNameUC(lnd) = 'LND'
-#endif
-#ifdef MODULE_OBG
-    modCount = modCount + 1
-    obg = modCount
-    modNameLC(obg) = 'obg'
-    modNameUC(obg) = 'OBG'
-#endif
-#ifdef MODULE_WBG
-    modCount = modCount + 1
-    wbg = modCount
-    modNameLC(wbg) = 'wbg'
-    modNameUC(wbg) = 'WBG'
+    modShortNameLC(lnd) = 'lnd'
+    modShortNameUC(lnd) = 'LND'
 #endif
     do i = 1,modCount
-      write(msgString,'(a,i0)') trim(cname)//': '//modNameUC(i)//' model index: ',i
+      write(msgString,'(a,i0)') trim(cname)//': '//modShortNameUC(i)//' model index: ',i
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
 
@@ -221,7 +215,7 @@ module DRV
 
     ! process config for modActive
     do i = 1,modCount
-      label = modNameUC(i)//'_active:'
+      label = modShortNameLC(i)//'Active:'
       call ESMF_ConfigGetAttribute(config, modActive(i), default=defaultModActive, &
         label=trim(label), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -231,24 +225,57 @@ module DRV
         return  ! bail out
       endif
       if (modActive(i)) then
-        write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' is     active'
+        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is     active'
       else
-        write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' is not active'
+        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
       endif
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    enddo
+
+    ! process config for modType
+#ifdef INCLUDE_MED
+    modType(med) = '' ! mediator type is not used
+    do i = 2,modCount
+#else
+    do i = 1,modCount
+#endif
+      if (.not.modActive(i)) cycle
+      label = modShortNameLC(i)//'Type:'
+      call ESMF_ConfigGetAttribute(config, modType(i), default=defaultModType, &
+        label=trim(label), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        call ESMF_LogWrite(trim(cname)//': ESMF_ConfigGetAttribute: '// &
+          trim(label), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      select case (modType(i))
+      case ('live','data')
+      case default
+        call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
+          msg=trim(cname)//': Model type not supported: '//modType(i))
+        return  ! bail out
+      end select
+      write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    enddo
+
+    ! set model names
+    do i = 1,modCount
+      if (.not.modActive(i)) cycle
+      modName(i) = modShortNameUC(i)//modType(i)
     enddo
 
     ! set connector names
     do j = 1,modCount
     do i = 1,modCount
-      conNameUC(i,j) = modNameUC(i)//'2'//modNameUC(j)
-      conNameLC(i,j) = modNameLC(i)//'2'//modNameLC(j)
+      conName(i,j) = modShortNameUC(i)//'2'//modShortNameUC(j)
     enddo
     enddo
 
     ! set active connectors
     conActive = .false.
-#ifdef MODULE_MED
+#ifdef INCLUDE_MED
     if (modActive(med)) then
       do i = 2,modCount
         if (modActive(i)) then
@@ -278,20 +305,10 @@ module DRV
     enddo
     enddo
 #endif
-#ifdef MODULE_OBG
-    do i = 1,modCount
-      conActive(i,obg) = .false.
-    enddo
-#endif
-#ifdef MODULE_WBG
-    do i = 1,modCount
-      conActive(i,wbg) = .false.
-    enddo
-#endif
     do j = 1,modCount
     do i = 1,modCount
       if (.not.conActive(i,j)) cycle
-      write(msgString,'(a)') trim(cname)//': '//conNameUC(i,j)//' connector is active'
+      write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
     enddo
@@ -464,7 +481,7 @@ module DRV
         if (.not.modActive(i)) cycle
         allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
+          msg="Allocation of "//modName(i)//" petList array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         modPetList => superIS%wrap%modelPetLists(i)%petList
         do j = 1,petCount
@@ -479,20 +496,20 @@ module DRV
     !   * requires \sum(<MOD>_pet_count) <= petCount
     case ('concurrent')
       modStart = 1
-#ifdef MODULE_MED
+#ifdef INCLUDE_MED
       if (modActive(med)) then
-        label=modNameUC(med)//'_pet_count:'
+        label=modShortNameLC(med)//'_pet_count:'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
         if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
           if (verbose) then
             write(msgString,'(a,i0)') trim(cname)//': '// &
-              modNameUC(med)//' PET count: ',modPetCount(med)
+              modShortNameUC(med)//' PET count: ',modPetCount(med)
             call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           endif
           allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
           if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-            msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
+            msg="Allocation of "//modName(i)//" PET list array failed.", &
             line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
           modPetList => superIS%wrap%modelPetLists(med)%petList
           do j = 1,petCount
@@ -505,24 +522,18 @@ module DRV
       n = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-#ifdef MODULE_OBG
-        if (i.eq.obg) cycle
-#endif
-#ifdef MODULE_OBG
-        if (i.eq.wbg) cycle
-#endif
-        label=modNameUC(i)//'_pet_count:'
+        label=modShortNameLC(i)//'_pet_count:'
         call ESMF_ConfigGetAttribute(config, modPetCount(i), label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
             msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
-            ' = concurrent and '//modNameUC(i)//' is active')
+            ' = concurrent and '//modShortNameUC(i)//' is active')
           return  ! bail out
         endif
         if (verbose) then
           write(msgString,'(a,i0)') trim(cname)//': '// &
-            modNameUC(i)//' PET count: ',modPetCount(i)
+            modShortNameUC(i)//' PET count: ',modPetCount(i)
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
         endif
         if (modPetCount(i).lt.1.or.modPetCount(i).ge.petCount) then
@@ -541,41 +552,15 @@ module DRV
       n = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-#ifdef MODULE_OBG
-        if (i.eq.obg) then
-          modPetCount(i) = modPetCount(atm)
-        endif
-#endif
-#ifdef MODULE_WBG
-        if (i.eq.wbg) then
-          modPetCount(i) = modPetCount(atm)
-        endif
-#endif
         allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
+          msg="Allocation of "//modName(i)//" PET list array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         modPetList => superIS%wrap%modelPetLists(i)%petList
-#ifdef MODULE_OBG
-        if (i.eq.obg) then
-          modPetList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
-        else
         do j = 1,modPetCount(i)
           modPetList(j) = n
           n = n + 1
         enddo
-        endif
-#endif
-#ifdef MODULE_WBG
-        if (i.eq.wbg) then
-          modPetList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
-        else
-        do j = 1,modPetCount(i)
-          modPetList(j) = n
-          n = n + 1
-        enddo
-        endif
-#endif
       enddo
 
     ! petLayoutOption = specified
@@ -585,20 +570,20 @@ module DRV
     !   * requires min(<MOD>_pet_list) >= 0 && max(<MOD>_pet_list) < petCount
     case ('specified')
       modStart = 1
-#ifdef MODULE_MED
+#ifdef INCLUDE_MED
       if (modActive(med)) then
-        label=modNameUC(med)//'_pet_list::'
+        label=modShortNameLC(med)//'_pet_list::'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
         if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
           if (verbose) then
             write(msgString,'(a,i0)') trim(cname)//': '// &
-              modNameUC(med)//' PET count: ',modPetCount(med)
+              modShortNameUC(med)//' PET count: ',modPetCount(med)
             call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           endif
           allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
           if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-            msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
+            msg="Allocation of "//modName(i)//" PET list array failed.", &
             line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
           modPetList => superIS%wrap%modelPetLists(med)%petList
           do j = 1,petCount
@@ -610,19 +595,13 @@ module DRV
 #endif
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-#ifdef MODULE_OBG
-        if (i.eq.obg) cycle
-#endif
-#ifdef MODULE_OBG
-        if (i.eq.wbg) cycle
-#endif
-        label=modNameUC(i)//'_pet_list::'
+        label=modShortNameLC(i)//'_pet_list::'
         call ESMF_ConfigGetDim(config, m, n, label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
             msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
-            ' = specified and '//modNameUC(i)//' is active')
+            ' = specified and '//modShortNameUC(i)//' is active')
           return  ! bail out
         endif
         if (verbose) then
@@ -635,24 +614,24 @@ module DRV
         endif
         allocate(list(n), ncol(m), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modNameUC(i)//" PET list table failed.", &
+          msg="Allocation of "//modName(i)//" PET list table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         do p = 1,2
           if (p.eq.2) then
             if (verbose) then
               write(msgString,'(a,i0)') trim(cname)//': '// &
-                modNameUC(i)//' PET count: ',modPetCount(i)
+                modShortNameUC(i)//' PET count: ',modPetCount(i)
               call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
             endif
             if (modPetCount(i).lt.1.or.modPetCount(i).gt.petCount) then
               call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-                msg=trim(cname)//': '//modNameUC(i)// &
+                msg=trim(cname)//': '//modShortNameUC(i)// &
                 ' PET count must be > 0 and <= # PETs')
               return  ! bail out
             endif
             allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
             if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-              msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
+              msg="Allocation of "//modName(i)//" PET list array failed.", &
               line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
             modPetList => superIS%wrap%modelPetLists(i)%petList
           endif
@@ -661,7 +640,7 @@ module DRV
             line=__LINE__, file=FILENAME)) then
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
               msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
-              ' = specified and '//modNameUC(i)//' is active')
+              ' = specified and '//modShortNameUC(i)//' is active')
             return  ! bail out
           endif
           modPetCount(i) = 0
@@ -700,12 +679,12 @@ module DRV
         enddo
         deallocate(list, ncol, stat=stat)
         if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-          msg="Deallocation of "//modNameUC(i)//" PET list table failed.", &
+          msg="Deallocation of "//modName(i)//" PET list table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         if (verbose) then
           n = 10
           m = ceiling(real(modPetCount(i))/real(n))
-          write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' PET list:'
+          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' PET list:'
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           do l = 1,m
             k1 = min((l-1)*n+1,modPetCount(i))
@@ -716,31 +695,17 @@ module DRV
         endif
         if (minval(modPetList).lt.0.or.maxval(modPetList).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//modNameUC(i)//' PET list ids must be > 0 and < # PETs')
+            msg=trim(cname)//': '//modShortNameUC(i)//' PET list ids must be > 0 and < # PETs')
           return  ! bail out
         endif
         do j = 1,modPetCount(i)
           if (count(modPetList.eq.modPetList(j)).gt.1) then
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-              msg=trim(cname)//': '//modNameUC(i)//' PET list has duplicate entries')
+              msg=trim(cname)//': '//modShortNameUC(i)//' PET list has duplicate entries')
             return  ! bail out
           endif
         enddo
       enddo
-#ifdef MODULE_OBG
-      allocate(superIS%wrap%modelPetLists(obg)%petList(modPetCount(atm)), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of "//modNameUC(obg)//" PET list array failed.", &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-      superIS%wrap%modelPetLists(obg)%petList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
-#endif
-#ifdef MODULE_WBG
-      allocate(superIS%wrap%modelPetLists(wbg)%petList(modPetCount(atm)), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of "//modNameUC(wbg)//" PET list array failed.", &
-        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-      superIS%wrap%modelPetLists(wbg)%petList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
-#endif
 
     ! unsupported petLayoutOption
     case default
@@ -788,10 +753,10 @@ module DRV
 
     ! set model component names and attributes
     do i = 1,modCount
-      call ESMF_GridCompSet(modComp(i), name=modNameUC(i), rc=rc)
+      call ESMF_GridCompSet(modComp(i), name=modName(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//modNameUC(i)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -799,14 +764,14 @@ module DRV
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//modNameUC(i)
+        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       call ESMF_GridCompSet(modComp(i), config=config, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modNameUC(i)
+        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -815,10 +780,10 @@ module DRV
     ! set connector component names and attributes
     do j = 1,modCount
     do i = 1,modCount
-      call ESMF_CplCompSet(conComp(i,j), name=conNameUC(i,j), rc=rc)
+      call ESMF_CplCompSet(conComp(i,j), name=conName(i,j), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//conNameUC(i,j)
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -826,14 +791,14 @@ module DRV
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//conNameUC(i,j)
+        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       call ESMF_CplCompSet(conComp(i,j), config=config, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'Set config: ',i,j,', '//conNameUC(i,j)
+        write(msgString,'(a,2i2,a)') 'Set config: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -843,45 +808,62 @@ module DRV
     ! SetServices for active models
     do i = 1,modCount
       if (.not.modActive(i)) cycle
-      select case (modNameLC(i))
-#ifdef MODULE_MED
+      select case (modShortNameLC(i))
+#ifdef INCLUDE_MED
       case ('med')
         call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
 #endif
-#ifdef MODULE_ATM
+#ifdef INCLUDE_ATM
       case ('atm')
-        call ESMF_GridCompSetServices(modComp(i), atmSS, userRc=localrc, rc=rc)
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), atmLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), atmDataSS, userRc=localrc, rc=rc)
+        end select
 #endif
-#ifdef MODULE_OCN
+#ifdef INCLUDE_OCN
       case ('ocn')
-        call ESMF_GridCompSetServices(modComp(i), ocnSS, userRc=localrc, rc=rc)
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), ocnLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), ocnDataSS, userRc=localrc, rc=rc)
+        end select
 #endif
-#ifdef MODULE_WAV
+#ifdef INCLUDE_WAV
       case ('wav')
-        call ESMF_GridCompSetServices(modComp(i), wavSS, userRc=localrc, rc=rc)
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), wavLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), wavDataSS, userRc=localrc, rc=rc)
+        end select
 #endif
-#ifdef MODULE_ICE
+#ifdef INCLUDE_ICE
       case ('ice')
-        call ESMF_GridCompSetServices(modComp(i), iceSS, userRc=localrc, rc=rc)
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), iceLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), iceDataSS, userRc=localrc, rc=rc)
+        end select
 #endif
-#ifdef MODULE_LND
+#ifdef INCLUDE_LND
       case ('lnd')
-        call ESMF_GridCompSetServices(modComp(i), lndSS, userRc=localrc, rc=rc)
-#endif
-#ifdef MODULE_OBG
-      case ('obg')
-        call ESMF_GridCompSetServices(modComp(i), obgSS, userRc=localrc, rc=rc)
-#endif
-#ifdef MODULE_WBG
-      case ('wbg')
-        call ESMF_GridCompSetServices(modComp(i), wbgSS, userRc=localrc, rc=rc)
+        select case (modType(i))
+        case ('live')
+          call ESMF_GridCompSetServices(modComp(i), lndLiveSS, userRc=localrc, rc=rc)
+        case ('data')
+          call ESMF_GridCompSetServices(modComp(i), lndDataSS, userRc=localrc, rc=rc)
+        end select
 #endif
       end select
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//modNameUC(i)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//modName(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -896,7 +878,7 @@ module DRV
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//conNameUC(i,j)
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//conName(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -911,7 +893,7 @@ module DRV
     call NUOPC_RunSequenceAdd(runSeq, 1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out    
-#ifdef MODULE_MED
+#ifdef INCLUDE_MED
     if (modActive(med)) then
       do i = 2,modCount
         if (.not.conActive(i,med)) cycle
