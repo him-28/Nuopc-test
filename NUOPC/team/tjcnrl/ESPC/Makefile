@@ -70,12 +70,12 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-mainApp: mainApp.o drv.o con.o med.o mod.o
+mainApp: mainApp.o drv.o con.o med.o mod.o mbg.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 mainApp.o: drv.o
-drv.o: con.o med.o mod.o
+drv.o: con.o med.o mod.o mbg.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------

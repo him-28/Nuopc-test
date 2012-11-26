@@ -9,7 +9,8 @@
 #define MODULE_OCN MOD
 #define MODULE_WAV MOD
 #define MODULE_ICE MOD
-#undef  MODULE_LND MOD
+#define MODULE_OBG MBG
+#define MODULE_WBG MBG
 
 
 !-------------------------------------------------------------------------------
@@ -48,6 +49,12 @@ module DRV
 #ifdef MODULE_LND
   use MODULE_LND, only: lndSS => SetServices
 #endif
+#ifdef MODULE_OBG
+  use MODULE_OBG, only: obgSS => SetServices
+#endif
+#ifdef MODULE_WBG
+  use MODULE_WBG, only: wbgSS => SetServices
+#endif
 
   implicit none
   save
@@ -58,9 +65,10 @@ module DRV
   logical     , parameter :: defaultVerbose = .true.
   logical     , parameter :: defaultModActive = .true.
 
-  integer, parameter :: maxModCount = 6
+  integer, parameter :: maxModCount = 8
   integer      :: modCount
   integer      :: med, atm, ocn, wav, ice, lnd
+  integer      :: obg, wbg
   character(3) :: modNameLC(maxModCount)
   character(3) :: modNameUC(maxModCount)
   logical      :: modActive(maxModCount)
@@ -146,6 +154,16 @@ module DRV
 #else
     call ESMF_LogWrite(trim(cname)//': compiled without LND module', ESMF_LOGMSG_INFO)
 #endif
+#ifdef MODULE_OBG
+    call ESMF_LogWrite(trim(cname)//': compiled with    OBG module', ESMF_LOGMSG_INFO)
+#else
+    call ESMF_LogWrite(trim(cname)//': compiled without OBG module', ESMF_LOGMSG_INFO)
+#endif
+#ifdef MODULE_WBG
+    call ESMF_LogWrite(trim(cname)//': compiled with    WBG module', ESMF_LOGMSG_INFO)
+#else
+    call ESMF_LogWrite(trim(cname)//': compiled without WBG module', ESMF_LOGMSG_INFO)
+#endif
 
     ! set model count, model index mapping, and model names
     modCount = 0
@@ -184,6 +202,18 @@ module DRV
     lnd = modCount
     modNameLC(lnd) = 'lnd'
     modNameUC(lnd) = 'LND'
+#endif
+#ifdef MODULE_OBG
+    modCount = modCount + 1
+    obg = modCount
+    modNameLC(obg) = 'obg'
+    modNameUC(obg) = 'OBG'
+#endif
+#ifdef MODULE_WBG
+    modCount = modCount + 1
+    wbg = modCount
+    modNameLC(wbg) = 'wbg'
+    modNameUC(wbg) = 'WBG'
 #endif
     do i = 1,modCount
       write(msgString,'(a,i0)') trim(cname)//': '//modNameUC(i)//' model index: ',i
@@ -254,6 +284,16 @@ module DRV
         conActive(j,i) = .true.
       endif
     enddo
+    enddo
+#endif
+#ifdef MODULE_OBG
+    do i = 1,modCount
+      conActive(i,obg) = .false.
+    enddo
+#endif
+#ifdef MODULE_WBG
+    do i = 1,modCount
+      conActive(i,wbg) = .false.
     enddo
 #endif
     do j = 1,modCount
@@ -473,6 +513,12 @@ module DRV
       n = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
+#ifdef MODULE_OBG
+        if (i.eq.obg) cycle
+#endif
+#ifdef MODULE_OBG
+        if (i.eq.wbg) cycle
+#endif
         label=modNameUC(i)//'_pet_count:'
         call ESMF_ConfigGetAttribute(config, modPetCount(i), label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -503,15 +549,41 @@ module DRV
       n = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
+#ifdef MODULE_OBG
+        if (i.eq.obg) then
+          modPetCount(i) = modPetCount(atm)
+        endif
+#endif
+#ifdef MODULE_WBG
+        if (i.eq.wbg) then
+          modPetCount(i) = modPetCount(atm)
+        endif
+#endif
         allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         modPetList => superIS%wrap%modelPetLists(i)%petList
+#ifdef MODULE_OBG
+        if (i.eq.obg) then
+          modPetList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
+        else
         do j = 1,modPetCount(i)
           modPetList(j) = n
           n = n + 1
         enddo
+        endif
+#endif
+#ifdef MODULE_WBG
+        if (i.eq.wbg) then
+          modPetList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
+        else
+        do j = 1,modPetCount(i)
+          modPetList(j) = n
+          n = n + 1
+        enddo
+        endif
+#endif
       enddo
 
     ! petLayoutOption = specified
@@ -546,6 +618,12 @@ module DRV
 #endif
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
+#ifdef MODULE_OBG
+        if (i.eq.obg) cycle
+#endif
+#ifdef MODULE_OBG
+        if (i.eq.wbg) cycle
+#endif
         label=modNameUC(i)//'_pet_list::'
         call ESMF_ConfigGetDim(config, m, n, label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -657,6 +735,20 @@ module DRV
           endif
         enddo
       enddo
+#ifdef MODULE_OBG
+      allocate(superIS%wrap%modelPetLists(obg)%petList(modPetCount(atm)), stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of "//modNameUC(obg)//" PET list array failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+      superIS%wrap%modelPetLists(obg)%petList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
+#endif
+#ifdef MODULE_WBG
+      allocate(superIS%wrap%modelPetLists(wbg)%petList(modPetCount(atm)), stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of "//modNameUC(wbg)//" PET list array failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+      superIS%wrap%modelPetLists(wbg)%petList(:) = superIS%wrap%modelPetLists(atm)%petList(:)
+#endif
 
     ! unsupported petLayoutOption
     case default
@@ -783,6 +875,14 @@ module DRV
 #ifdef MODULE_LND
       case ('lnd')
         call ESMF_GridCompSetServices(modComp(i), lndSS, userRc=localrc, rc=rc)
+#endif
+#ifdef MODULE_OBG
+      case ('obg')
+        call ESMF_GridCompSetServices(modComp(i), obgSS, userRc=localrc, rc=rc)
+#endif
+#ifdef MODULE_WBG
+      case ('wbg')
+        call ESMF_GridCompSetServices(modComp(i), wbgSS, userRc=localrc, rc=rc)
 #endif
       end select
       if (ESMF_LogFoundError(rcToCheck=rc,      msg=ESMF_LOGERR_PASSTHRU, &
