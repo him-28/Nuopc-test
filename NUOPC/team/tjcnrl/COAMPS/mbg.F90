@@ -23,6 +23,7 @@ module MBG
 
   character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "MBG_InternalState"
+  integer, parameter :: maxFields = 20
 
   type type_InternalStateStruct
     logical :: verbose
@@ -186,29 +187,25 @@ module MBG
     is%wrap%numImport = 0
 
     ! define exportable fields
+    allocate(is%wrap%expStdName(maxFields), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of export field name arrays failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    i = 0
     select case (cname(1:3))
       case ('OBG')
-        is%wrap%numExport = 3
-        allocate(is%wrap%expStdName(is%wrap%numExport), stat=stat)
-        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of export field name arrays failed.", &
-          line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-        is%wrap%expStdName( 1) = "surface_eastward_sea_water_velocity"
-        is%wrap%expStdName( 2) = "surface_northward_sea_water_velocity"
-        is%wrap%expStdName( 3) = "sea_surface_temperature"
+        i = i+1; is%wrap%expStdName(i) = "surface_eastward_sea_water_velocity"
+        i = i+1; is%wrap%expStdName(i) = "surface_northward_sea_water_velocity"
+        i = i+1; is%wrap%expStdName(i) = "sea_surface_temperature"
       case ('WBG')
-        is%wrap%numExport = 6
-        allocate(is%wrap%expStdName(is%wrap%numExport), stat=stat)
-        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of export field name arrays failed.", &
-          line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-        is%wrap%expStdName( 1) = "surface_eastward_wind_to_wave_stress"
-        is%wrap%expStdName( 2) = "surface_northward_wind_to_wave_stress"
-        is%wrap%expStdName( 3) = "surface_eastward_wave_to_ocean_stress"
-        is%wrap%expStdName( 4) = "surface_northward_wave_to_ocean_stress"
-        is%wrap%expStdName( 5) = "eastward_stokes_drift_current"
-        is%wrap%expStdName( 6) = "northward_stokes_drift_current"
+        i = i+1; is%wrap%expStdName(i) = "surface_eastward_wind_to_wave_stress"
+        i = i+1; is%wrap%expStdName(i) = "surface_northward_wind_to_wave_stress"
+        i = i+1; is%wrap%expStdName(i) = "surface_eastward_wave_to_ocean_stress"
+        i = i+1; is%wrap%expStdName(i) = "surface_northward_wave_to_ocean_stress"
+        i = i+1; is%wrap%expStdName(i) = "eastward_stokes_drift_current"
+        i = i+1; is%wrap%expStdName(i) = "northward_stokes_drift_current"
     end select
+    is%wrap%numExport = i
 #ifdef USE_MODIFIED_STANDARD_NAMES
     do i = 1,is%wrap%numExport
       is%wrap%expStdName(i) = 'background_'//is%wrap%expStdName(i)
