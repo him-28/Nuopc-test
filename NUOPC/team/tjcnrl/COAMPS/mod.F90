@@ -23,7 +23,7 @@ module MOD
 
   character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "MOD_InternalState"
-  integer, parameter :: maxFields = 10
+  integer, parameter :: maxFields = 20
 
   type type_InternalStateStruct
     logical :: verbose
@@ -193,9 +193,9 @@ module MOD
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of import field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    i = 0
     select case (cname(1:3))
       case ('ATM')
-        i = 0
 #ifdef MODULE_MED
         i = i+1; is%wrap%impStdName(i) = "surface_downward_eastward_stress"
         i = i+1; is%wrap%impStdName(i) = "surface_downward_northward_stress"
@@ -203,21 +203,8 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "surface_eastward_wind_to_wave_stress"
         i = i+1; is%wrap%impStdName(i) = "surface_northward_wind_to_wave_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_surface_temperature"
-#ifdef MODULE_OBG
-#ifdef USE_MODIFIED_STANDARD_NAMES
-        i = i+1; is%wrap%impStdName(i) = "background_sea_surface_temperature"
 #endif
-#endif
-#ifdef MODULE_WBG
-#ifdef USE_MODIFIED_STANDARD_NAMES
-        i = i+1; is%wrap%impStdName(i) = "background_surface_eastward_wind_to_wave_stress"
-        i = i+1; is%wrap%impStdName(i) = "background_surface_northward_wind_to_wave_stress"
-#endif
-#endif
-#endif
-        is%wrap%numImport = i
       case ('OCN')
-        i = 0
 #ifdef MODULE_MED
         i = i+1; is%wrap%impStdName(i) = "sea_surface_downward_eastward_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_surface_downward_northward_stress"
@@ -229,9 +216,7 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "eastward_stokes_drift_current"
         i = i+1; is%wrap%impStdName(i) = "northward_stokes_drift_current"
 #endif
-        is%wrap%numImport = i
       case ('WAV')
-        i = 0
 #ifdef MODULE_MED
         i = i+1; is%wrap%impStdName(i) = "eastward_wind_at_10m_height"
         i = i+1; is%wrap%impStdName(i) = "northward_wind_at_10m_height"
@@ -246,9 +231,7 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "air_temperature_at_2m_height"
         i = i+1; is%wrap%impStdName(i) = "sea_surface_temperature"
 #endif
-        is%wrap%numImport = i
       case ('ICE')
-        i = 0
 #ifdef MODULE_MED
         i = i+1; is%wrap%impStdName(i) = "sea_ice_surface_downward_eastward_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_ice_surface_downward_northward_stress"
@@ -260,15 +243,18 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "surface_eastward_sea_water_velocity"
         i = i+1; is%wrap%impStdName(i) = "surface_northward_sea_water_velocity"
 #endif
-        is%wrap%numImport = i
       case ('LND')
-        is%wrap%numImport = 0
     end select
+    is%wrap%numImport = i
 
     ! define exportable fields
+    allocate(is%wrap%expStdName(maxFields), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of export field name arrays failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    i = 0
     select case (cname(1:3))
       case ('ATM')
-        i = 0
 #ifdef MODULE_MED
         i = i+1; is%wrap%expStdName(i) = "eastward_wind_at_10m_height"
         i = i+1; is%wrap%expStdName(i) = "northward_wind_at_10m_height"
@@ -280,33 +266,26 @@ module MOD
         i = i+1; is%wrap%expStdName(i) = "surface_downward_eastward_stress"
         i = i+1; is%wrap%expStdName(i) = "surface_downward_northward_stress"
 #endif
-        is%wrap%numExport = i
       case ('OCN')
-        i = 0
         i = i+1; is%wrap%expStdName(i) = "surface_eastward_sea_water_velocity"
         i = i+1; is%wrap%expStdName(i) = "surface_northward_sea_water_velocity"
         i = i+1; is%wrap%expStdName(i) = "sea_surface_temperature"
-        is%wrap%numExport = i
       case ('WAV')
-        i = 0
         i = i+1; is%wrap%expStdName(i) = "surface_eastward_wind_to_wave_stress"
         i = i+1; is%wrap%expStdName(i) = "surface_northward_wind_to_wave_stress"
         i = i+1; is%wrap%expStdName(i) = "surface_eastward_wave_to_ocean_stress"
         i = i+1; is%wrap%expStdName(i) = "surface_northward_wave_to_ocean_stress"
         i = i+1; is%wrap%expStdName(i) = "eastward_stokes_drift_current"
         i = i+1; is%wrap%expStdName(i) = "northward_stokes_drift_current"
-        is%wrap%numExport = i
       case ('ICE')
-        i = 0
         i = i+1; is%wrap%expStdName(i) = "sea_ice_eastward_drift_velocity"
         i = i+1; is%wrap%expStdName(i) = "sea_ice_northward_drift_velocity"
         i = i+1; is%wrap%expStdName(i) = "sea_ice_concentration"
         i = i+1; is%wrap%expStdName(i) = "sea_ice_thickness"
         i = i+1; is%wrap%expStdName(i) = "sea_ice_temperature"
-        is%wrap%numExport = i
       case ('LND')
-        is%wrap%numExport = 0
     end select
+    is%wrap%numExport = i
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)
@@ -328,6 +307,7 @@ module MOD
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
     integer                       :: i
+    type(ESMF_State)              :: state
 
     rc = ESMF_SUCCESS
 
@@ -358,6 +338,55 @@ module MOD
         return  ! bail out
       endif
     enddo
+
+    ! advertise importable fields for MBG
+#ifndef MODULE_MED
+    state = ESMF_StateCreate(name="Import MBG", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    call ESMF_StateAdd(importState, (/state/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    select case (cname(1:3))
+      case ('ATM')
+#ifdef MODULE_OBG
+        do i = 3,3
+#ifdef USE_MODIFIED_STANDARD_NAMES
+          call NUOPC_StateAdvertiseField(state, &
+            StandardName='background_'//trim(is%wrap%impStdName(i)), rc=rc)
+#else
+          call NUOPC_StateAdvertiseField(state, &
+            StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+#endif
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) then
+            write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+              ', '//trim(is%wrap%impStdName(i))
+            call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+            return  ! bail out
+          endif
+        enddo
+#endif
+#ifdef MODULE_WBG
+        do i = 1,2
+#ifdef USE_MODIFIED_STANDARD_NAMES
+          call NUOPC_StateAdvertiseField(state, &
+            StandardName='background_'//trim(is%wrap%impStdName(i)), rc=rc)
+#else
+          call NUOPC_StateAdvertiseField(state, &
+            StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+#endif
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) then
+            write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
+              ', '//trim(is%wrap%impStdName(i))
+            call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+            return  ! bail out
+          endif
+        enddo
+#endif
+    end select
+#endif
 
     ! advertise exportable fields
     do i = 1,is%wrap%numExport
@@ -397,6 +426,7 @@ module MOD
     type(ESMF_Grid)               :: gridIn
     type(ESMF_Grid)               :: gridOut
     integer                       :: i
+    type(ESMF_State)              :: state
 
     rc = ESMF_SUCCESS
 
@@ -490,6 +520,110 @@ module MOD
         endif
       endif
     enddo
+
+    ! realize import fields for MBG
+#ifndef MODULE_MED
+    call ESMF_StateGet(importState, itemName="Import MBG", nestedState=state, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    select case (cname(1:3))
+      case ('ATM')
+#ifdef MODULE_OBG
+        do i = 3,3
+#ifdef USE_MODIFIED_STANDARD_NAMES
+          call NUOPC_FieldDictionaryGetEntry('background_'//trim(is%wrap%impStdName(i)), &
+            defaultShortName=fname, rc=rc)
+#else
+          call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+            defaultShortName=fname, rc=rc)
+#endif
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) then
+            write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+              ', '//trim(is%wrap%impStdName(i))
+            call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+            return  ! bail out
+          endif
+          connected = .true.
+          if (connected) then
+            field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+              typekind=ESMF_TYPEKIND_R8, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=FILENAME)) then
+              write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+                ', '//trim(is%wrap%impStdName(i))
+              call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+              return  ! bail out
+            endif
+            call NUOPC_StateRealizeField(state, field=field, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=FILENAME)) then
+              write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+                ', '//trim(is%wrap%impStdName(i))
+              call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+              return  ! bail out
+            endif
+          else
+            call ESMF_StateRemove(state, (/trim(fname)/), rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=FILENAME)) then
+              write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+                ', '//trim(is%wrap%impStdName(i))
+              call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+              return  ! bail out
+            endif
+          endif
+        enddo
+#endif
+#ifdef MODULE_WBG
+        do i = 1,2
+#ifdef USE_MODIFIED_STANDARD_NAMES
+          call NUOPC_FieldDictionaryGetEntry('background_'//trim(is%wrap%impStdName(i)), &
+            defaultShortName=fname, rc=rc)
+#else
+          call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+            defaultShortName=fname, rc=rc)
+#endif
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) then
+            write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+              ', '//trim(is%wrap%impStdName(i))
+            call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+            return  ! bail out
+          endif
+          connected = .true.
+          if (connected) then
+            field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+              typekind=ESMF_TYPEKIND_R8, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=FILENAME)) then
+              write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+                ', '//trim(is%wrap%impStdName(i))
+              call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+              return  ! bail out
+            endif
+            call NUOPC_StateRealizeField(state, field=field, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=FILENAME)) then
+              write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+                ', '//trim(is%wrap%impStdName(i))
+              call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+              return  ! bail out
+            endif
+          else
+            call ESMF_StateRemove(state, (/trim(fname)/), rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=FILENAME)) then
+              write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
+                ', '//trim(is%wrap%impStdName(i))
+              call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+              return  ! bail out
+            endif
+          endif
+        enddo
+#endif
+    end select
+#endif
 
     ! realize connected export fields (& remove unconnected)
     do i = 1,is%wrap%numExport
