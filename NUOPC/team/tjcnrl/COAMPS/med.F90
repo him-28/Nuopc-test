@@ -22,6 +22,7 @@ module MED
 
   character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "MED_InternalState"
+  integer, parameter :: maxFields = 20
 
   type type_InternalStateStruct
     logical :: verbose
@@ -167,50 +168,52 @@ module MED
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     ! define importable fields
-    is%wrap%numImport = 17
-    allocate(is%wrap%impStdName(is%wrap%numImport), stat=stat)
+    allocate(is%wrap%impStdName(maxFields), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of import field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    is%wrap%impStdName( 1) = "eastward_wind_at_10m_height"
-    is%wrap%impStdName( 2) = "northward_wind_at_10m_height"
-    is%wrap%impStdName( 3) = "air_temperature_at_2m_height"
-    is%wrap%impStdName( 4) = "surface_eastward_sea_water_velocity"
-    is%wrap%impStdName( 5) = "surface_northward_sea_water_velocity"
-    is%wrap%impStdName( 6) = "sea_surface_temperature"
-    is%wrap%impStdName( 7) = "surface_eastward_wind_to_wave_stress"
-    is%wrap%impStdName( 8) = "surface_northward_wind_to_wave_stress"
-    is%wrap%impStdName( 9) = "surface_eastward_wave_to_ocean_stress"
-    is%wrap%impStdName(10) = "surface_northward_wave_to_ocean_stress"
-    is%wrap%impStdName(11) = "eastward_stokes_drift_current"
-    is%wrap%impStdName(12) = "northward_stokes_drift_current"
-    is%wrap%impStdName(13) = "sea_ice_eastward_drift_velocity"
-    is%wrap%impStdName(14) = "sea_ice_northward_drift_velocity"
-    is%wrap%impStdName(15) = "sea_ice_concentration"
-    is%wrap%impStdName(16) = "sea_ice_thickness"
-    is%wrap%impStdName(17) = "sea_ice_temperature"
+    i = 0
+    i = i+1; is%wrap%impStdName(i) = "eastward_wind_at_10m_height"
+    i = i+1; is%wrap%impStdName(i) = "northward_wind_at_10m_height"
+    i = i+1; is%wrap%impStdName(i) = "air_temperature_at_2m_height"
+    i = i+1; is%wrap%impStdName(i) = "surface_eastward_sea_water_velocity"
+    i = i+1; is%wrap%impStdName(i) = "surface_northward_sea_water_velocity"
+    i = i+1; is%wrap%impStdName(i) = "sea_surface_temperature"
+    i = i+1; is%wrap%impStdName(i) = "surface_eastward_wind_to_wave_stress"
+    i = i+1; is%wrap%impStdName(i) = "surface_northward_wind_to_wave_stress"
+    i = i+1; is%wrap%impStdName(i) = "surface_eastward_wave_to_ocean_stress"
+    i = i+1; is%wrap%impStdName(i) = "surface_northward_wave_to_ocean_stress"
+    i = i+1; is%wrap%impStdName(i) = "eastward_stokes_drift_current"
+    i = i+1; is%wrap%impStdName(i) = "northward_stokes_drift_current"
+    i = i+1; is%wrap%impStdName(i) = "sea_ice_eastward_drift_velocity"
+    i = i+1; is%wrap%impStdName(i) = "sea_ice_northward_drift_velocity"
+    i = i+1; is%wrap%impStdName(i) = "sea_ice_concentration"
+    i = i+1; is%wrap%impStdName(i) = "sea_ice_thickness"
+    i = i+1; is%wrap%impStdName(i) = "sea_ice_temperature"
+    is%wrap%numImport = i
 
     ! define exportable fields
-    is%wrap%numExport = 15
-    allocate(is%wrap%expStdName(is%wrap%numExport), stat=stat)
+    allocate(is%wrap%expStdName(maxFields), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of export field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    is%wrap%expStdName( 1) = "eastward_wind_at_10m_height"
-    is%wrap%expStdName( 2) = "northward_wind_at_10m_height"
-    is%wrap%expStdName( 3) = "air_sea_temperature_difference"
-    is%wrap%expStdName( 4) = "surface_eastward_sea_water_velocity"
-    is%wrap%expStdName( 5) = "surface_northward_sea_water_velocity"
-    is%wrap%expStdName( 6) = "surface_downward_eastward_stress"
-    is%wrap%expStdName( 7) = "surface_downward_northward_stress"
-    is%wrap%expStdName( 8) = "sea_surface_downward_eastward_stress"
-    is%wrap%expStdName( 9) = "sea_surface_downward_northward_stress"
-    is%wrap%expStdName(10) = "sea_ice_surface_downward_eastward_stress"
-    is%wrap%expStdName(11) = "sea_ice_surface_downward_northward_stress"
-    is%wrap%expStdName(12) = "sea_ice_basal_upward_eastward_stress"
-    is%wrap%expStdName(13) = "sea_ice_basal_upward_northward_stress"
-    is%wrap%expStdName(14) = "eastward_stokes_drift_current"
-    is%wrap%expStdName(15) = "northward_stokes_drift_current"
+    i = 0
+    i = i+1; is%wrap%expStdName(i) = "eastward_wind_at_10m_height"
+    i = i+1; is%wrap%expStdName(i) = "northward_wind_at_10m_height"
+    i = i+1; is%wrap%expStdName(i) = "air_sea_temperature_difference"
+    i = i+1; is%wrap%expStdName(i) = "surface_eastward_sea_water_velocity"
+    i = i+1; is%wrap%expStdName(i) = "surface_northward_sea_water_velocity"
+    i = i+1; is%wrap%expStdName(i) = "surface_downward_eastward_stress"
+    i = i+1; is%wrap%expStdName(i) = "surface_downward_northward_stress"
+    i = i+1; is%wrap%expStdName(i) = "sea_surface_downward_eastward_stress"
+    i = i+1; is%wrap%expStdName(i) = "sea_surface_downward_northward_stress"
+    i = i+1; is%wrap%expStdName(i) = "sea_ice_surface_downward_eastward_stress"
+    i = i+1; is%wrap%expStdName(i) = "sea_ice_surface_downward_northward_stress"
+    i = i+1; is%wrap%expStdName(i) = "sea_ice_basal_upward_eastward_stress"
+    i = i+1; is%wrap%expStdName(i) = "sea_ice_basal_upward_northward_stress"
+    i = i+1; is%wrap%expStdName(i) = "eastward_stokes_drift_current"
+    i = i+1; is%wrap%expStdName(i) = "northward_stokes_drift_current"
+    is%wrap%numExport = i
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)
