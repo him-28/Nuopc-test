@@ -131,6 +131,8 @@ module CON
     type(con_type_IS)             :: superIS
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
+    character(ESMF_MAXSTR), pointer :: cplList(:)
+    integer                         :: cplListSize, i, j
 #ifdef WITHSTATEUSE
     type(ESMF_FieldBundle)        :: dstFields, interDstFields
     type(ESMF_Field), allocatable :: fields(:)
@@ -163,6 +165,28 @@ module CON
     call ESMF_UserCompGetInternalState(ccomp, con_label_IS, superIS, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! report the cplList attribute
+    call NUOPC_CplCompAttributeGet(ccomp, cplListSize=cplListSize, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    allocate(cplList(cplListSize), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of cplList() failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    call NUOPC_CplCompAttributeGet(ccomp, cplList=cplList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    write(msgString,'(a,i0,a)') trim(cname)//': List of coupled fields (',cplListSize,'):'
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    do i=1, cplListSize
+      write(msgString,'(a,i2,a)') trim(cname)//':   ',i,', '//trim(cplList(i))
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+    enddo
+    deallocate(cplList, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of cplList() failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
 #ifdef WITHSTATEUSE
     ! replicate dstFields FieldBundle in order to provide intermediate Fields
