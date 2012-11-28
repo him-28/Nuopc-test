@@ -3,7 +3,7 @@
 module CON
 
   !-----------------------------------------------------------------------------
-  ! Connector Component.
+  ! COAMPS Connector Component.
   !-----------------------------------------------------------------------------
 
   ! Enabling the followng macro, i.e. removing the "_disable" suffix so it is 
@@ -32,6 +32,19 @@ module CON
 
   character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "CON_InternalState"
+
+! Mask codes
+  integer, parameter :: MASK_INLAND_WATER =  -1
+  integer, parameter :: MASK_WATER        =   0
+  integer, parameter :: MASK_LAND         =   1
+  integer, parameter :: MASK_FROZEN_WATER =   2
+  integer, parameter :: MASK_FROZEN_LAND  =   3
+
+! Values to mask out
+  integer :: mask(4) = (/ MASK_INLAND_WATER, &
+                          MASK_LAND,         &
+                          MASK_FROZEN_WATER, &
+                          MASK_FROZEN_LAND   /)
 
   type type_InternalStateStruct
     logical :: verbose

@@ -3,7 +3,7 @@
 module MED
 
   !-----------------------------------------------------------------------------
-  ! Mediator Component.
+  ! COAMPS Mediator Component.
   !-----------------------------------------------------------------------------
 
   use ESMF
@@ -23,6 +23,13 @@ module MED
   character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "MED_InternalState"
   integer, parameter :: maxFields = 20
+
+! Mask codes
+  integer, parameter :: MASK_INLAND_WATER =  -1
+  integer, parameter :: MASK_WATER        =   0
+  integer, parameter :: MASK_LAND         =   1
+  integer, parameter :: MASK_FROZEN_WATER =   2
+  integer, parameter :: MASK_FROZEN_LAND  =   3
 
   type type_InternalStateStruct
     logical :: verbose
