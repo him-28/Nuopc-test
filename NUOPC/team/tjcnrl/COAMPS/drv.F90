@@ -57,8 +57,8 @@ module DRV
   character(3) :: modNameLC(maxModCount)
   character(3) :: modNameUC(maxModCount)
   logical      :: modActive(maxModCount)
-  character(7) :: conNameUC(maxModCount,maxModCount)
-  character(7) :: conNameLC(maxModCount,maxModCount)
+  character(8) :: conNameUC(maxModCount,maxModCount)
+  character(8) :: conNameLC(maxModCount,maxModCount)
   logical      :: conActive(maxModCount,maxModCount)
 
   character(ESMF_MAXSTR) :: cname
@@ -234,8 +234,8 @@ module DRV
     ! set connector names
     do j = 1,modCount
     do i = 1,modCount
-      conNameUC(i,j) = modNameUC(i)//'2'//modNameUC(j)
-      conNameLC(i,j) = modNameLC(i)//'2'//modNameLC(j)
+      conNameUC(i,j) = modNameUC(i)//'->'//modNameUC(j)
+      conNameLC(i,j) = modNameLC(i)//'->'//modNameLC(j)
     enddo
     enddo
 
