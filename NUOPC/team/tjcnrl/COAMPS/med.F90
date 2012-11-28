@@ -234,6 +234,7 @@ module MED
     logical                       :: verbose
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
+    character(ESMF_MAXSTR)        :: fname
     integer                       :: i
     type(ESMF_State)              :: state
 
@@ -275,12 +276,22 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 4,6
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      fname = 'mbg_'//trim(fname)
 #ifdef USE_MODIFIED_STANDARD_NAMES
       call NUOPC_StateAdvertiseField(state, &
-        StandardName='background_'//trim(is%wrap%impStdName(i)), rc=rc)
+        StandardName='mbg_'//trim(is%wrap%impStdName(i)), name=trim(fname), rc=rc)
 #else
       call NUOPC_StateAdvertiseField(state, &
-        StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+        StandardName=trim(is%wrap%impStdName(i)), name=trim(fname), rc=rc)
 #endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -299,12 +310,22 @@ module MED
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 7,12
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      fname = 'mbg_'//trim(fname)
 #ifdef USE_MODIFIED_STANDARD_NAMES
       call NUOPC_StateAdvertiseField(state, &
-        StandardName='background_'//trim(is%wrap%impStdName(i)), rc=rc)
+        StandardName='mbg_'//trim(is%wrap%impStdName(i)), name=trim(fname), rc=rc)
 #else
       call NUOPC_StateAdvertiseField(state, &
-        StandardName=trim(is%wrap%impStdName(i)), rc=rc)
+        StandardName=trim(is%wrap%impStdName(i)), name=trim(fname), rc=rc)
 #endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -434,7 +455,7 @@ module MED
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 4,6
 #ifdef USE_MODIFIED_STANDARD_NAMES
-      call NUOPC_FieldDictionaryGetEntry('background_'//trim(is%wrap%impStdName(i)), &
+      call NUOPC_FieldDictionaryGetEntry('mbg_'//trim(is%wrap%impStdName(i)), &
         defaultShortName=fname, rc=rc)
 #else
       call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
@@ -447,6 +468,7 @@ module MED
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      fname = 'mbg_'//trim(fname)
       connected = NUOPC_StateIsFieldConnected(state, trim(fname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -491,7 +513,7 @@ module MED
       line=__LINE__, file=FILENAME)) return  ! bail out
     do i = 7,12
 #ifdef USE_MODIFIED_STANDARD_NAMES
-      call NUOPC_FieldDictionaryGetEntry('background_'//trim(is%wrap%impStdName(i)), &
+      call NUOPC_FieldDictionaryGetEntry('mbg_'//trim(is%wrap%impStdName(i)), &
         defaultShortName=fname, rc=rc)
 #else
       call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
@@ -504,6 +526,7 @@ module MED
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      fname = 'mbg_'//trim(fname)
       connected = NUOPC_StateIsFieldConnected(state, trim(fname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then

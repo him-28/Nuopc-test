@@ -208,7 +208,7 @@ module MBG
     is%wrap%numExport = i
 #ifdef USE_MODIFIED_STANDARD_NAMES
     do i = 1,is%wrap%numExport
-      is%wrap%expStdName(i) = 'background_'//is%wrap%expStdName(i)
+      is%wrap%expStdName(i) = 'mbg_'//is%wrap%expStdName(i)
     enddo
 #endif
 
@@ -231,6 +231,7 @@ module MBG
     logical                       :: verbose
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
+    character(ESMF_MAXSTR)        :: fname
     integer                       :: i
 
     rc = ESMF_SUCCESS
@@ -252,8 +253,18 @@ module MBG
 
     ! advertise exportable fields
     do i = 1,is%wrap%numExport
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%expStdName(i)), &
+        defaultShortName=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%expStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      fname = 'mbg_'//trim(fname)
       call NUOPC_StateAdvertiseField(exportState, &
-        StandardName=trim(is%wrap%expStdName(i)), rc=rc)
+        StandardName=trim(is%wrap%expStdName(i)), name=trim(fname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
@@ -333,6 +344,7 @@ module MBG
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      fname = 'mbg_'//trim(fname)
       connected = NUOPC_StateIsFieldConnected(exportState, trim(fname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then

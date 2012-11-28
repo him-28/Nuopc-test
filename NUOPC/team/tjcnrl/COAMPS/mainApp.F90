@@ -275,7 +275,7 @@ program mainApp
 
 #ifdef USE_MODIFIED_STANDARD_NAMES
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_surface_eastward_sea_water_velocity", &
+       "mbg_surface_eastward_sea_water_velocity", &
        canonicalUnits="m s-1", &
        defaultLongName="N/A", &
        defaultShortName="sscu", &
@@ -284,7 +284,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_surface_northward_sea_water_velocity", &
+       "mbg_surface_northward_sea_water_velocity", &
        canonicalUnits="m s-1", &
        defaultLongName="N/A", &
        defaultShortName="sscv", &
@@ -293,7 +293,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
  
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_sea_surface_temperature", &
+       "mbg_sea_surface_temperature", &
        canonicalUnits="K", &
        defaultLongName="N/A", &
        defaultShortName="sst", &
@@ -302,7 +302,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_surface_eastward_wind_to_wave_stress", &
+       "mbg_surface_eastward_wind_to_wave_stress", &
        canonicalUnits="Pa", &
        defaultLongName="N/A", &
        defaultShortName="tau_atm_wav_u", &
@@ -311,7 +311,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_surface_northward_wind_to_wave_stress", &
+       "mbg_surface_northward_wind_to_wave_stress", &
        canonicalUnits="Pa", &
        defaultLongName="N/A", &
        defaultShortName="tau_atm_wav_v", &
@@ -320,7 +320,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_surface_eastward_wave_to_ocean_stress", &
+       "mbg_surface_eastward_wave_to_ocean_stress", &
        canonicalUnits="Pa", &
        defaultLongName="N/A", &
        defaultShortName="tau_wav_ocn_u", &
@@ -329,7 +329,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_surface_northward_wave_to_ocean_stress", &
+       "mbg_surface_northward_wave_to_ocean_stress", &
        canonicalUnits="Pa", &
        defaultLongName="N/A", &
        defaultShortName="tau_wav_ocn_v", &
@@ -338,7 +338,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_eastward_stokes_drift_current", &
+       "mbg_eastward_stokes_drift_current", &
        canonicalUnits="m -1", &
        defaultLongName="N/A", &
        defaultShortName="sdcu", &
@@ -347,7 +347,7 @@ program mainApp
       line=__LINE__, file=FILENAME)) return  ! bail out
 
     call NUOPC_FieldDictionaryAddEntry( &
-       "background_northward_stokes_drift_current", &
+       "mbg_northward_stokes_drift_current", &
        canonicalUnits="m s-1", &
        defaultLongName="N/A", &
        defaultShortName="sdcv", &

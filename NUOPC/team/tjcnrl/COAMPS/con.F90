@@ -131,8 +131,11 @@ module CON
     type(con_type_IS)             :: superIS
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
+    integer                         :: i
+    integer                         :: cplCount
     character(ESMF_MAXSTR), pointer :: cplList(:)
-    integer                         :: cplListSize, i, j
+    integer                         :: srcCount, dstCount
+    character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
 #ifdef WITHSTATEUSE
     type(ESMF_FieldBundle)        :: dstFields, interDstFields
     type(ESMF_Field), allocatable :: fields(:)
@@ -166,27 +169,50 @@ module CON
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! report the cplList attribute
-    call NUOPC_CplCompAttributeGet(ccomp, cplListSize=cplListSize, rc=rc)
+    ! report the cplList and FieldBundle lists
+    call NUOPC_CplCompAttributeGet(ccomp, cplListSize=cplCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    allocate(cplList(cplListSize), stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Allocation of cplList() failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
-    call NUOPC_CplCompAttributeGet(ccomp, cplList=cplList, rc=rc)
+    call ESMF_FieldBundleGet(superIS%wrap%srcFields, fieldCount=srcCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    write(msgString,'(a,i0,a)') trim(cname)//': List of coupled fields (',cplListSize,'):'
+    call ESMF_FieldBundleGet(superIS%wrap%dstFields, fieldCount=dstCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    if (cplCount.ne.srcCount .or. cplCount.ne.dstCount) then
+      write(msgString,'(a)') trim(cname)//': cplList count does not agree with FieldBundle counts'
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+      return  ! bail out
+    endif
+    write(msgString,'(a,i0,a)') trim(cname)//': List of coupled fields (',cplCount,'):'
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-    do i=1, cplListSize
-      write(msgString,'(a,i2,a)') trim(cname)//':   ',i,', '//trim(cplList(i))
+    if (cplCount.gt.0) then
+      write(msgString,'(a,a5,a,a20,a,a20,a,a)') &
+        trim(cname)//': ','index',' ','srcField',' ','dstField','   ','standardName'
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-    enddo
-    deallocate(cplList, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of cplList() failed.", &
-      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+      allocate(cplList(cplCount), srcList(cplCount), dstList(cplCount), stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of cplList() failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+      call NUOPC_CplCompAttributeGet(ccomp, cplList=cplList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      call ESMF_FieldBundleGet(superIS%wrap%srcFields, fieldNameList=srcList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      call ESMF_FieldBundleGet(superIS%wrap%dstFields, fieldNameList=dstList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      do i=1, cplCount
+        write(msgString,'(a,i5,a,a20,a,a20,a,a)') &
+          trim(cname)//': ',i,' ',trim(srcList(i)),' ',trim(dstList(i)),'   ',trim(cplList(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+      enddo
+      deallocate(cplList, srcList, dstList, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg="Deallocation of cplList() failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
 
 #ifdef WITHSTATEUSE
     ! replicate dstFields FieldBundle in order to provide intermediate Fields
