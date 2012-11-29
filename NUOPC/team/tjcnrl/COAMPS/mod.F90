@@ -25,6 +25,13 @@ module MOD
   character (*), parameter :: label_InternalState = "MOD_InternalState"
   integer, parameter :: maxFields = 20
 
+! Mask codes
+  integer, parameter :: MASK_INLAND_WATER =  -1
+  integer, parameter :: MASK_WATER        =   0
+  integer, parameter :: MASK_LAND         =   1
+  integer, parameter :: MASK_FROZEN_WATER =   2
+  integer, parameter :: MASK_FROZEN_LAND  =   3
+
   type type_InternalStateStruct
     logical :: verbose
     integer :: numImport
@@ -211,8 +218,8 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "eastward_stokes_drift_current"
         i = i+1; is%wrap%impStdName(i) = "northward_stokes_drift_current"
 #else
-        i = i+1; is%wrap%impStdName(i) = "surface_eastward_wave_to_ocean_stress"
-        i = i+1; is%wrap%impStdName(i) = "surface_northward_wave_to_ocean_stress"
+        i = i+1; is%wrap%impStdName(i) = "surface_downward_eastward_stress"
+        i = i+1; is%wrap%impStdName(i) = "surface_downward_northward_stress"
         i = i+1; is%wrap%impStdName(i) = "eastward_stokes_drift_current"
         i = i+1; is%wrap%impStdName(i) = "northward_stokes_drift_current"
 #endif
@@ -400,32 +407,32 @@ module MOD
     ! create a Grid object for Fields
     select case (cname(1:3))
       case ('ATM')
-        gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 20, 100, rc)
+        gridIn = NUOPC_GridCreateSimpleXY(  0._ESMF_KIND_R8,  0._ESMF_KIND_R8, &
+          100._ESMF_KIND_R8, 100._ESMF_KIND_R8, 51, 51, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('OCN')
-        gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 100, 20, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
+           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('WAV')
-        gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 100, 20, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
+           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('ICE')
-        gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 100, 20, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
+           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('LND')
-        gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 20, 100, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
+           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
