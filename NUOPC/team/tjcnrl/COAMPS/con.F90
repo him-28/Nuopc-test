@@ -6,14 +6,6 @@ module CON
   ! COAMPS Connector Component.
   !-----------------------------------------------------------------------------
 
-  ! Enabling the followng macro, i.e. removing the "_disable" suffix so it is 
-  ! simply "WITHSTATEUSE", will activate sections of code that demonstrate how
-  ! the "state" member inside the NUOPC_Connector internal State is used. The
-  ! example creates an FieldBundle that's a duplicate of superIS%wrap%dstFields,
-  ! and precomputes two RouteHandles. The first is a Regrid, while the second
-  ! is simply an identity operation using FieldRedist() to show the principle.
-#define WITHSTATEUSE_disable
-
   use ESMF
   use NUOPC
   use NUOPC_Connector, only: &
@@ -112,7 +104,6 @@ module CON
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-#ifdef WITHSTATEUSE
     ! attach specializing method to execute the connection RouteHandle
     call ESMF_MethodAdd(ccomp, label=con_label_ExecuteRH, &
       userRoutine=ExecuteRH, rc=rc)
@@ -124,7 +115,6 @@ module CON
       userRoutine=ReleaseRH, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-#endif
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving SetServices', ESMF_LOGMSG_INFO)
@@ -149,15 +139,6 @@ module CON
     character(ESMF_MAXSTR), pointer :: cplList(:)
     integer                         :: srcCount, dstCount
     character(ESMF_MAXSTR), pointer :: srcList(:), dstList(:)
-#ifdef WITHSTATEUSE
-    type(ESMF_FieldBundle)        :: dstFields, interDstFields
-    type(ESMF_Field), allocatable :: fields(:)
-    integer                       :: fieldCount, i
-    type(ESMF_Grid)               :: Grid
-    type(ESMF_TypeKind_Flag)      :: typekind    
-    type(ESMF_Field)              :: field
-    type(ESMF_RouteHandle)        :: rh1, rh2
-#endif
 
     rc = ESMF_SUCCESS
 
@@ -227,61 +208,11 @@ module CON
         line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
     endif
 
-#ifdef WITHSTATEUSE
-    ! replicate dstFields FieldBundle in order to provide intermediate Fields
-    dstFields = superIS%wrap%dstFields
-    call ESMF_FieldBundleGet(dstFields, fieldCount=fieldCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    allocate(fields(fieldCount))
-    call ESMF_FieldBundleGet(dstFields, fieldList=fields, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    interDstFields = ESMF_FieldBundleCreate(name="interDstFields", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    do i=1, fieldCount
-      call ESMF_FieldGet(fields(i), grid=grid, typekind=typekind, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      field = ESMF_FieldCreate(grid, typekind, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      call ESMF_FieldBundleAdd(interDstFields, (/field/), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-    enddo
-    ! add interDstFields to the state member
-    call ESMF_StateAdd(superIS%wrap%state, (/interDstFields/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! compute the first RouteHandle for srcFields->interDstFields (Regrid)
-    call ESMF_FieldBundleRegridStore(superIS%wrap%srcFields, interDstFields, &
-      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, routehandle=rh1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_RouteHandleSet(rh1, name="src2interDstRH", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! compute the second RouteHandle for interDstFields->dstFields (Redist)
-    call ESMF_FieldBundleRedistStore(interDstFields, superIS%wrap%dstFields, &
-      routehandle=rh2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    call ESMF_RouteHandleSet(rh2, name="interDst2dstRH", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! add rh1, rh2 to the state member
-    call ESMF_StateAdd(superIS%wrap%state, (/rh1, rh2/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-#else      
-    ! specialize with Regrid
+    ! store regrid
     call ESMF_FieldBundleRegridStore(superIS%wrap%srcFields, superIS%wrap%dstFields, &
-      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, routehandle=superIS%wrap%rh, rc=rc)
+      routehandle=superIS%wrap%rh, unmappedAction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-#endif
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving ComputeRH', ESMF_LOGMSG_INFO)
@@ -290,7 +221,6 @@ module CON
   
   !-----------------------------------------------------------------------------
 
-#ifdef WITHSTATEUSE
   subroutine ExecuteRH(ccomp, rc)
     type(ESMF_CplComp)  :: ccomp
     integer, intent(out) :: rc
@@ -302,8 +232,6 @@ module CON
     type(con_type_IS)             :: superIS
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
-    type(ESMF_FieldBundle)        :: interDstFields
-    type(ESMF_RouteHandle)        :: rh1, rh2
 
     rc = ESMF_SUCCESS
 
@@ -328,38 +256,27 @@ module CON
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! retrieve interDstFields FieldBundle from state member
-    call ESMF_StateGet(superIS%wrap%state, "interDstFields", interDstFields, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! retrieve rh1 from state member
-    call ESMF_StateGet(superIS%wrap%state, "src2interDstRH", rh1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! retrieve rh2 from state member
-    call ESMF_StateGet(superIS%wrap%state, "interDst2dstRH", rh2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! apply rh1
-    call ESMF_FieldBundleRegrid(superIS%wrap%srcFields, interDstFields, &
-      routehandle=rh1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! apply rh2
-    call ESMF_FieldBundleRedist(interDstFields, superIS%wrap%dstFields, &
-      routehandle=rh2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
+    ! apply regrid
+    select case (cname(1:3))
+    case ('OBG','WBG')
+      call ESMF_FieldBundleRegrid(superIS%wrap%srcFields, superIS%wrap%dstFields, &
+        routehandle=superIS%wrap%rh, zeroRegion=ESMF_REGION_TOTAL, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    case default
+      call ESMF_FieldBundleRegrid(superIS%wrap%srcFields, superIS%wrap%dstFields, &
+        routehandle=superIS%wrap%rh, zeroRegion=ESMF_REGION_SELECT, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    end select
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving ExecuteRH', ESMF_LOGMSG_INFO)
  
   end subroutine
-#endif
 
   !-----------------------------------------------------------------------------
 
-#ifdef WITHSTATEUSE
   subroutine ReleaseRH(ccomp, rc)
     type(ESMF_CplComp)  :: ccomp
     integer, intent(out) :: rc
@@ -371,8 +288,6 @@ module CON
     type(con_type_IS)             :: superIS
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
-    type(ESMF_FieldBundle)        :: interDstFields
-    type(ESMF_RouteHandle)        :: rh1, rh2
 
     rc = ESMF_SUCCESS
 
@@ -397,36 +312,15 @@ module CON
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! retrieve interDstFields FieldBundle from state member
-    call ESMF_StateGet(superIS%wrap%state, "interDstFields", interDstFields, rc=rc)
+    ! release regrid
+    call ESMF_FieldBundleRegridRelease(superIS%wrap%rh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
-    ! retrieve rh1 from state member
-    call ESMF_StateGet(superIS%wrap%state, "src2interDstRH", rh1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! retrieve rh2 from state member
-    call ESMF_StateGet(superIS%wrap%state, "interDst2dstRH", rh2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! release rh1
-    call ESMF_FieldBundleRegridRelease(rh1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-    ! release rh2
-    call ESMF_FieldBundleRegridRelease(rh2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! Could destroy intermediate Fields and interDstFields FieldBundle here,
-    ! but it is more convenient to let ESMF automatic garbage collection take
-    ! care of them.
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving ReleaseRH', ESMF_LOGMSG_INFO)
 
   end subroutine
-#endif
 
   !-----------------------------------------------------------------------------
 
