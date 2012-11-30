@@ -24,7 +24,7 @@ module MBG
 
   character (*), parameter :: defaultVerbosity = "low"
   character (*), parameter :: label_InternalState = "MBG_InternalState"
-  integer, parameter :: maxFields = 20
+  integer, parameter :: maxFields = 40
 
 ! Mask codes
   integer, parameter :: MASK_INLAND_WATER =  -1
@@ -37,8 +37,10 @@ module MBG
     logical :: verbose
     integer :: numImport
     character(ESMF_MAXSTR), pointer :: impStdName(:)
+    character(ESMF_MAXSTR), pointer :: impFldName(:)
     integer :: numExport
     character(ESMF_MAXSTR), pointer :: expStdName(:)
+    character(ESMF_MAXSTR), pointer :: expFldName(:)
   end type
 
   type type_InternalState
@@ -195,7 +197,8 @@ module MBG
     is%wrap%numImport = 0
 
     ! define exportable fields
-    allocate(is%wrap%expStdName(maxFields), stat=stat)
+    allocate(is%wrap%expStdName(maxFields), &
+             is%wrap%expFldName(maxFields), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg="Allocation of export field name arrays failed.", &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
@@ -219,6 +222,17 @@ module MBG
       is%wrap%expStdName(i) = 'mbg_'//is%wrap%expStdName(i)
     enddo
 #endif
+    do i = 1,is%wrap%numExport
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%expStdName(i)), &
+        defaultShortName=is%wrap%expFldName(i), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%expStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving InitializeP0', ESMF_LOGMSG_INFO)
@@ -261,22 +275,12 @@ module MBG
 
     ! advertise exportable fields
     do i = 1,is%wrap%numExport
-      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%expStdName(i)), &
-        defaultShortName=fname, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
-          ', '//trim(is%wrap%expStdName(i))
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      fname = 'mbg_'//trim(fname)
-      call NUOPC_StateAdvertiseField(exportState, &
-        StandardName=trim(is%wrap%expStdName(i)), name=trim(fname), rc=rc)
+      call NUOPC_StateAdvertiseField(exportState, trim(is%wrap%expStdName(i)), &
+        name=trim(is%wrap%expFldName(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
         write(msgString,'(a,i2,a)') 'NUOPC_StateAdvertiseField: ',i, &
-        ', '//trim(is%wrap%expStdName(i))
+        ', '//trim(is%wrap%expFldName(i))
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -343,21 +347,11 @@ module MBG
 
     ! realize connected export fields (& remove unconnected)
     do i = 1,is%wrap%numExport
-      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%expStdName(i)), &
-        defaultShortName=fname, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
-          ', '//trim(is%wrap%expStdName(i))
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      fname = 'mbg_'//trim(fname)
+      fname = trim(is%wrap%expFldName(i))
       connected = NUOPC_StateIsFieldConnected(exportState, trim(fname), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i, &
-          ', '//trim(is%wrap%expStdName(i))
+        write(msgString,'(a,i2,a)') 'NUOPC_StateIsFieldConnected: ',i,', '//trim(fname)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -366,24 +360,21 @@ module MBG
           typekind=ESMF_TYPEKIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
-            ', '//trim(is%wrap%expStdName(i))
+          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i,', '//trim(fname)
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
         call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
-            ', '//trim(is%wrap%expStdName(i))
+          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i,', '//trim(fname)
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
         call FieldFill(field, 2._ESMF_KIND_R8, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'FieldFill: ',i, &
-            ', '//trim(is%wrap%expStdName(i))
+          write(msgString,'(a,i2,a)') 'FieldFill: ',i,', '//trim(fname)
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
@@ -391,8 +382,7 @@ module MBG
         call ESMF_StateRemove(exportState, (/trim(fname)/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
-            ', '//trim(is%wrap%expStdName(i))
+          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i,', '//trim(fname)
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
           return  ! bail out
         endif
@@ -417,7 +407,7 @@ module MBG
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
     type(ESMF_Clock)              :: clock
-    type(ESMF_State)              :: exportState
+    type(ESMF_State)              :: importState, exportState
     type(ESMF_Time)               :: currTime
     type(ESMF_TimeInterval)       :: timeStep
     integer                       :: localPet
@@ -439,8 +429,9 @@ module MBG
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered ModelAdvance', ESMF_LOGMSG_INFO)
 
-    ! query the Component for its clock and exportState
-    call ESMF_GridCompGet(gcomp, clock=clock, exportState=exportState, rc=rc)
+    ! query the Component for its clock, importState and exportState
+    call ESMF_GridCompGet(gcomp, clock=clock, &
+      importState=importState, exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
@@ -532,11 +523,31 @@ module MBG
     if (associated(stdNameList)) deallocate(stdNameList)
     if (associated(fieldList)) deallocate(fieldList)
 
+    ! deallocate import field name arrays
+    if (associated(is%wrap%impStdName)) then
+      deallocate(is%wrap%impStdName, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg="Deallocation of import std name arrays failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+    if (associated(is%wrap%impFldName)) then
+      deallocate(is%wrap%impFldName, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg="Deallocation of import fld name arrays failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+
     ! deallocate export field name arrays
     if (associated(is%wrap%expStdName)) then
       deallocate(is%wrap%expStdName, stat=stat)
       if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-        msg="Deallocation of export field name arrays failed.", &
+        msg="Deallocation of export std name arrays failed.", &
+        line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+    endif
+    if (associated(is%wrap%expFldName)) then
+      deallocate(is%wrap%expFldName, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg="Deallocation of export fld name arrays failed.", &
         line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
     endif
 
