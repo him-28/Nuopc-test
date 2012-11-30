@@ -493,6 +493,9 @@ module MBG
     logical                       :: verbose
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
+    character(ESMF_MAXSTR),pointer:: stdNameList(:)
+    type(ESMF_Field),pointer      :: fieldList(:)
+    integer                       :: i
 
     rc = ESMF_SUCCESS
 
@@ -510,6 +513,24 @@ module MBG
 
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
+
+    ! write final export fields
+    call NUOPC_StateBuildStdList(exportState, stdNameList, stdFieldList=fieldList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    if (associated(fieldList)) then
+    do i = 1,size(fieldList)
+      call FieldWrite(gcomp, fieldList(i), rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'FieldWrite: ',i,', '//trim(stdNameList(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
+    endif
+    if (associated(stdNameList)) deallocate(stdNameList)
+    if (associated(fieldList)) deallocate(fieldList)
 
     ! deallocate export field name arrays
     if (associated(is%wrap%expStdName)) then

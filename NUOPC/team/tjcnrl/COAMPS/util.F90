@@ -112,7 +112,7 @@ module UTIL
       open(unit=iunit, file=trim(cname)//'_'//trim(fname), &
         form='formatted', action='write', status='replace')
       do j = glb(2),gub(2)
-        write(iunit,'(100i1)') (int(gptr(i,j)),i=glb(1),gub(1))
+        write(iunit,'(100i1)') (nint(gptr(i,j)),i=glb(1),gub(1))
       enddo
       close(iunit)
       deallocate(gptr, stat=stat)
