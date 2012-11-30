@@ -80,18 +80,23 @@ ESMF_F90COMPILECPPFLAGS += -DMODULE_WBG=MBG
 
 
 # -----------------------------------------------------------------------------
-mainApp: mainApp.o drv.o con.o med.o mod.o mbg.o
+mainApp: mainApp.o drv.o con.o med.o mod.o mbg.o util.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 mainApp.o: drv.o
 drv.o: con.o med.o mod.o mbg.o
+con.o: util.o
+med.o: util.o
+mod.o: util.o
+mbg.o: util.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean edit run
 dust:
 	rm -f PET*.ESMF_LogFile
+	rm -f MED_* ATM_* OCN_* WAV_* ICE_* LND_* OBG_* WBG_*
 clean:
 	rm -f mainApp *.o *.mod core*
 distclean: dust clean

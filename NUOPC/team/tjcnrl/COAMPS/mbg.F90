@@ -14,6 +14,7 @@ module MBG
     model_label_IS        => label_InternalState, &
     model_label_SetClock  => label_SetClock, &
     model_label_Advance   => label_Advance
+  use UTIL
 
   implicit none
 
@@ -526,34 +527,6 @@ module MBG
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving Finalize', ESMF_LOGMSG_INFO)
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
-  subroutine FieldFill(field, fill, rc)
-    type(ESMF_Field), intent(inout) :: field
-    real(ESMF_KIND_R8), intent(in) :: fill
-    integer, intent(out) :: rc
-
-    ! local variables
-    integer :: ldecnt, lde
-    integer :: tlb(2), tub(2)
-    real(ESMF_KIND_R8), pointer :: fptr(:,:)
-
-    rc = ESMF_SUCCESS
-
-    call ESMF_FieldGet(field, localDECount=ldecnt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    do lde=0,ldecnt-1
-      call ESMF_FieldGet(field, localDE=lde, farrayPtr=fptr, &
-           totalLBound=tlb, totalUBound=tub, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-      fptr(tlb(1):tub(1),tlb(2):tub(2)) = fill
-    enddo
 
   end subroutine
 
