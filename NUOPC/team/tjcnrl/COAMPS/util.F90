@@ -13,7 +13,9 @@ module UTIL
   private
 
   public FieldFill
+  public FieldBundleFill
   public FieldWrite
+  public FieldCopyData
 
 ! Mask codes
   integer, parameter :: MASK_INLAND_WATER =  -1
@@ -51,6 +53,55 @@ module UTIL
         line=__LINE__, file=FILENAME)) return  ! bail out
       fptr(tlb(1):tub(1),tlb(2):tub(2)) = fill
     enddo
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine FieldBundleFill(fields, fill, rc)
+    type(ESMF_FieldBundle) :: fields
+    real(ESMF_KIND_R8)  :: fill
+    integer             :: rc
+
+    ! local variables
+    integer                     :: fieldCount, i
+    type(ESMF_Field), pointer   :: fieldList(:)
+    integer                     :: ldecnt, lde
+    integer                     :: tlb(2), tub(2)
+    real(ESMF_KIND_R8), pointer :: fptr(:,:)
+    integer                     :: localrc, stat
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_FieldBundleGet(fields, fieldCount=fieldCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    if (fieldCount.eq.0) return
+
+    allocate(fieldList(fieldCount), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of fieldList() failed.", &
+      line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
+
+    call ESMF_FieldBundleGet(fields, fieldList=fieldList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    do i = 1,fieldCount
+      call ESMF_FieldGet(fieldList(i), localDECount=ldecnt, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      do lde=0,ldecnt-1
+        call ESMF_FieldGet(fieldList(i), localDE=lde, farrayPtr=fptr, &
+             totalLBound=tlb, totalUBound=tub, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) return  ! bail out
+        fptr(tlb(1):tub(1),tlb(2):tub(2)) = fill
+      enddo
+    enddo
+
+    if (associated(fieldList)) deallocate(fieldList)
 
   end subroutine
 
@@ -121,6 +172,44 @@ module UTIL
         line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
     endif
     call ESMF_VMBarrier(vm)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine FieldCopyData(srcField, dstField, noData, rc)
+    type(ESMF_Field)    :: srcField
+    type(ESMF_Field)    :: dstField
+    real(ESMF_KIND_R8)  :: noData
+    integer             :: rc
+
+    ! local variables
+    integer                     :: ldecnt, lde
+    integer                     :: tlb(2), tub(2)
+    integer                     :: i, j
+    real(ESMF_KIND_R8), pointer :: sptr(:,:), dptr(:,:)
+    integer                     :: localrc, stat
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_FieldGet(dstField, localDECount=ldecnt, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    do lde=0,ldecnt-1
+      call ESMF_FieldGet(dstField, localDE=lde, farrayPtr=dptr, &
+           totalLBound=tlb, totalUBound=tub, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      call ESMF_FieldGet(srcField, localDE=lde, farrayPtr=sptr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+      do j = tlb(2),tub(2)
+      do i = tlb(2),tub(2)
+        if (sptr(i,j).lt.noData) dptr(i,j) = sptr(i,j)
+      enddo
+      enddo
+    enddo
 
   end subroutine
 
