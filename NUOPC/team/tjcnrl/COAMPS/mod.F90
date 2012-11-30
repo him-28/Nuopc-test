@@ -316,7 +316,6 @@ module MOD
     integer                       :: localrc, stat
     character(ESMF_MAXSTR)        :: fname
     integer                       :: i
-    type(ESMF_State)              :: state
 
     rc = ESMF_SUCCESS
 
@@ -386,7 +385,6 @@ module MOD
     type(ESMF_Grid)               :: gridIn
     type(ESMF_Grid)               :: gridOut
     integer                       :: i
-    type(ESMF_State)              :: state
 
     rc = ESMF_SUCCESS
 
@@ -409,31 +407,31 @@ module MOD
     select case (cname(1:3))
       case ('ATM')
         gridIn = NUOPC_GridCreateSimpleXY(  0._ESMF_KIND_R8,  0._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 100._ESMF_KIND_R8, 51, 51, rc)
+          50._ESMF_KIND_R8, 50._ESMF_KIND_R8, 50, 50, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('OCN')
-        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 10._ESMF_KIND_R8, 10._ESMF_KIND_R8, &
+          40._ESMF_KIND_R8,  40._ESMF_KIND_R8,  30,  30, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('WAV')
-        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 10._ESMF_KIND_R8, 10._ESMF_KIND_R8, &
+          40._ESMF_KIND_R8,  40._ESMF_KIND_R8,  30,  30, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('ICE')
-        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 10._ESMF_KIND_R8, 10._ESMF_KIND_R8, &
+          40._ESMF_KIND_R8,  40._ESMF_KIND_R8,  30,  30, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('LND')
-        gridIn = NUOPC_GridCreateSimpleXY( 20._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-           80._ESMF_KIND_R8,  80._ESMF_KIND_R8,  31,  31, rc)
+        gridIn = NUOPC_GridCreateSimpleXY( 10._ESMF_KIND_R8, 10._ESMF_KIND_R8, &
+          40._ESMF_KIND_R8,  40._ESMF_KIND_R8,  30,  30, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
@@ -450,34 +448,22 @@ module MOD
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
-      connected = .true.
-      if (connected) then
-        field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
-          typekind=ESMF_TYPEKIND_R8, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
-            ', '//trim(is%wrap%impStdName(i))
-          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-          return  ! bail out
-        endif
-        call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
-            ', '//trim(is%wrap%impStdName(i))
-          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-          return  ! bail out
-        endif
-      else
-        call ESMF_StateRemove(importState, (/trim(fname)/), rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-          write(msgString,'(a,i2,a)') 'ESMF_StateRemove: ',i, &
-            ', '//trim(is%wrap%impStdName(i))
-          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-          return  ! bail out
-        endif
+      field = ESMF_FieldCreate(name=trim(fname), grid=gridIn, &
+        typekind=ESMF_TYPEKIND_R8, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'ESMF_FieldCreate: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call NUOPC_StateRealizeField(importState, field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_StateRealizeField: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
       endif
     enddo
 
@@ -699,6 +685,9 @@ module MOD
     logical                       :: verbose
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
+    character(ESMF_MAXSTR)        :: fname
+    type(ESMF_Field)              :: field
+    integer                       :: i
 
     rc = ESMF_SUCCESS
 
@@ -716,6 +705,35 @@ module MOD
 
     if (verbose) &
     call ESMF_LogWrite('>>>'//trim(cname)//' entered Finalize', ESMF_LOGMSG_INFO)
+
+    ! write final import fields
+    do i = 1,is%wrap%numImport
+      call NUOPC_FieldDictionaryGetEntry(trim(is%wrap%impStdName(i)), &
+        defaultShortName=fname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'NUOPC_FieldDictionaryGetEntry: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call ESMF_StateGet(importState, trim(fname), field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'ESMF_StateGet: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      call FieldWrite(gcomp, field, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,i2,a)') 'FieldWrite: ',i, &
+          ', '//trim(is%wrap%impStdName(i))
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+    enddo
 
     ! deallocate import field name arrays
     if (associated(is%wrap%impStdName)) then

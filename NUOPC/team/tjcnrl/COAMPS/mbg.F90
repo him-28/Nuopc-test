@@ -329,13 +329,13 @@ module MBG
     select case (cname(1:3))
       case ('OBG')
         gridIn = NUOPC_GridCreateSimpleXY(  0._ESMF_KIND_R8,  0._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 100._ESMF_KIND_R8, 51, 51, rc)
+          50._ESMF_KIND_R8, 50._ESMF_KIND_R8, 50, 50, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
       case ('WBG')
         gridIn = NUOPC_GridCreateSimpleXY(  0._ESMF_KIND_R8,  0._ESMF_KIND_R8, &
-          100._ESMF_KIND_R8, 100._ESMF_KIND_R8, 51, 51, rc)
+          50._ESMF_KIND_R8, 50._ESMF_KIND_R8, 50, 50, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) return  ! bail out
         gridOut = gridIn ! for now out same as in
