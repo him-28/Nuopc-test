@@ -826,11 +826,11 @@ module MOD
         line=__LINE__, file=FILENAME)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
     endif
 
-    call ESMF_ArrayGather(array, gptr, 0, tile=1, vm=vm, rc=rc)
+    call ESMF_ArrayGather(array, gptr, rootPet, tile=1, vm=vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
 
-    if (lPet.eq.0) then
+    if (lPet.eq.rootPet) then
       call ESMF_UtilIOUnitGet(iunit, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME, rcToReturn=rc)) &
@@ -838,7 +838,7 @@ module MOD
       open(unit=iunit, file=trim(cname)//'_'//trim(fname), &
         form='formatted', action='write', status='replace')
       do j = glb(2),gub(2)
-        write(999,'(100i1)') (int(gptr(i,j)),i=glb(1),gub(1))
+        write(iunit,'(100i1)') (int(gptr(i,j)),i=glb(1),gub(1))
       enddo
       close(iunit)
       deallocate(gptr, stat=stat)
