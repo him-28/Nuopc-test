@@ -50,13 +50,16 @@ module DRV
 
   logical     , parameter :: defaultVerbose = .true.
   logical     , parameter :: defaultModActive = .true.
+  character(4), parameter :: defaultModType = 'live'
 
   integer, parameter :: maxModCount = 8
-  integer      :: modCount=0, modFgdCount=0
+  integer      :: modCount=0
+  integer      :: modFgdCount=0
   integer      :: med=0, atm=0, ocn=0, wav=0, ice=0, lnd=0
   integer      :: obg=0, wbg=0
   character(3) :: modNameLC(0:maxModCount)
   character(3) :: modNameUC(0:maxModCount)
+  character(4) :: modType(0:maxModCount)
   logical      :: modActive(0:maxModCount)
   character(8) :: conNameUC(0:maxModCount,0:maxModCount)
   character(8) :: conNameLC(0:maxModCount,0:maxModCount)

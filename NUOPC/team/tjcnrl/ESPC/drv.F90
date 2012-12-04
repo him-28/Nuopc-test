@@ -74,15 +74,15 @@ module DRV
   character(4), parameter :: defaultModType = 'live'
 
   integer, parameter :: maxModCount = 6
-  integer      :: modCount
-  integer      :: med, atm, ocn, wav, ice, lnd
-  character(3) :: modShortNameLC(maxModCount)
-  character(3) :: modShortNameUC(maxModCount)
-  character(7) :: modName(maxModCount)
-  character(4) :: modType(maxModCount)
-  logical      :: modActive(maxModCount)
-  character(7) :: conName(maxModCount,maxModCount)
-  logical      :: conActive(maxModCount,maxModCount)
+  integer      :: modCount=0
+  integer      :: med=0, atm=0, ocn=0, wav=0, ice=0, lnd=0
+  character(3) :: modNameLC(0:maxModCount)
+  character(3) :: modNameUC(0:maxModCount)
+  character(4) :: modType(0:maxModCount)
+  logical      :: modActive(0:maxModCount)
+  character(8) :: conNameUC(0:maxModCount,0:maxModCount)
+  character(8) :: conNameLC(0:maxModCount,0:maxModCount)
+  logical      :: conActive(0:maxModCount,0:maxModCount)
 
   character(ESMF_MAXSTR) :: cname
   character(ESMF_MAXSTR) :: msgString
@@ -163,46 +163,45 @@ module DRV
     call ESMF_LogWrite(trim(cname)//': compiled without LND module', ESMF_LOGMSG_INFO)
 #endif
 
-    ! set model count, model index mapping, and model short names
-    modCount = 0
+    ! set model count, model index mapping, and model names
 #ifdef INCLUDE_MED
     modCount = modCount + 1
     med = modCount
-    modShortNameLC(med) = 'med'
-    modShortNameUC(med) = 'MED'
+    modNameLC(med) = 'med'
+    modNameUC(med) = 'MED'
 #endif
 #ifdef INCLUDE_ATM
     modCount = modCount + 1
     atm = modCount
-    modShortNameLC(atm) = 'atm'
-    modShortNameUC(atm) = 'ATM'
+    modNameLC(atm) = 'atm'
+    modNameUC(atm) = 'ATM'
 #endif
 #ifdef INCLUDE_OCN
     modCount = modCount + 1
     ocn = modCount
-    modShortNameLC(ocn) = 'ocn'
-    modShortNameUC(ocn) = 'OCN'
+    modNameLC(ocn) = 'ocn'
+    modNameUC(ocn) = 'OCN'
 #endif
 #ifdef INCLUDE_WAV
     modCount = modCount + 1
     wav = modCount
-    modShortNameLC(wav) = 'wav'
-    modShortNameUC(wav) = 'WAV'
+    modNameLC(wav) = 'wav'
+    modNameUC(wav) = 'WAV'
 #endif
 #ifdef INCLUDE_ICE
     modCount = modCount + 1
     ice = modCount
-    modShortNameLC(ice) = 'ice'
-    modShortNameUC(ice) = 'ICE'
+    modNameLC(ice) = 'ice'
+    modNameUC(ice) = 'ICE'
 #endif
 #ifdef INCLUDE_LND
     modCount = modCount + 1
     lnd = modCount
-    modShortNameLC(lnd) = 'lnd'
-    modShortNameUC(lnd) = 'LND'
+    modNameLC(lnd) = 'lnd'
+    modNameUC(lnd) = 'LND'
 #endif
     do i = 1,modCount
-      write(msgString,'(a,i0)') trim(cname)//': '//modShortNameUC(i)//' model index: ',i
+      write(msgString,'(a,i0)') trim(cname)//': '//modNameUC(i)//' model index: ',i
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
 
@@ -215,7 +214,7 @@ module DRV
 
     ! process config for modActive
     do i = 1,modCount
-      label = modShortNameLC(i)//'Active:'
+      label = modNameUC(i)//'_active:'
       call ESMF_ConfigGetAttribute(config, modActive(i), default=defaultModActive, &
         label=trim(label), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -224,10 +223,11 @@ module DRV
           trim(label), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      ! report active/inactive models
       if (modActive(i)) then
-        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is     active'
+        write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' is     active'
       else
-        write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' is not active'
+        write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' is not active'
       endif
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
@@ -240,7 +240,7 @@ module DRV
     do i = 1,modCount
 #endif
       if (.not.modActive(i)) cycle
-      label = modShortNameLC(i)//'Type:'
+      label = modNameUC(i)//'_type:'
       call ESMF_ConfigGetAttribute(config, modType(i), default=defaultModType, &
         label=trim(label), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -256,20 +256,15 @@ module DRV
           msg=trim(cname)//': Model type not supported: '//modType(i))
         return  ! bail out
       end select
-      write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' type: '//modType(i)
+      write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' type: '//modType(i)
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-    enddo
-
-    ! set model names
-    do i = 1,modCount
-      if (.not.modActive(i)) cycle
-      modName(i) = modShortNameUC(i)//modType(i)
     enddo
 
     ! set connector names
     do j = 1,modCount
     do i = 1,modCount
-      conName(i,j) = modShortNameUC(i)//'2'//modShortNameUC(j)
+      conNameUC(i,j) = modNameUC(i)//'->'//modNameUC(j)
+      conNameLC(i,j) = modNameLC(i)//'->'//modNameLC(j)
     enddo
     enddo
 
@@ -277,6 +272,10 @@ module DRV
     conActive = .false.
 #ifdef INCLUDE_MED
     if (modActive(med)) then
+      ! mediator is active
+      ! * active model to mediator connections
+      ! * mediator to active model connections
+      ! * no model to model connections
       do i = 2,modCount
         if (modActive(i)) then
           conActive(i,med) = .true.
@@ -284,6 +283,8 @@ module DRV
         endif
       enddo
     else
+      ! mediator is not active
+      ! * active model to active model connections
       do j = 2,modCount
       do i = 2,modCount
         if (i.eq.j) cycle
@@ -295,6 +296,8 @@ module DRV
       enddo
     endif
 #else
+    ! mediator is not included
+    ! * active model to active model connections
     do j = 1,modCount
     do i = 1,modCount
       if (i.eq.j) cycle
@@ -308,7 +311,7 @@ module DRV
     do j = 1,modCount
     do i = 1,modCount
       if (.not.conActive(i,j)) cycle
-      write(msgString,'(a)') trim(cname)//': '//conName(i,j)//' connector is active'
+      write(msgString,'(a)') trim(cname)//': '//conNameUC(i,j)//' connector is active'
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
     enddo
     enddo
@@ -439,7 +442,7 @@ module DRV
     integer                            :: k, l, m, n, p
     integer                            :: k1, k2
     integer                            :: modStart
-    integer                            :: petCount
+    integer                            :: petCount, npet
     integer                            :: modPetCount(maxModCount)
     integer     , pointer              :: modPetList(:)
     character(ESMF_MAXSTR)             :: label
@@ -460,7 +463,7 @@ module DRV
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! process config for petLayoutOption
+    ! process config for pet_layout_option:
     label = 'pet_layout_option:'
     call ESMF_ConfigGetAttribute(config, petLayoutOption, default='sequential', &
       label=trim(label), rc=rc)
@@ -472,7 +475,7 @@ module DRV
     ! set the model petLists based on petLayoutOption
     select case (trim(petLayoutOption))
 
-    ! petLayoutOption = sequential
+    ! pet_layout_option: sequential
     !   * active models defined on all pets
     !   * MED defined on all pets
     !   * no other config options required
@@ -481,7 +484,7 @@ module DRV
         if (.not.modActive(i)) cycle
         allocate(superIS%wrap%modelPetLists(i)%petList(petCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modName(i)//" petList array failed.", &
+          msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         modPetList => superIS%wrap%modelPetLists(i)%petList
         do j = 1,petCount
@@ -489,7 +492,7 @@ module DRV
         enddo
       enddo
 
-    ! petLayoutOption = concurrent
+    ! pet_layout_option: concurrent
     !   * active models defined on non-overlapping sets of PETs
     !   * requires <MOD>_pet_count input for active models
     !   * MED_pet_count optional, default is MED defined on all PETs
@@ -498,18 +501,18 @@ module DRV
       modStart = 1
 #ifdef INCLUDE_MED
       if (modActive(med)) then
-        label=modShortNameLC(med)//'_pet_count:'
+        label=modNameUC(med)//'_pet_count:'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
         if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
           if (verbose) then
             write(msgString,'(a,i0)') trim(cname)//': '// &
-              modShortNameUC(med)//' PET count: ',modPetCount(med)
+              modNameUC(med)//' PET count: ',modPetCount(med)
             call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           endif
           allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
           if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-            msg="Allocation of "//modName(i)//" PET list array failed.", &
+            msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
             line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
           modPetList => superIS%wrap%modelPetLists(med)%petList
           do j = 1,petCount
@@ -519,51 +522,61 @@ module DRV
         endif
       endif
 #endif
-      n = 0
+      npet = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-        label=modShortNameLC(i)//'_pet_count:'
+        label=modNameUC(i)//'_pet_count:'
         call ESMF_ConfigGetAttribute(config, modPetCount(i), label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
             msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
-            ' = concurrent and '//modShortNameUC(i)//' is active')
+            ' = concurrent and '//modNameUC(i)//' is active')
           return  ! bail out
-        endif
-        if (verbose) then
-          write(msgString,'(a,i0)') trim(cname)//': '// &
-            modShortNameUC(i)//' PET count: ',modPetCount(i)
-          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
         endif
         if (modPetCount(i).lt.1.or.modPetCount(i).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
             msg=trim(cname)//': '//trim(label)//' must be > 0 and < # PETs')
           return  ! bail out
         endif
-        n = n + modPetCount(i)
+        npet = npet + modPetCount(i)
       enddo
-      if (n.gt.petCount) then
+      if (npet.gt.petCount) then
         call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
           msg=trim(cname)//': pet_layout_option = concurrent requires'// &
           ' \sum(<MOD>_pet_count) <= # PETs for active models')
         return  ! bail out
       endif
-      n = 0
+      npet = 0
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
         allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modName(i)//" PET list array failed.", &
+          msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         modPetList => superIS%wrap%modelPetLists(i)%petList
         do j = 1,modPetCount(i)
-          modPetList(j) = n
-          n = n + 1
+          modPetList(j) = npet
+          npet = npet + 1
         enddo
+        if (verbose) then
+          write(msgString,'(a,i0)') trim(cname)//': '// &
+            modNameUC(i)//' PET count: ',modPetCount(i)
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+          n = 10
+          m = ceiling(real(modPetCount(i))/real(n))
+          write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' PET list:'
+          call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+          do l = 1,m
+            k1 = min((l-1)*n+1,modPetCount(i))
+            k2 = min((l-1)*n+n,modPetCount(i))
+            write(msgString,'(a,100i7)') trim(cname)//': ', (modPetList(k),k=k1,k2)
+            call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+          enddo
+        endif
       enddo
 
-    ! petLayoutOption = specified
+    ! pet_layout_option: specified
     !   * active models defined on specified sets of PETs
     !   * requires <MOD>_pet_list input for active models
     !   * MED_pet_list optional, default is MED defined on all PETs
@@ -572,18 +585,18 @@ module DRV
       modStart = 1
 #ifdef INCLUDE_MED
       if (modActive(med)) then
-        label=modShortNameLC(med)//'_pet_list::'
+        label=modNameUC(med)//'_pet_list::'
         call ESMF_ConfigFindLabel(config, label=trim(label), isPresent=isPresent, rc=rc)
         if (.not.isPresent.or.rc.ne.ESMF_SUCCESS) then
           modPetCount(med) = petCount
           if (verbose) then
             write(msgString,'(a,i0)') trim(cname)//': '// &
-              modShortNameUC(med)//' PET count: ',modPetCount(med)
+              modNameUC(med)//' PET count: ',modPetCount(med)
             call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           endif
           allocate(superIS%wrap%modelPetLists(med)%petList(petCount), stat=stat)
           if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-            msg="Allocation of "//modName(i)//" PET list array failed.", &
+            msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
             line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
           modPetList => superIS%wrap%modelPetLists(med)%petList
           do j = 1,petCount
@@ -595,13 +608,13 @@ module DRV
 #endif
       do i = modStart,modCount
         if (.not.modActive(i)) cycle
-        label=modShortNameLC(i)//'_pet_list::'
+        label=modNameUC(i)//'_pet_list::'
         call ESMF_ConfigGetDim(config, m, n, label=trim(label), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
             msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
-            ' = specified and '//modShortNameUC(i)//' is active')
+            ' = specified and '//modNameUC(i)//' is active')
           return  ! bail out
         endif
         if (verbose) then
@@ -614,24 +627,24 @@ module DRV
         endif
         allocate(list(n), ncol(m), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of "//modName(i)//" PET list table failed.", &
+          msg="Allocation of "//modNameUC(i)//" PET list table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         do p = 1,2
           if (p.eq.2) then
             if (verbose) then
               write(msgString,'(a,i0)') trim(cname)//': '// &
-                modShortNameUC(i)//' PET count: ',modPetCount(i)
+                modNameUC(i)//' PET count: ',modPetCount(i)
               call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
             endif
             if (modPetCount(i).lt.1.or.modPetCount(i).gt.petCount) then
               call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-                msg=trim(cname)//': '//modShortNameUC(i)// &
+                msg=trim(cname)//': '//modNameUC(i)// &
                 ' PET count must be > 0 and <= # PETs')
               return  ! bail out
             endif
             allocate(superIS%wrap%modelPetLists(i)%petList(modPetCount(i)), stat=stat)
             if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-              msg="Allocation of "//modName(i)//" PET list array failed.", &
+              msg="Allocation of "//modNameUC(i)//" PET list array failed.", &
               line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
             modPetList => superIS%wrap%modelPetLists(i)%petList
           endif
@@ -640,7 +653,7 @@ module DRV
             line=__LINE__, file=FILENAME)) then
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
               msg=trim(cname)//': '//trim(label)//' is required when pet_layout_option'// &
-              ' = specified and '//modShortNameUC(i)//' is active')
+              ' = specified and '//modNameUC(i)//' is active')
             return  ! bail out
           endif
           modPetCount(i) = 0
@@ -679,12 +692,12 @@ module DRV
         enddo
         deallocate(list, ncol, stat=stat)
         if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-          msg="Deallocation of "//modName(i)//" PET list table failed.", &
+          msg="Deallocation of "//modNameUC(i)//" PET list table failed.", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) return  ! bail out
         if (verbose) then
           n = 10
           m = ceiling(real(modPetCount(i))/real(n))
-          write(msgString,'(a)') trim(cname)//': '//modShortNameUC(i)//' PET list:'
+          write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' PET list:'
           call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
           do l = 1,m
             k1 = min((l-1)*n+1,modPetCount(i))
@@ -695,19 +708,19 @@ module DRV
         endif
         if (minval(modPetList).lt.0.or.maxval(modPetList).ge.petCount) then
           call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-            msg=trim(cname)//': '//modShortNameUC(i)//' PET list ids must be > 0 and < # PETs')
+            msg=trim(cname)//': '//modNameUC(i)//' PET list ids must be > 0 and < # PETs')
           return  ! bail out
         endif
         do j = 1,modPetCount(i)
           if (count(modPetList.eq.modPetList(j)).gt.1) then
             call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-              msg=trim(cname)//': '//modShortNameUC(i)//' PET list has duplicate entries')
+              msg=trim(cname)//': '//modNameUC(i)//' PET list has duplicate entries')
             return  ! bail out
           endif
         enddo
       enddo
 
-    ! unsupported petLayoutOption
+    ! unsupported pet_layout_option:
     case default
       call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
        msg=trim(cname)//': pet_layout_option not supported: '//trim(petLayoutOption))
@@ -753,25 +766,28 @@ module DRV
 
     ! set model component names and attributes
     do i = 1,modCount
-      call ESMF_GridCompSet(modComp(i), name=modName(i), rc=rc)
+      ! set name
+      call ESMF_GridCompSet(modComp(i), name=modNameUC(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//modName(i)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSet: ',i,', '//modNameUC(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      ! set config
+      call ESMF_GridCompSet(modComp(i), config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modNameUC(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      ! set verbosity
       call ESMF_AttributeSet(modComp(i), name="Verbosity", value=trim(verbosity), &
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//modName(i)
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
-      call ESMF_GridCompSet(modComp(i), config=config, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modName(i)
+        write(msgString,'(a,1i2,a)') 'ESMF_AttributeSet: ',i,', '//modNameUC(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -780,25 +796,27 @@ module DRV
     ! set connector component names and attributes
     do j = 1,modCount
     do i = 1,modCount
-      call ESMF_CplCompSet(conComp(i,j), name=conName(i,j), rc=rc)
+      ! set name
+      call ESMF_CplCompSet(conComp(i,j), name=conNameUC(i,j), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//conName(i,j)
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSet: ',i,j,', '//conNameUC(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      ! set verbosity
       call ESMF_AttributeSet(conComp(i,j), name="Verbosity", value=trim(verbosity), &
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//conName(i,j)
+        write(msgString,'(a,2i2,a)') 'ESMF_AttributeSet: ',i,j,', '//conNameUC(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
       call ESMF_CplCompSet(conComp(i,j), config=config, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,2i2,a)') 'Set config: ',i,j,', '//conName(i,j)
+        write(msgString,'(a,2i2,a)') 'Set config: ',i,j,', '//conNameUC(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -808,7 +826,7 @@ module DRV
     ! SetServices for active models
     do i = 1,modCount
       if (.not.modActive(i)) cycle
-      select case (modShortNameLC(i))
+      select case (modNameLC(i))
 #ifdef INCLUDE_MED
       case ('med')
         call ESMF_GridCompSetServices(modComp(i), medSS, userRc=localrc, rc=rc)
@@ -863,7 +881,7 @@ module DRV
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//modName(i)
+        write(msgString,'(a,1i2,a)') 'ESMF_GridCompSetServices: ',i,', '//modNameUC(i)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -878,7 +896,7 @@ module DRV
           line=__LINE__, file=FILENAME, rcToReturn=rc) .or. &
           ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=FILENAME, rcToReturn=rc)) then
-        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//conName(i,j)
+        write(msgString,'(a,2i2,a)') 'ESMF_CplCompSetServices: ',i,j,', '//conNameUC(i,j)
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
@@ -895,6 +913,10 @@ module DRV
       line=__LINE__, file=FILENAME)) return  ! bail out    
 #ifdef INCLUDE_MED
     if (modActive(med)) then
+      ! Run sequence with mediator
+      ! 1: connect active models to mediator
+      ! 2: advance mediator
+      ! 3: connect mediator to active models
       do i = 2,modCount
         if (.not.conActive(i,med)) cycle
         call NUOPC_RunElementAdd(runSeq(1), i=i, j=med, phase=1, rc=rc)
@@ -917,6 +939,9 @@ module DRV
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
     else
+      ! Run sequence without mediator
+      ! 1: connect active models to active models
+      ! 2: advance active models
       do j = 2,modCount
       do i = 2,modCount
         if (i.eq.j) cycle
@@ -934,6 +959,9 @@ module DRV
       enddo
     endif
 #else
+    ! Run sequence without mediator
+    ! 1: connect active models to active models
+    ! 2: advance active models
     do j = 1,modCount
     do i = 1,modCount
       if (i.eq.j) cycle
