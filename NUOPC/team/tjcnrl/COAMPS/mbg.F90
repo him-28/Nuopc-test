@@ -35,12 +35,12 @@ module MBG
 
   type type_InternalStateStruct
     logical :: verbose
-    integer :: numImport
-    character(ESMF_MAXSTR), pointer :: impStdName(:)
-    character(ESMF_MAXSTR), pointer :: impFldName(:)
-    integer :: numExport
-    character(ESMF_MAXSTR), pointer :: expStdName(:)
-    character(ESMF_MAXSTR), pointer :: expFldName(:)
+    integer :: numImport = 0
+    character(ESMF_MAXSTR), pointer :: impStdName(:) => NULL()
+    character(ESMF_MAXSTR), pointer :: impFldName(:) => NULL()
+    integer :: numExport = 0
+    character(ESMF_MAXSTR), pointer :: expStdName(:) => NULL()
+    character(ESMF_MAXSTR), pointer :: expFldName(:) => NULL()
   end type
 
   type type_InternalState
@@ -484,8 +484,8 @@ module MBG
     logical                       :: verbose
     type(type_InternalState)      :: is
     integer                       :: localrc, stat
-    character(ESMF_MAXSTR),pointer:: stdNameList(:)
-    type(ESMF_Field),pointer      :: fieldList(:)
+    character(ESMF_MAXSTR),pointer:: stdNameList(:) => NULL()
+    type(ESMF_Field),pointer      :: fieldList(:) => NULL()
     integer                       :: i
 
     rc = ESMF_SUCCESS
