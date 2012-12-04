@@ -35,7 +35,7 @@ else
 endif
 ifeq ($(DOMAIN),nrlssc.navy.mil)
   ifeq ($(OS),Linux)
-    ESMFMKFILE = /common/esmf/pgi/openmpi/$(ESMFV)/esmf.mk
+    ESMFMKFILE = /common/esmf/$(MPI_COMPILER)/openmpi/$(ESMFV)/esmf.mk
   else
   ifeq ($(OS),Darwin)
     ESMFMKFILE = /common/esmf/$(ESMFV)/esmf.mk
