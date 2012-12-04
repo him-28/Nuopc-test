@@ -291,7 +291,7 @@ program mainApp
        rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
- 
+
     call NUOPC_FieldDictionaryAddEntry( &
        "mbg_sea_surface_temperature", &
        canonicalUnits="K", &
