@@ -201,6 +201,7 @@ module DRV
     modNameLC(wbg) = 'wbg'
     modNameUC(wbg) = 'WBG'
 #endif
+    ! report model indexing
     do i = 1,modCount
       write(msgString,'(a,i0)') trim(cname)//': '//modNameUC(i)//' model index: ',i
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
@@ -224,6 +225,7 @@ module DRV
           trim(label), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      ! report active/inactive models
       if (modActive(i)) then
         write(msgString,'(a)') trim(cname)//': '//modNameUC(i)//' is     active'
       else
@@ -253,6 +255,10 @@ module DRV
     conActive = .false.
 #ifdef MODULE_MED
     if (modActive(med)) then
+      ! mediator is active
+      ! * active model to mediator connections
+      ! * mediator to active model connections
+      ! * no model to model connections
       do i = 2,modCount
         if (modActive(i)) then
           conActive(i,med) = .true.
@@ -260,6 +266,8 @@ module DRV
         endif
       enddo
     else
+      ! mediator is not active
+      ! * active model to active model connections
       do j = 2,modCount
       do i = 2,modCount
         if (i.eq.j) cycle
@@ -271,6 +279,8 @@ module DRV
       enddo
     endif
 #else
+    ! mediator is not included
+    ! * active model to active model connections
     do j = 1,modCount
     do i = 1,modCount
       if (i.eq.j) cycle
@@ -281,6 +291,7 @@ module DRV
     enddo
     enddo
 #endif
+    ! background model connections
     conActive(obg,ocn) = .false.
     do i = 1,modCount
       conActive(i,obg) = .false.
@@ -289,6 +300,7 @@ module DRV
     do i = 1,modCount
       conActive(i,wbg) = .false.
     enddo
+    ! report active connections
     do j = 1,modCount
     do i = 1,modCount
       if (.not.conActive(i,j)) cycle
@@ -444,7 +456,7 @@ module DRV
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 
-    ! process config for petLayoutOption
+    ! process config for pet_layout_option:
     label = 'pet_layout_option:'
     call ESMF_ConfigGetAttribute(config, petLayoutOption, default='sequential', &
       label=trim(label), rc=rc)
@@ -456,7 +468,7 @@ module DRV
     ! set the model petLists based on petLayoutOption
     select case (trim(petLayoutOption))
 
-    ! petLayoutOption = sequential
+    ! pet_layout_option: sequential
     !   * active models defined on all pets
     !   * MED defined on all pets
     !   * no other config options required
@@ -473,7 +485,7 @@ module DRV
         enddo
       enddo
 
-    ! petLayoutOption = concurrent
+    ! pet_layout_option: concurrent
     !   * active models defined on non-overlapping sets of PETs
     !   * requires <MOD>_pet_count input for active models
     !   * MED_pet_count optional, default is MED defined on all PETs
@@ -571,7 +583,7 @@ module DRV
         endif
       enddo
 
-    ! petLayoutOption = specified
+    ! pet_layout_option: specified
     !   * active models defined on specified sets of PETs
     !   * requires <MOD>_pet_list input for active models
     !   * MED_pet_list optional, default is MED defined on all PETs
@@ -738,7 +750,7 @@ module DRV
 #endif
 #endif
 
-    ! unsupported petLayoutOption
+    ! unsupported pet_layout_option:
     case default
       call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
        msg=trim(cname)//': pet_layout_option not supported: '//trim(petLayoutOption))
@@ -784,6 +796,7 @@ module DRV
 
     ! set model component names and attributes
     do i = 1,modCount
+      ! set name
       call ESMF_GridCompSet(modComp(i), name=modNameUC(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -791,6 +804,15 @@ module DRV
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      ! set config
+      call ESMF_GridCompSet(modComp(i), config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) then
+        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modNameUC(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return  ! bail out
+      endif
+      ! set verbosity
       call ESMF_AttributeSet(modComp(i), name="Verbosity", value=trim(verbosity), &
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -799,18 +821,12 @@ module DRV
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
-      call ESMF_GridCompSet(modComp(i), config=config, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=FILENAME)) then
-        write(msgString,'(a,1i2,a)') 'Set config: ',i,', '//modNameUC(i)
-        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
-        return  ! bail out
-      endif
     enddo
 
     ! set connector component names and attributes
     do j = 1,modCount
     do i = 1,modCount
+      ! set name
       call ESMF_CplCompSet(conComp(i,j), name=conNameUC(i,j), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) then
@@ -818,6 +834,7 @@ module DRV
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      ! set verbosity
       call ESMF_AttributeSet(conComp(i,j), name="Verbosity", value=trim(verbosity), &
         convention="NUOPC", purpose="General", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -909,6 +926,7 @@ module DRV
       line=__LINE__, file=FILENAME)) return  ! bail out    
 #ifdef MODULE_MED
     if (modActive(med)) then
+      ! Run sequence with mediator
       ! 1: connect active models to mediator
       ! 2: advance mediator
       ! 3: connect mediator to active models
@@ -934,6 +952,7 @@ module DRV
           line=__LINE__, file=FILENAME)) return  ! bail out
       enddo
     else
+      ! Run sequence without mediator
       ! 1: connect active background models to active foreground models
       ! 2: connect active foreground models to active foreground models
       ! 3: advance active models
@@ -963,6 +982,7 @@ module DRV
       enddo
     endif
 #else
+    ! Run sequence without mediator
     ! 1: connect active background models to active foreground models
     ! 2: connect active foreground models to active foreground models
     ! 3: advance active models
