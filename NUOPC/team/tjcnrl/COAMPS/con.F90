@@ -267,6 +267,7 @@ module CON
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=FILENAME)) return  ! bail out
 #else
+#ifdef HANDLE_MBG_IN_CONNECTOR
     select case (cname(1:3))
     case ('OBG','WBG')
       call ESMF_FieldBundleRegrid(superIS%wrap%srcFields, superIS%wrap%dstFields, &
@@ -279,6 +280,15 @@ module CON
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     end select
+#else
+    call FieldBundleFill(superIS%wrap%dstFields, 9._ESMF_KIND_R8, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+    call ESMF_FieldBundleRegrid(superIS%wrap%srcFields, superIS%wrap%dstFields, &
+      routehandle=superIS%wrap%rh, zeroRegion=ESMF_REGION_SELECT, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+#endif
 #endif
 
     if (verbose) &

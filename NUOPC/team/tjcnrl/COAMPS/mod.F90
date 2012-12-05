@@ -36,11 +36,13 @@ module MOD
   type type_InternalStateStruct
     logical :: verbose
     integer :: numImport = 0
+    integer :: numFgImport = 0
     character(ESMF_MAXSTR), pointer :: impStdName(:) => NULL()
     character(ESMF_MAXSTR), pointer :: impFldName(:) => NULL()
     integer :: numExport = 0
     character(ESMF_MAXSTR), pointer :: expStdName(:) => NULL()
     character(ESMF_MAXSTR), pointer :: expFldName(:) => NULL()
+    type(ESMF_Field) :: field
   end type
 
   type type_InternalState
@@ -211,10 +213,19 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "surface_downward_eastward_stress"
         i = i+1; is%wrap%impStdName(i) = "surface_downward_northward_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_surface_temperature"
+        is%wrap%numFgImport = i
 #else
         i = i+1; is%wrap%impStdName(i) = "surface_eastward_wind_to_wave_stress"
         i = i+1; is%wrap%impStdName(i) = "surface_northward_wind_to_wave_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_surface_temperature"
+        is%wrap%numFgImport = i
+#ifndef HANDLE_MBG_IN_CONNECTOR
+#ifdef USE_MODIFIED_STANDARD_NAMES
+        i = i+1; is%wrap%impStdName(i) = "mbg_surface_eastward_wind_to_wave_stress"
+        i = i+1; is%wrap%impStdName(i) = "mbg_surface_northward_wind_to_wave_stress"
+        i = i+1; is%wrap%impStdName(i) = "mbg_sea_surface_temperature"
+#endif
+#endif
 #endif
       case ('OCN')
 #ifdef MODULE_MED
@@ -222,11 +233,13 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "sea_surface_downward_northward_stress"
         i = i+1; is%wrap%impStdName(i) = "eastward_stokes_drift_current"
         i = i+1; is%wrap%impStdName(i) = "northward_stokes_drift_current"
+        is%wrap%numFgImport = i
 #else
         i = i+1; is%wrap%impStdName(i) = "surface_downward_eastward_stress"
         i = i+1; is%wrap%impStdName(i) = "surface_downward_northward_stress"
         i = i+1; is%wrap%impStdName(i) = "eastward_stokes_drift_current"
         i = i+1; is%wrap%impStdName(i) = "northward_stokes_drift_current"
+        is%wrap%numFgImport = i
 #endif
       case ('WAV')
 #ifdef MODULE_MED
@@ -235,6 +248,7 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "surface_eastward_sea_water_velocity"
         i = i+1; is%wrap%impStdName(i) = "surface_northward_sea_water_velocity"
         i = i+1; is%wrap%impStdName(i) = "air_sea_temperature_difference"
+        is%wrap%numFgImport = i
 #else
         i = i+1; is%wrap%impStdName(i) = "eastward_wind_at_10m_height"
         i = i+1; is%wrap%impStdName(i) = "northward_wind_at_10m_height"
@@ -242,6 +256,7 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "surface_northward_sea_water_velocity"
         i = i+1; is%wrap%impStdName(i) = "air_temperature_at_2m_height"
         i = i+1; is%wrap%impStdName(i) = "sea_surface_temperature"
+        is%wrap%numFgImport = i
 #endif
       case ('ICE')
 #ifdef MODULE_MED
@@ -249,11 +264,13 @@ module MOD
         i = i+1; is%wrap%impStdName(i) = "sea_ice_surface_downward_northward_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_ice_basal_upward_eastward_stress"
         i = i+1; is%wrap%impStdName(i) = "sea_ice_basal_upward_northward_stress"
+        is%wrap%numFgImport = i
 #else
         i = i+1; is%wrap%impStdName(i) = "eastward_wind_at_10m_height"
         i = i+1; is%wrap%impStdName(i) = "northward_wind_at_10m_height"
         i = i+1; is%wrap%impStdName(i) = "surface_eastward_sea_water_velocity"
         i = i+1; is%wrap%impStdName(i) = "surface_northward_sea_water_velocity"
+        is%wrap%numFgImport = i
 #endif
       case ('LND')
     end select
@@ -268,6 +285,8 @@ module MOD
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      if (i.gt.is%wrap%numFgImport) &
+        is%wrap%impFldName(i) = "mbg_"//trim(is%wrap%impFldName(i))
     enddo
 
     ! define exportable fields
@@ -482,6 +501,12 @@ module MOD
         call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
         return  ! bail out
       endif
+      if (cname(1:3).eq.'ATM'.and.trim(fname).eq.'sst') then
+        is%wrap%field = ESMF_FieldCreate(name='int_sst', grid=gridIn, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) return  ! bail out
+      endif
     enddo
 
     ! realize connected export fields (& remove unconnected)
@@ -616,6 +641,10 @@ module MOD
     type(ESMF_Time)               :: currTime
     type(ESMF_TimeInterval)       :: timeStep
     integer                       :: localPet
+    type(ESMF_StateItem_Flag)     :: expItemType
+    type(ESMF_Field)              :: expField
+    type(ESMF_StateItem_Flag)     :: impFgItemType, impBgItemType
+    type(ESMF_Field)              :: impFgField, impBgField
 
     rc = ESMF_SUCCESS
 
@@ -669,6 +698,33 @@ module MOD
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=FILENAME)) return  ! bail out
     endif
+
+    ! load sst from import
+    select case (cname(1:3))
+      case ('ATM')
+        call ESMF_StateGet(importState, "mbg_sst", impBgItemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) return  ! bail out
+        if (impBgItemType.ne.ESMF_STATEITEM_NOTFOUND) then
+          call ESMF_StateGet(importState, "mbg_sst", impBgField, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) return  ! bail out
+          call FieldCopyData(impBgField, is%wrap%field, 9._ESMF_KIND_R8, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) return  ! bail out
+        endif
+        call ESMF_StateGet(importState, "sst", impFgItemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=FILENAME)) return  ! bail out
+        if (impFgItemType.ne.ESMF_STATEITEM_NOTFOUND) then
+          call ESMF_StateGet(importState, "sst", impFgField, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) return  ! bail out
+          call FieldCopyData(impFgField, is%wrap%field, 5._ESMF_KIND_R8, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=FILENAME)) return  ! bail out
+        endif
+    end select
 
     if (verbose) &
     call ESMF_LogWrite('<<<'//trim(cname)//' leaving ModelAdvance', ESMF_LOGMSG_INFO)
@@ -727,6 +783,13 @@ module MOD
     endif
     if (associated(stdNameList)) deallocate(stdNameList)
     if (associated(fieldList)) deallocate(fieldList)
+
+    ! write internal field
+    if (cname(1:3).eq.'ATM') then
+      call FieldWrite(gcomp, is%wrap%field, rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    endif
 
     ! deallocate import field name arrays
     if (associated(is%wrap%impStdName)) then
