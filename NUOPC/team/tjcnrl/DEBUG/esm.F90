@@ -98,7 +98,7 @@ module ESM
     ! local variables
     integer                       :: localrc
     type(driver_type_IS)          :: is
-    integer                       :: petCount, i
+    integer                       :: petCount, i, n
 
     rc = ESMF_SUCCESS
 
@@ -116,24 +116,55 @@ module ESM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
-    ! set petList for ATM
+
+#define PETLAYOUT 3
+
+#if PETLAYOUT == 1  /* sequential */
     allocate(is%wrap%modelPetLists(1)%petList(petCount))
     do i=1, petCount
       is%wrap%modelPetLists(1)%petList(i) = i-1
     enddo
+    allocate(is%wrap%modelPetLists(2)%petList(petCount))
+    do i=1, petCount
+      is%wrap%modelPetLists(2)%petList(i) = i-1
+    enddo
+    allocate(is%wrap%modelPetLists(3)%petList(petCount))
+    do i=1, petCount
+      is%wrap%modelPetLists(3)%petList(i) = i-1
+    enddo
+#endif
 
-    ! set petList for OCN
-    allocate(is%wrap%modelPetLists(2)%petList(petCount/2))
-    do i=1, petCount/2
+#if PETLAYOUT == 2  /* concurrent */
+    n = petCount/3
+    allocate(is%wrap%modelPetLists(1)%petList(n))
+    do i=1, n
+      is%wrap%modelPetLists(1)%petList(i) = i-1
+    enddo
+    allocate(is%wrap%modelPetLists(2)%petList(n))
+    do i=1, n
+      is%wrap%modelPetLists(2)%petList(i) = n + i-1
+    enddo
+    allocate(is%wrap%modelPetLists(3)%petList(petCount-2*n))
+    do i=1, petCount-2*n
+      is%wrap%modelPetLists(3)%petList(i) = 2*n + i-1
+    enddo
+#endif
+
+#if PETLAYOUT == 3  /* partial overlap */
+    n = petCount/2
+    allocate(is%wrap%modelPetLists(1)%petList(petCount))
+    do i=1, petCount
+      is%wrap%modelPetLists(1)%petList(i) = i-1
+    enddo
+    allocate(is%wrap%modelPetLists(2)%petList(n))
+    do i=1, n
       is%wrap%modelPetLists(2)%petList(i) = 2*(i-1)
     enddo
-
-    ! set petList for WAV
-    allocate(is%wrap%modelPetLists(3)%petList(petCount/2))
-    do i=1, petCount/2
+    allocate(is%wrap%modelPetLists(3)%petList(n))
+    do i=1, n
       is%wrap%modelPetLists(3)%petList(i) = 2*(i-1) + 1
     enddo
+#endif
 
   end subroutine
   
