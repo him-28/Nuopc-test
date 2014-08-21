@@ -130,6 +130,7 @@ module ATM
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
     logical                 :: isConnected
+    logical, parameter      :: realizeAllExport=.false.
     
     rc = ESMF_SUCCESS
     
@@ -174,7 +175,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="stresu", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -200,7 +201,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="stresv", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -226,7 +227,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="uutrue", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -252,7 +253,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="vvtrue", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

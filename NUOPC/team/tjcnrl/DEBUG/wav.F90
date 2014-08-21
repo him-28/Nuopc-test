@@ -139,6 +139,7 @@ module WAV
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
     logical                 :: isConnected
+    logical, parameter      :: realizeAllExport=.false.
     
     rc = ESMF_SUCCESS
     
@@ -183,7 +184,7 @@ module WAV
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="charno", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -209,7 +210,7 @@ module WAV
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="wvstrs", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -235,7 +236,7 @@ module WAV
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="uscurr", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -261,7 +262,7 @@ module WAV
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (isConnected) then
+    if (isConnected.or.realizeAllExport) then
       field = ESMF_FieldCreate(name="vscurr", grid=gridOut, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
