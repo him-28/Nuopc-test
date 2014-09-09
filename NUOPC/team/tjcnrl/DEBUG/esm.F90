@@ -166,6 +166,22 @@ module ESM
     enddo
 #endif
 
+#if PETLAYOUT == 4  /* partial overlap */
+    n = petCount/2
+    allocate(is%wrap%modelPetLists(1)%petList(3))
+    is%wrap%modelPetLists(1)%petList(1)=0
+    is%wrap%modelPetLists(1)%petList(2)=1
+    is%wrap%modelPetLists(1)%petList(3)=3
+    allocate(is%wrap%modelPetLists(2)%petList(n))
+    do i=1, n
+      is%wrap%modelPetLists(2)%petList(i) = 2*(i-1)
+    enddo
+    allocate(is%wrap%modelPetLists(3)%petList(n))
+    do i=1, n
+      is%wrap%modelPetLists(3)%petList(i) = 2*(i-1) + 1
+    enddo
+#endif
+
   end subroutine
   
   !-----------------------------------------------------------------------------
