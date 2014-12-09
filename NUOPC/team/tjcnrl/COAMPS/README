@@ -1,25 +1,26 @@
-README for COAMPS prototype
+README for COAMPS
 ---------------------------------------------------
 
 Dependencies: 
-  - ESMF v6.1.0bs08
+  - ESMF v7.0.0bs31
   
 
 Build:
   - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF installation.
   - gmake [BOPT=<g|O>]
-  - Compile time control of model component modules included in driver (drv.F90) is
-    determined by the INCLUDE_<MOD> (MOD = MED, ATM, OCN, WAV, ICE, LND) preprocessor macros.
+  - Compile time control of model component modules included in driver (COAMPS_Driver.F90) is
+    determined by the MKFILE_XYZ_<MOD> (MOD = MED, ATM1, OCN1, WAV1, ICE1, LND1) preprocessor macros.
+    XYZ=NLM for non-linear model, XYZ=RPM for representer (tangent-linear) model,
+    XYZ=ADM for adjoint model, XYZ=VDA for coupled variational data-assimilation
   
 
 Execution:
   - Optionally set environment variable ESMF_RUNTIME_COMPLIANCECHECK to ON.
-    This can be done by setting CHECK=ON on gmake run command line.
   - Optionally set number of processors on command line: NPROC=<nproc>.
-    Default nproc is 1.
+    Default nproc is 8.
   - Optionally set name of config file on command line: CONFIG=<config>.
-    Default is default.rc
-  - gmake run [NPROC=<nproc>] [CONFIG=<config>] [CHECK=<ON|OFF>]
+    Default is coamps.rc
+  - gmake run [NPROC=<nproc>] [CONFIG=<config>]
   
 
 Output:
@@ -28,29 +29,36 @@ Output:
 
 
 Code structure:
-  - Makefile    - Makefile that is based on the standard esmf.mk mechanism
-  - mainApp.F90 - Main application cap
-  - drv.F90     - The Driver component, specializing generic NUOPC_Driver
-  - con.F90     - The Connector component, specializing generic NUOPC_Connector
-  - med.F90     - The Mediator component, specializing generic NUOPC_Mediator
-  - mod.F90     - The Model component(s), specializing generic NUOPC_Model
-  - mbg.F90     - The Model "background" component(s), specializing generic NUOPC_Model
+  - Makefile              - Makefile that is based on the standard esmf.mk mechanism
+  - COAMPS_AppDriver.F90  - The main coupled application driver for NLM, RPM, and ADM.
+  - COAMPS_VdaDriver.F90  - The main coupled application driver for variational data assimilation
+  - COAMPS_Driver.F90     - The Driver component, specializing generic NUOPC_Driver
+  - COAMPS_Connector.F90  - The Connector component, specializing generic NUOPC_Connector
+  - COAMPS_Mediator.F90   - The Mediator component, specializing generic NUOPC_Mediator
+  - COAMPS_Mdata.F90      - The Data and Background Model component(s), specializing generic NUOPC_Model
+  - COAMPS_Mdumb.F90      - A dummy model component (provides compile time valid SetServices reference)
+  - COAMPS_Dutil.F90      - The COAMPS field dictionary utilities module
+  - COAMPS_Futil.F90      - The COAMPS field & remapping utilities module
+  - COAMPS_Gutil.F90      - The COAMPS grid utilities module
+  - COAMPS_Gdem.F90       - The COAMPS GLOBE DEM database module
+  - COAMPS_Gsrumd.F90     - Grid search and remapping utilities (derived from WW3 w3gsrumd.ftn)
+  - COAMPS_BkgdIsRqrd.F90 - The "background is required" utility program
 
 
-ESMF Config input for ESM Driver:
+ESMF Config input for COAMPS Driver:
 
   Note that config input labels for models not included at compile time are silently ignored.
 
   label                                possible
   (colons required)    type            values        default     description
   ------------------------------------------------------------------------------
-  start_time:          integer array                 none        start time of ESM driver
+  start_time:          integer array                 none        start time of driver
                        [YYYY,MM,DD,hh,mm,ss]                     * required
 
-  stop_time:           integer array                 none        stop time of ESM driver
-                       [YYYY,MM,DD,hh,mm,ss]                     * required
+  run_duration:        integer array                 none        stop time of driver
+                       [hh,mm,ss]                                * required
 
-  time_step:           integer array                 none        time step of ESM driver
+  time_step:           integer array                 none        time step of driver
                        [hh,mm,ss]                                * required
 
   verbose:             logical         t, f          t           turn on verbose output

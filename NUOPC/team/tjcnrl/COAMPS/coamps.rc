@@ -1,0 +1,42 @@
+verbose: t
+time_step: 0 12 0
+start_time: 2014 11 20 00 00 00
+run_duration: 6 0 0
+
+ATM_active: t
+ATM_type:   data
+ATM_data_type: constant
+ATM_work_dir: .
+ATM_gridnl: namelist
+ATM_nest: 0
+ATM_coord_source: compute
+ATM_mask_source: none
+
+OCN_active: t
+OCN_type:   data
+OCN_data_type: constant
+OCN_work_dir: .
+OCN_gridnl: namelist
+OCN_nest: 0
+OCN_coord_source: compute
+OCN_mask_source: none
+
+WAV_active: t
+WAV_type:   data
+WAV_data_type: constant
+WAV_work_dir: .
+WAV_gridnl: namelist
+WAV_nest: 0
+WAV_coord_source: compute
+WAV_mask_source: none
+
+pet_layout_option: specified
+ATM_pet_list::
+ 0   2   4   6
+::
+OCN_pet_list::
+   1   3   5   7
+::
+WAV_pet_list::
+   1 2     5 6
+::
