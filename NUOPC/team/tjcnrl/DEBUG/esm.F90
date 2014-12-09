@@ -117,7 +117,7 @@ module ESM
       file=__FILE__)) &
       return  ! bail out
 
-#define PETLAYOUT 3
+#define PETLAYOUT 1
 
 #if PETLAYOUT == 1  /* sequential */
     allocate(is%wrap%modelPetLists(1)%petList(petCount))
