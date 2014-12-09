@@ -37,15 +37,15 @@ Code structure:
   - COAMPS_Mediator.F90   - The Mediator component, specializing generic NUOPC_Mediator
   - COAMPS_Mdata.F90      - The Data and Background Model component(s), specializing generic NUOPC_Model
   - COAMPS_Mdumb.F90      - A dummy model component (provides compile time valid SetServices reference)
-  - COAMPS_Dutil.F90      - The COAMPS field dictionary utilities module
-  - COAMPS_Futil.F90      - The COAMPS field & remapping utilities module
-  - COAMPS_Gutil.F90      - The COAMPS grid utilities module
-  - COAMPS_Gdem.F90       - The COAMPS GLOBE DEM database module
+  - COAMPS_Dutil.F90      - The field dictionary utilities module
+  - COAMPS_Futil.F90      - The field & remapping utilities module
+  - COAMPS_Gutil.F90      - The grid utilities module
+  - COAMPS_Gdem.F90       - The GLOBE DEM database module
   - COAMPS_Gsrumd.F90     - Grid search and remapping utilities (derived from WW3 w3gsrumd.ftn)
   - COAMPS_BkgdIsRqrd.F90 - The "background is required" utility program
 
 
-ESMF Config input for COAMPS Driver:
+ESMF Config input for Driver:
 
   Note that config input labels for models not included at compile time are silently ignored.
 
