@@ -138,9 +138,9 @@ module COAMPS_Mdata
     ! IPDv03p6: check compatibility of fields connected status
     ! IPDv03p7: handle field data initialization
 
-    ! set entry point for finalize method
-    call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
-      phaseLabelList=(/"FinalizePhase1"/), userRoutine=Finalize, rc=rc)
+    ! set finalize requires use of ESMF method
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
+      userRoutine=Finalize, phase=1, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! attach specializing method(s)
