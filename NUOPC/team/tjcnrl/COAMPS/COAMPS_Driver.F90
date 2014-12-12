@@ -1822,7 +1822,7 @@ module FRONT_DRM
     character(ESMF_MAXSTR)             :: cname
     type(ESMF_Config)                  :: config
     type(type_InternalState)           :: is
-    logical      ,pointer              :: verbose
+    logical                            :: verbose
     integer      ,pointer              :: modCount
     integer      ,pointer              :: modFgdCount
     integer      ,pointer              :: med, atm, ocn, wav, ice, lnd
@@ -1851,7 +1851,7 @@ module FRONT_DRM
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! set local pointers for internal state members
-    verbose => is%wrap%verbose
+    verbose = is%wrap%verbose
     modCount => is%wrap%modCount
     modFgdCount => is%wrap%modFgdCount
     med => is%wrap%med
@@ -1872,6 +1872,9 @@ module FRONT_DRM
     conType => is%wrap%conType
     conActive => is%wrap%conActive
 
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered Finalize', ESMF_LOGMSG_INFO)
+
     ! clean up internal state
     do i = 1,modCount
       if (.not.modActive(i)) cycle
@@ -1880,6 +1883,9 @@ module FRONT_DRM
         msg='Deallocation of '//modName(i)//' PET list array failed.', &
         CONTEXT, rcToReturn=rc)) return ! bail out
     enddo
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
 
