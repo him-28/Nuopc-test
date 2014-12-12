@@ -121,7 +121,8 @@ module FRONT_DRM
     driver_label_SetModelServices => label_SetModelServices, &
     driver_label_SetRunSequence   => label_SetRunSequence, &
     driver_label_Finalize         => label_Finalize, &
-    NUOPC_DriverAddComp, NUOPC_DriverNewRunSequence, NUOPC_DriverAddRunElement
+    NUOPC_DriverAddComp, NUOPC_DriverGetComp, &
+    NUOPC_DriverNewRunSequence, NUOPC_DriverAddRunElement
   use COAMPS_Futil, only: missingValue
 
   use  FRONT_CON , only: cplSS  => SetServices
@@ -243,6 +244,8 @@ module FRONT_DRM
   logical     , parameter :: defaultModActive = .false.
   character(6), parameter :: defaultConType = 'bilinr'
   character(*), parameter :: label_InternalState = 'InternalState'
+  integer     , parameter :: run_prep_phase = 2
+  integer     , parameter :: run_post_phase = 3
 
   type type_PL
     integer, pointer :: p(:)
@@ -294,7 +297,7 @@ module FRONT_DRM
     character(6) ,pointer              :: conType(:,:)
     logical      ,pointer              :: conActive(:,:)
     character(ESMF_MAXSTR)             :: msgString
-    integer                            :: localrc, stat
+    integer                            :: lrc, stat
     logical                            :: configIsPresent
     integer                            :: i, j, k
 
@@ -568,6 +571,14 @@ module FRONT_DRM
     call NUOPC_CompDerive(driver, driver_routine_SS, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
+    ! set entry points for prep- and post-run methods
+    call ESMF_GridCompSetEntryPoint(driver, ESMF_METHOD_RUN, &
+      userRoutine=RunPrep, phase=run_prep_phase, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_GridCompSetEntryPoint(driver, ESMF_METHOD_RUN, &
+      userRoutine=RunPost, phase=run_post_phase, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
     ! attach specializing method(s)
     call NUOPC_CompSpecialize(driver, specLabel=driver_label_SetModelServices, &
       specRoutine=SetModelServices, rc=rc)
@@ -605,7 +616,7 @@ module FRONT_DRM
     character(6) ,pointer              :: conType(:,:)
     logical      ,pointer              :: conActive(:,:)
     character(ESMF_MAXSTR)             :: msgString
-    integer                            :: localrc, stat
+    integer                            :: lrc, stat
     integer                            :: i, j, k
     character(ESMF_MAXSTR)             :: verbosity
     character(ESMF_MAXSTR)             :: label
@@ -1148,7 +1159,7 @@ module FRONT_DRM
     character(6) ,pointer              :: conType(:,:)
     logical      ,pointer              :: conActive(:,:)
     character(ESMF_MAXSTR)             :: msgString
-    integer                            :: localrc, stat
+    integer                            :: lrc, stat
     integer                            :: i, j, k
     integer                            :: l, m, n, p
     integer                            :: k1, k2
@@ -1526,7 +1537,7 @@ module FRONT_DRM
     character(6) ,pointer              :: conType(:,:)
     logical      ,pointer              :: conActive(:,:)
     character(ESMF_MAXSTR)             :: msgString
-    integer                            :: localrc, stat
+    integer                            :: lrc, stat
     integer                            :: i, j, k
 
     rc = ESMF_SUCCESS
@@ -1629,6 +1640,180 @@ module FRONT_DRM
 
   !-----------------------------------------------------------------------------
 
+  subroutine RunPrep(driver, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: driver
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)             :: cname
+    type(ESMF_Config)                  :: config
+    type(type_InternalState)           :: is
+    logical      ,pointer              :: verbose
+    integer      ,pointer              :: modCount
+    integer      ,pointer              :: med, atm, ocn, wav, ice, lnd
+    character(3) ,pointer              :: modName(:)
+    logical      ,pointer              :: modActive(:)
+    type(type_PL),pointer              :: modPetList(:)
+    character(10),pointer              :: conName(:,:)
+    logical      ,pointer              :: conActive(:,:)
+    character(ESMF_MAXSTR)             :: msgString
+    integer                            :: lrc, stat
+    integer                            :: i, j, k
+    type(ESMF_GridComp)                :: modComp(maxModCount)
+    type(ESMF_Clock)                   :: internalClock
+    type(ESMF_Time)                    :: startTime
+    integer(ESMF_KIND_I8)              :: zero = 0
+
+    rc = ESMF_SUCCESS
+
+    ! query the component for its name
+    call ESMF_GridCompGet(driver, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query the component for its config
+    call ESMF_GridCompGet(driver, config=config, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query component for internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(driver, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! set local pointers for internal state members
+    verbose => is%wrap%verbose
+    modCount => is%wrap%modCount
+    med => is%wrap%med
+    atm => is%wrap%atm
+    ocn => is%wrap%ocn
+    wav => is%wrap%wav
+    ice => is%wrap%ice
+    lnd => is%wrap%lnd
+    modName => is%wrap%modName
+    modActive => is%wrap%modActive
+    modPetList => is%wrap%modPetList
+    conName => is%wrap%conName
+    conActive => is%wrap%conActive
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered RunPrep', ESMF_LOGMSG_INFO)
+
+    ! reset internal clock
+    call ESMF_GridCompGet(driver, clock=internalClock, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_ClockGet(internalClock, startTime=startTime, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_ClockSet(internalClock, currTime=startTime, advanceCount=zero, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! invoke RunPrep for active models
+    do i = 1,modCount
+      if (.not.modActive(i)) cycle
+      call NUOPC_DriverGetComp(driver, modName(i), comp=modComp(i), rc=rc)
+      if (ESMF_LogFoundError( rc, PASSTHRU)) then
+        write(msgString,'(a,1i2,a)') 'DriverGetComp: ',i,', '//modName(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return ! bail out
+      endif
+      call ESMF_GridCompRun(modComp(i), phase=run_prep_phase, userRc=lrc, rc=rc)
+      if (ESMF_LogFoundError( rc, PASSTHRU) .or. &
+          ESMF_LogFoundError(lrc, PASSTHRU)) then
+        write(msgString,'(a,1i2,a)') 'RunPrep: ',i,', '//modName(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return ! bail out
+      endif
+    enddo
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving RunPrep', ESMF_LOGMSG_INFO)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine RunPost(driver, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: driver
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)             :: cname
+    type(ESMF_Config)                  :: config
+    type(type_InternalState)           :: is
+    logical      ,pointer              :: verbose
+    integer      ,pointer              :: modCount
+    integer      ,pointer              :: med, atm, ocn, wav, ice, lnd
+    character(3) ,pointer              :: modName(:)
+    logical      ,pointer              :: modActive(:)
+    type(type_PL),pointer              :: modPetList(:)
+    character(10),pointer              :: conName(:,:)
+    logical      ,pointer              :: conActive(:,:)
+    character(ESMF_MAXSTR)             :: msgString
+    integer                            :: lrc, stat
+    integer                            :: i, j, k
+    type(ESMF_GridComp)                :: modComp(maxModCount)
+    type(ESMF_Clock)                   :: internalClock
+
+    rc = ESMF_SUCCESS
+
+    ! query the component for its name
+    call ESMF_GridCompGet(driver, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query the component for its config
+    call ESMF_GridCompGet(driver, config=config, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query component for internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(driver, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! set local pointers for internal state members
+    verbose => is%wrap%verbose
+    modCount => is%wrap%modCount
+    med => is%wrap%med
+    atm => is%wrap%atm
+    ocn => is%wrap%ocn
+    wav => is%wrap%wav
+    ice => is%wrap%ice
+    lnd => is%wrap%lnd
+    modName => is%wrap%modName
+    modActive => is%wrap%modActive
+    modPetList => is%wrap%modPetList
+    conName => is%wrap%conName
+    conActive => is%wrap%conActive
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered RunPost', ESMF_LOGMSG_INFO)
+
+    ! invoke RunPost for active models
+    do i = 1,modCount
+      if (.not.modActive(i)) cycle
+      call NUOPC_DriverGetComp(driver, modName(i), comp=modComp(i), rc=rc)
+      if (ESMF_LogFoundError( rc, PASSTHRU)) then
+        write(msgString,'(a,1i2,a)') 'DriverGetComp: ',i,', '//modName(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return ! bail out
+      endif
+      call ESMF_GridCompRun(modComp(i), phase=run_post_phase, userRc=lrc, rc=rc)
+      if (ESMF_LogFoundError( rc, PASSTHRU) .or. &
+          ESMF_LogFoundError(lrc, PASSTHRU)) then
+        write(msgString,'(a,1i2,a)') 'RunPost: ',i,', '//modName(i)
+        call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+        return ! bail out
+      endif
+    enddo
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving RunPost', ESMF_LOGMSG_INFO)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
   subroutine Finalize(driver, rc)
     type(ESMF_GridComp)  :: driver
     integer, intent(out) :: rc
@@ -1651,7 +1836,7 @@ module FRONT_DRM
     character(6) ,pointer              :: conType(:,:)
     logical      ,pointer              :: conActive(:,:)
     character(ESMF_MAXSTR)             :: msgString
-    integer                            :: localrc, stat
+    integer                            :: lrc, stat
     integer                            :: i, j, k
 
     rc = ESMF_SUCCESS

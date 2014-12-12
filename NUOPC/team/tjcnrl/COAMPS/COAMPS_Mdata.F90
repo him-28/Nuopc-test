@@ -26,10 +26,11 @@ module COAMPS_Mdata
 
   public SetServices
 
-  character (*), parameter :: defaultVerbosity = 'low'
   character (*), parameter :: label_InternalState = 'InternalState'
   character (*), parameter :: inputAlarmName = 'InputAlarm'
   integer      , parameter :: maxFields = 25
+  integer      , parameter :: run_prep_phase = 2
+  integer      , parameter :: run_post_phase = 3
 
   integer, parameter :: modTypeConstant = 0
   integer, parameter :: modTypeTendency = 1
@@ -71,7 +72,6 @@ module COAMPS_Mdata
   type type_InternalState
     type(type_InternalStateStruct), pointer :: wrap
   end type
-
 
   !-----------------------------------------------------------------------------
   contains
@@ -137,6 +137,14 @@ module COAMPS_Mdata
     ! IPDv03p5: relevant for TransferActionGeomObject=="accept"
     ! IPDv03p6: check compatibility of fields connected status
     ! IPDv03p7: handle field data initialization
+
+    ! set entry points for prep- and post-run methods
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+      userRoutine=RunPrep, phase=run_prep_phase, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+      userRoutine=RunPost, phase=run_post_phase, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! set finalize requires use of ESMF method
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
@@ -1041,6 +1049,113 @@ module COAMPS_Mdata
 
 1   if (verbose) &
     call ESMF_LogWrite(trim(cname)//': leaving ModelAdvance', ESMF_LOGMSG_INFO)
+
+    ! finish timing
+    call ESMF_VMWtime(wf1Time)
+    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
+    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine RunPrep(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    type(type_InternalState)      :: is
+    integer                       :: localrc, stat
+    integer, parameter            :: it1=6, it2=0, it3=0
+    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
+    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
+    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
+    integer                       :: i
+    type(ESMF_Clock)              :: internalClock
+    type(ESMF_Time)               :: startTime
+    integer(ESMF_KIND_I8)         :: zero = 0
+
+    rc = ESMF_SUCCESS
+
+    ! start timing
+    call ESMF_VMWtime(ws1Time)
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered RunPrep', ESMF_LOGMSG_INFO)
+
+    ! reset internal clock
+    call ESMF_GridCompGet(gcomp, clock=internalClock, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_ClockGet(internalClock, startTime=startTime, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_ClockSet(internalClock, currTime=startTime, advanceCount=zero, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving RunPrep', ESMF_LOGMSG_INFO)
+
+    ! finish timing
+    call ESMF_VMWtime(wf1Time)
+    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
+    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine RunPost(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    type(type_InternalState)      :: is
+    integer                       :: localrc, stat
+    integer, parameter            :: it1=7, it2=0, it3=0
+    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
+    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
+    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
+    integer                       :: i
+
+    rc = ESMF_SUCCESS
+
+    ! start timing
+    call ESMF_VMWtime(ws1Time)
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered RunPost', ESMF_LOGMSG_INFO)
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving RunPost', ESMF_LOGMSG_INFO)
 
     ! finish timing
     call ESMF_VMWtime(wf1Time)
