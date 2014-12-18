@@ -18,11 +18,11 @@ module COAMPS_Connector
     label_ReleaseRouteHandle, label_Finalize, &
     NUOPC_ConnectorGet, NUOPC_ConnectorSet
   use COAMPS_Futil
-  
+
   implicit none
-  
+
   private
-  
+
   public SetServices
 
   character (*), parameter :: label_InternalState = 'InternalState'
@@ -134,7 +134,7 @@ module COAMPS_Connector
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
-    ! local variables    
+    ! local variables
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
@@ -492,7 +492,7 @@ module COAMPS_Connector
     is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
  
   end subroutine
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine ExecuteRH(ccomp, rc)

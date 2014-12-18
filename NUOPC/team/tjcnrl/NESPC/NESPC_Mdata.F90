@@ -160,7 +160,7 @@ module NESPC_Mdata
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
-    ! local variables    
+    ! local variables
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
@@ -235,7 +235,7 @@ module NESPC_Mdata
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
-    ! local variables    
+    ! local variables
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
@@ -692,7 +692,7 @@ module NESPC_Mdata
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
-    ! local variables    
+    ! local variables
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
@@ -911,7 +911,7 @@ module NESPC_Mdata
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
 
-    ! local variables    
+    ! local variables
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
