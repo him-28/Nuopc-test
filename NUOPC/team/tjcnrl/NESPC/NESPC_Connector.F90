@@ -174,6 +174,10 @@ module NESPC_Connector
     if (verbose) &
     call ESMF_LogWrite(trim(cname)//': entered InitializeP0', ESMF_LOGMSG_INFO)
 
+    ! query Component for its vm
+    call ESMF_CplCompGet(ccomp, vm=is%wrap%vm, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
     ! get connector type
     call ESMF_AttributeGet(ccomp, name='ConnectorType', value=attrString, &
       defaultValue='bilinr', convention='NESPC', purpose='General', rc=rc)
@@ -187,6 +191,11 @@ module NESPC_Connector
       call ESMF_LogSetError(ESMF_FAILURE, msg=trim(msgString), rcToReturn=rc)
       return ! bail out
     endselect
+
+    ! switch to IPDv03 by filtering all other phaseMap entries
+    call NUOPC_CompFilterPhaseMap(ccomp, ESMF_METHOD_INITIALIZE, &
+      acceptStringList=(/"IPDv03p"/), rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
 1   if (verbose) &
     call ESMF_LogWrite(trim(cname)//': leaving InitializeP0', ESMF_LOGMSG_INFO)
@@ -247,8 +256,8 @@ module NESPC_Connector
     if (verbose) &
     call ESMF_LogWrite(trim(cname)//': entered ComputeRH', ESMF_LOGMSG_INFO)
 
-    ! query Component for its config & vm
-    call ESMF_CplCompGet(ccomp, config=config, vm=is%wrap%vm, rc=rc)
+    ! query Component for its config
+    call ESMF_CplCompGet(ccomp, config=config, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! get size of couple list
