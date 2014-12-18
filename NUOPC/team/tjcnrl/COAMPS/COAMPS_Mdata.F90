@@ -16,7 +16,8 @@ module COAMPS_Mdata
     model_routine_SS            => SetServices, &
     model_label_DataInitialize  => label_DataInitialize, &
     model_label_SetClock        => label_SetClock, &
-    model_label_Advance         => label_Advance
+    model_label_Advance         => label_Advance, &
+    model_label_Finalize        => label_Finalize
   use COAMPS_Futil
   use COAMPS_Gutil
 
@@ -146,11 +147,6 @@ module COAMPS_Mdata
       userRoutine=RunPost, phase=run_post_phase, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
-    ! set finalize requires use of ESMF method
-    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
-      userRoutine=Finalize, phase=1, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
     ! attach specializing method(s)
     call NUOPC_CompSpecialize(gcomp, specLabel=model_label_SetClock, &
          specRoutine=SetClock, rc=rc)
@@ -160,6 +156,9 @@ module COAMPS_Mdata
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
     call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Advance, &
          specRoutine=ModelAdvance, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Finalize, &
+         specRoutine=Finalize, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
   end subroutine
@@ -1166,10 +1165,8 @@ module COAMPS_Mdata
 
   !-----------------------------------------------------------------------------
 
-  subroutine Finalize(gcomp, importState, exportState, clock, rc)
+  subroutine Finalize(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
-    type(ESMF_State)     :: importState, exportState
-    type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
     ! local variables
