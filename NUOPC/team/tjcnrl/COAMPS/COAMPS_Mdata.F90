@@ -12,12 +12,9 @@ module COAMPS_Mdata
 
   use ESMF
   use NUOPC
-  use NUOPC_Model, only: &
-    model_routine_SS            => SetServices, &
-    model_label_DataInitialize  => label_DataInitialize, &
-    model_label_SetClock        => label_SetClock, &
-    model_label_Advance         => label_Advance, &
-    model_label_Finalize        => label_Finalize
+! use NUOPC_Model, parent_SetServices => SetServices
+  use NUOPC_Model, only: parent_SetServices => SetServices, &
+    label_DataInitialize, label_SetClock, label_Advance, label_Finalize
   use COAMPS_Futil
   use COAMPS_Gutil
 
@@ -85,7 +82,7 @@ module COAMPS_Mdata
     ! local variables
     character(ESMF_MAXSTR)        :: msgString
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
 
     rc = ESMF_SUCCESS
 
@@ -114,7 +111,7 @@ module COAMPS_Mdata
     is%wrap%wtime(:) = 0d0
 
     ! the NUOPC model component will register the generic methods
-    call NUOPC_CompDerive(gcomp, model_routine_SS, rc=rc)
+    call NUOPC_CompDerive(gcomp, parent_SetServices, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! set initialize phase 0 requires use of ESMF method
@@ -148,16 +145,16 @@ module COAMPS_Mdata
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! attach specializing method(s)
-    call NUOPC_CompSpecialize(gcomp, specLabel=model_label_SetClock, &
+    call NUOPC_CompSpecialize(gcomp, specLabel=label_SetClock, &
          specRoutine=SetClock, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(gcomp, specLabel=model_label_DataInitialize, &
+    call NUOPC_CompSpecialize(gcomp, specLabel=label_DataInitialize, &
          specRoutine=DataInitialize, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Advance, &
+    call NUOPC_CompSpecialize(gcomp, specLabel=label_Advance, &
          specRoutine=ModelAdvance, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Finalize, &
+    call NUOPC_CompSpecialize(gcomp, specLabel=label_Finalize, &
          specRoutine=Finalize, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
@@ -177,7 +174,7 @@ module COAMPS_Mdata
     logical                       :: verbose
     character(ESMF_MAXSTR)        :: verbosity
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=1, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -250,7 +247,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=2, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -702,7 +699,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=3, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -921,7 +918,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=4, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -999,7 +996,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=5, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -1069,7 +1066,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=6, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -1128,7 +1125,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=7, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -1174,7 +1171,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer, parameter            :: it1=6, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
@@ -1276,7 +1273,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     type(ESMF_Config)             :: config
     character(ESMF_MAXSTR)        :: label
     type(ESMF_Clock)              :: clock
@@ -1391,7 +1388,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     type(ESMF_VM)                 :: vm
     type(ESMF_Clock)              :: clock
     type(ESMF_Time)               :: startTime, currTime
@@ -1462,7 +1459,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     type(ESMF_VM)                 :: vm
     type(ESMF_Clock)              :: clock
     type(ESMF_Time)               :: startTime, currTime
@@ -1516,7 +1513,7 @@ module COAMPS_Mdata
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     type(ESMF_VM)                 :: vm
     type(ESMF_Clock)              :: clock
     type(ESMF_Time)               :: startTime, currTime

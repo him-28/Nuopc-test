@@ -12,12 +12,11 @@ module COAMPS_Connector
 
   use ESMF
   use NUOPC
-  use NUOPC_Connector, only: &
-    con_routine_SS      => SetServices, &
-    con_label_ComputeRH => label_ComputeRouteHandle, &
-    con_label_ExecuteRH => label_ExecuteRouteHandle, &
-    con_label_ReleaseRH => label_ReleaseRouteHandle, &
-    NUOPC_ConnectorGet
+! use NUOPC_Connector, parent_SetServices => SetServices
+  use NUOPC_Connector, only: parent_SetServices => SetServices, &
+    label_ComputeRouteHandle, label_ExecuteRouteHandle, &
+    label_ReleaseRouteHandle, label_Finalize, &
+    NUOPC_ConnectorGet, NUOPC_ConnectorSet
   use COAMPS_Futil
   
   implicit none
@@ -26,7 +25,6 @@ module COAMPS_Connector
   
   public SetServices
 
-  character (*), parameter :: defaultVerbosity = 'low'
   character (*), parameter :: label_InternalState = 'InternalState'
 
   type type_InternalStateStruct
@@ -41,6 +39,9 @@ module COAMPS_Connector
     type(ESMF_RouteHandle)          :: remapRH
     type(ESMF_Field)                :: remapStatusField
     type(ExtendRouteHandle)         :: extendRH
+    logical                         :: includeABG
+    logical                         :: includeOBG
+    logical                         :: includeWBG
     integer(ESMF_KIND_I4)           :: numwt
     character(ESMF_MAXSTR) ,pointer :: wtnam(:) => null()
     integer(ESMF_KIND_I4)  ,pointer :: wtcnt(:) => null()
@@ -64,7 +65,7 @@ module COAMPS_Connector
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
+    integer                       :: lrc, stat
     integer                       :: i
 
     rc = ESMF_SUCCESS
@@ -72,7 +73,6 @@ module COAMPS_Connector
     ! query the Component for its name
     call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
 
     ! allocate memory for this internal state and set it in the component
     allocate(is%wrap, stat=stat)
@@ -83,53 +83,154 @@ module COAMPS_Connector
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! initialize timers
-    is%wrap%numwt = 7
+    is%wrap%numwt = 9
     allocate(is%wrap%wtnam(is%wrap%numwt), is%wrap%wtcnt(is%wrap%numwt), &
       is%wrap%wtime(is%wrap%numwt), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg='Allocation of wall timer memory failed.', &
       CONTEXT, rcToReturn=rc)) return ! bail out
-    is%wrap%wtnam(1) = 'ComputeRH'
-    is%wrap%wtnam(2) = 'RemapStore'
-    is%wrap%wtnam(3) = 'ExtendStore'
-    is%wrap%wtnam(4) = 'ExecuteRH'
-    is%wrap%wtnam(5) = 'Remap'
-    is%wrap%wtnam(6) = 'Extend'
-    is%wrap%wtnam(7) = 'ReleaseRH'
+    is%wrap%wtnam(1) = 'InitializeP0'
+    is%wrap%wtnam(2) = 'ComputeRH'
+    is%wrap%wtnam(3) = 'RemapStore'
+    is%wrap%wtnam(4) = 'ExtendStore'
+    is%wrap%wtnam(5) = 'ExecuteRH'
+    is%wrap%wtnam(6) = 'Remap'
+    is%wrap%wtnam(7) = 'Extend'
+    is%wrap%wtnam(8) = 'ReleaseRH'
+    is%wrap%wtnam(9) = 'Finalize'
     is%wrap%wtcnt(:) = 0
     is%wrap%wtime(:) = 0d0
 
     ! the NUOPC connector component will register the generic methods
-    call NUOPC_CompDerive(ccomp, con_routine_SS, rc=rc)
+    call NUOPC_CompDerive(ccomp, parent_SetServices, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! set initialize phase 0 requires use of ESMF method
+    call ESMF_CplCompSetEntryPoint(ccomp, ESMF_METHOD_INITIALIZE, &
+      userRoutine=InitializeP0, phase=0, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! attach specializing method(s)
-    call NUOPC_CompSpecialize(ccomp, specLabel=con_label_ComputeRH, &
+    call NUOPC_CompSpecialize(ccomp, specLabel=label_ComputeRouteHandle, &
       specRoutine=ComputeRH, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(ccomp, specLabel=con_label_ExecuteRH, &
+    call NUOPC_CompSpecialize(ccomp, specLabel=label_ExecuteRouteHandle, &
       specRoutine=ExecuteRH, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(ccomp, specLabel=con_label_ReleaseRH, &
+    call NUOPC_CompSpecialize(ccomp, specLabel=label_ReleaseRouteHandle, &
       specRoutine=ReleaseRH, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call NUOPC_CompSpecialize(ccomp, specLabel=label_Finalize, &
+      specRoutine=Finalize, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
   end subroutine
 
   !-----------------------------------------------------------------------------
 
+  subroutine InitializeP0(ccomp, importState, exportState, clock, rc)
+    type(ESMF_CplComp)   :: ccomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables    
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    character(ESMF_MAXSTR)        :: verbosity
+    type(type_InternalState)      :: is
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=1, it2=0, it3=0
+    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
+    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
+    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
+    integer                       :: i
+    character(ESMF_MAXSTR)        :: attrString
+
+    rc = ESMF_SUCCESS
+
+    ! start timing
+    call ESMF_VMWtime(ws1Time)
+
+    ! query the Component for its name
+    call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(ccomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! determine verbosity
+    call ESMF_AttributeGet(ccomp, name='Verbosity', value=verbosity, &
+      defaultValue='low', convention='NUOPC', purpose='General', rc=rc)
+!   call NUOPC_CompAttributeGet(ccomp, name='Verbosity', value=verbosity, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    if (trim(verbosity)=='high') then
+      is%wrap%verbose = .true.
+    else
+      is%wrap%verbose = .false.
+    endif
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered InitializeP0', ESMF_LOGMSG_INFO)
+
+    ! get connector type
+    call ESMF_AttributeGet(ccomp, name='ConnectorType', value=attrString, &
+      defaultValue='bilinr', convention='COAMPS', purpose='General', rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    select case (trim(attrString))
+    case ('memcpy','redist','bilinr','bicubc')
+      is%wrap%conType = trim(attrString)
+    case default
+      write(msgString,'(a)') trim(cname)//': ConnectorType not supported: '// &
+        trim(attrString)
+      call ESMF_LogSetError(ESMF_FAILURE, msg=trim(msgString), rcToReturn=rc)
+      return ! bail out
+    endselect
+
+    ! get background model info
+    call ESMF_AttributeGet(ccomp, name='AtmBackground', value=attrString, &
+      defaultValue='none', convention='COAMPS', purpose='General', rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    is%wrap%includeABG = trim(attrString).eq.'model' .or. &
+                         trim(attrString).eq.'mediator'
+    call ESMF_AttributeGet(ccomp, name='OcnBackground', value=attrString, &
+      defaultValue='none', convention='COAMPS', purpose='General', rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    is%wrap%includeOBG = trim(attrString).eq.'model' .or. &
+                         trim(attrString).eq.'mediator'
+    call ESMF_AttributeGet(ccomp, name='WavBackground', value=attrString, &
+      defaultValue='none', convention='COAMPS', purpose='General', rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    is%wrap%includeWBG = trim(attrString).eq.'model' .or. &
+                         trim(attrString).eq.'mediator'
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving InitializeP0', ESMF_LOGMSG_INFO)
+
+    ! finish timing
+    call ESMF_VMWtime(wf1Time)
+    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
+    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
   subroutine ComputeRH(ccomp, rc)
-    type(ESMF_CplComp)  :: ccomp
+    type(ESMF_CplComp)   :: ccomp
     integer, intent(out) :: rc
 
     ! local variables
     character(ESMF_MAXSTR)        :: cname
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
-    character(ESMF_MAXSTR)        :: verbosity
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
-    integer, parameter            :: it1=1, it2=2, it3=3
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=2, it2=3, it3=4
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
     real(ESMF_KIND_R8)            :: ws3Time, wf3Time
@@ -139,8 +240,6 @@ module COAMPS_Connector
     type(ESMF_FieldBundle)        :: srcFields, dstFields
     type(ESMF_Config)             :: config
     character(ESMF_MAXSTR)        :: label
-    character(ESMF_MAXSTR)        :: attrString
-    logical                       :: includeAbg, includeObg, includeWbg
     integer                       :: maskValueInlandWater
     integer                       :: maskValueWater
     integer                       :: maskValueLand
@@ -163,16 +262,6 @@ module COAMPS_Connector
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(ccomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-    ! determine verbosity
-    call ESMF_AttributeGet(ccomp, name='Verbosity', value=verbosity, &
-      defaultValue=defaultVerbosity, convention='NUOPC', purpose='General', rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    if (trim(verbosity)=='high') then
-      is%wrap%verbose = .true.
-    else
-      is%wrap%verbose = .false.
-    endif
     verbose = is%wrap%verbose
 
     if (verbose) &
@@ -181,20 +270,6 @@ module COAMPS_Connector
     ! query Component for its config & vm
     call ESMF_CplCompGet(ccomp, config=config, vm=is%wrap%vm, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-    ! get connector type
-    call ESMF_AttributeGet(ccomp, name='ConnectorType', value=attrString, &
-      defaultValue='bilinr', convention='COAMPS', purpose='General', rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    select case (trim(attrString))
-    case ('memcpy','redist','bilinr','bicubc')
-      is%wrap%conType = trim(attrString)
-    case default
-      write(msgString,'(a)') trim(cname)//': ConnectorType not supported: '// &
-        trim(attrString)
-      call ESMF_LogSetError(ESMF_FAILURE, msg=trim(msgString), rcToReturn=rc)
-      return ! bail out
-    endselect
 
     ! get size of couple list
     call NUOPC_CompAttributeGet(ccomp, cplListSize=is%wrap%cplCount, rc=rc)
@@ -294,23 +369,6 @@ module COAMPS_Connector
                                    maskValueFrozenLand   /)
     endselect
 
-    ! get background model info
-    call ESMF_AttributeGet(ccomp, name='AtmBackground', value=attrString, &
-      defaultValue='none', convention='COAMPS', purpose='General', rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    includeAbg = trim(attrString).eq.'model' .or. &
-                 trim(attrString).eq.'mediator'
-    call ESMF_AttributeGet(ccomp, name='OcnBackground', value=attrString, &
-      defaultValue='none', convention='COAMPS', purpose='General', rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    includeObg = trim(attrString).eq.'model' .or. &
-                 trim(attrString).eq.'mediator'
-    call ESMF_AttributeGet(ccomp, name='WavBackground', value=attrString, &
-      defaultValue='none', convention='COAMPS', purpose='General', rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    includeWbg = trim(attrString).eq.'model' .or. &
-                 trim(attrString).eq.'mediator'
-
     ! store remap
     call ESMF_VMWtime(ws2Time)
     select case (is%wrap%conType)
@@ -391,7 +449,7 @@ module COAMPS_Connector
           return ! bail out
         endif
       case ('ATM-TO-OCN','ATM-TO-WAV','ATM-TO-ICE','ATM-TO-LND','ATM-TO-MED')
-        if ((numMaskedSrc.gt.0.or.numNotInSrc.gt.0).and..not.includeAbg) then
+        if ((numMaskedSrc.gt.0.or.numNotInSrc.gt.0).and..not.is%wrap%includeABG) then
           write(msgString,'(a)') trim(cname)// &
           ': '//cname(8:10)//' grid cells unmapped from '// &
           cname(1:3)//' grid requires active ABG'
@@ -399,7 +457,7 @@ module COAMPS_Connector
           return ! bail out
         endif
       case ('OCN-TO-ATM','OCN-TO-WAV','OCN-TO-ICE','OCN-TO-MED')
-        if ((numMaskedSrc.gt.0.or.numNotInSrc.gt.0).and..not.includeObg) then
+        if ((numMaskedSrc.gt.0.or.numNotInSrc.gt.0).and..not.is%wrap%includeOBG) then
           write(msgString,'(a)') trim(cname)// &
           ': '//cname(8:10)//' grid cells unmapped from '// &
           cname(1:3)//' grid requires active OBG'
@@ -407,7 +465,7 @@ module COAMPS_Connector
           return ! bail out
         endif
       case ('WAV-TO-ATM','WAV-TO-MED')
-        if ((numMaskedSrc.gt.0.or.numNotInSrc.gt.0).and..not.includeWbg) then
+        if ((numMaskedSrc.gt.0.or.numNotInSrc.gt.0).and..not.is%wrap%includeWBG) then
           write(msgString,'(a)') trim(cname)// &
           ': '//cname(8:10)//' grid cells unmapped from '// &
           cname(1:3)//' grid requires active WBG'
@@ -438,7 +496,7 @@ module COAMPS_Connector
   !-----------------------------------------------------------------------------
 
   subroutine ExecuteRH(ccomp, rc)
-    type(ESMF_CplComp)  :: ccomp
+    type(ESMF_CplComp)   :: ccomp
     integer, intent(out) :: rc
 
     ! local variables
@@ -446,8 +504,8 @@ module COAMPS_Connector
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
-    integer, parameter            :: it1=4, it2=5, it3=6
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=5, it2=6, it3=7
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
     real(ESMF_KIND_R8)            :: ws3Time, wf3Time
@@ -528,7 +586,7 @@ module COAMPS_Connector
   !-----------------------------------------------------------------------------
 
   subroutine ReleaseRH(ccomp, rc)
-    type(ESMF_CplComp)  :: ccomp
+    type(ESMF_CplComp)   :: ccomp
     integer, intent(out) :: rc
 
     ! local variables
@@ -536,12 +594,11 @@ module COAMPS_Connector
     character(ESMF_MAXSTR)        :: msgString
     logical                       :: verbose
     type(type_InternalState)      :: is
-    integer                       :: localrc, stat
-    integer, parameter            :: it1=7, it2=0, it3=0
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=8, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
     real(ESMF_KIND_R8)            :: ws3Time, wf3Time
-    type(ESMF_FieldBundle)        :: srcFields, dstFields
 
     rc = ESMF_SUCCESS
 
@@ -560,10 +617,6 @@ module COAMPS_Connector
 
     ! if no coupled fields, then return
     if (is%wrap%cplCount.eq.0) return
-
-    ! get field bundles from connecter internal state
-    call NUOPC_ConnectorGet(ccomp, srcFields=srcFields, dstFields=dstFields, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     if (verbose) &
     call ESMF_LogWrite(trim(cname)//': entered ReleaseRH', ESMF_LOGMSG_INFO)
@@ -612,6 +665,54 @@ module COAMPS_Connector
         CONTEXT, rcToReturn=rc)) return ! bail out
     endif
 
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving ReleaseRH', ESMF_LOGMSG_INFO)
+
+    ! finish timing
+    call ESMF_VMWtime(wf1Time)
+    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
+    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine Finalize(ccomp, rc)
+    type(ESMF_CplComp)   :: ccomp
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    type(type_InternalState)      :: is
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=9, it2=0, it3=0
+    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
+    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
+    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
+
+    rc = ESMF_SUCCESS
+
+    ! start timing
+    call ESMF_VMWtime(ws1Time)
+
+    ! query the Component for its name
+    call ESMF_CplCompGet(ccomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(ccomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    verbose = is%wrap%verbose
+
+    ! if no coupled fields, then return
+    if (is%wrap%cplCount.eq.0) return
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered Finalize', ESMF_LOGMSG_INFO)
+
     ! finish timing
     call ESMF_VMWtime(wf1Time)
     is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
@@ -649,7 +750,7 @@ module COAMPS_Connector
     endif
 
     if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving ReleaseRH', ESMF_LOGMSG_INFO)
+    call ESMF_LogWrite(trim(cname)//': leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
 

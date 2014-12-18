@@ -116,11 +116,9 @@ module FRONT_DRM
 
   use ESMF
   use NUOPC
-  use NUOPC_Driver, only: &
-    driver_routine_SS             => SetServices, &
-    driver_label_SetModelServices => label_SetModelServices, &
-    driver_label_SetRunSequence   => label_SetRunSequence, &
-    driver_label_Finalize         => label_Finalize, &
+! use NUOPC_Driver, parent_SetServices => SetServices
+  use NUOPC_Driver, only: parent_SetServices => SetServices, &
+    label_SetModelServices, label_SetRunSequence, label_Finalize, &
     NUOPC_DriverAddComp, NUOPC_DriverGetComp, &
     NUOPC_DriverNewRunSequence, NUOPC_DriverAddRunElement
   use COAMPS_Futil, only: missingValue
@@ -568,7 +566,7 @@ module FRONT_DRM
     enddo
 
     ! NUOPC_Driver registers the generic methods
-    call NUOPC_CompDerive(driver, driver_routine_SS, rc=rc)
+    call NUOPC_CompDerive(driver, parent_SetServices, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! set entry points for prep- and post-run methods
@@ -580,13 +578,13 @@ module FRONT_DRM
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! attach specializing method(s)
-    call NUOPC_CompSpecialize(driver, specLabel=driver_label_SetModelServices, &
+    call NUOPC_CompSpecialize(driver, specLabel=label_SetModelServices, &
       specRoutine=SetModelServices, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(driver, specLabel=driver_label_SetRunSequence, &
+    call NUOPC_CompSpecialize(driver, specLabel=label_SetRunSequence, &
       specRoutine=SetRunSequence, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call NUOPC_CompSpecialize(driver, specLabel=driver_label_Finalize, &
+    call NUOPC_CompSpecialize(driver, specLabel=label_Finalize, &
       specRoutine=Finalize, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
