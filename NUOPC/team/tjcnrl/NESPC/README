@@ -30,8 +30,7 @@ Output:
 
 Code structure:
   - Makefile              - Makefile that is based on the standard esmf.mk mechanism
-  - NESPC_AppDriver.F90  - The main coupled application driver for NLM, RPM, and ADM.
-  - NESPC_VdaDriver.F90  - The main coupled application driver for variational data assimilation
+  - NESPC_AppDriver.F90  - The main coupled application driver for NLM
   - NESPC_Driver.F90     - The Driver component, specializing generic NUOPC_Driver
   - NESPC_Connector.F90  - The Connector component, specializing generic NUOPC_Connector
   - NESPC_Mediator.F90   - The Mediator component, specializing generic NUOPC_Mediator

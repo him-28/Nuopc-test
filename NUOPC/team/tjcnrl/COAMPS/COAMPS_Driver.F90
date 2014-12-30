@@ -1638,6 +1638,83 @@ module FRONT_DRM
 
   !-----------------------------------------------------------------------------
 
+  subroutine Finalize(driver, rc)
+    type(ESMF_GridComp)  :: driver
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)             :: cname
+    type(ESMF_Config)                  :: config
+    type(type_InternalState)           :: is
+    logical                            :: verbose
+    integer      ,pointer              :: modCount
+    integer      ,pointer              :: modFgdCount
+    integer      ,pointer              :: med, atm, ocn, wav, ice, lnd
+    integer      ,pointer              :: abg, obg, wbg
+    character(3) ,pointer              :: modName(:)
+    character(8) ,pointer              :: modType(:,:)
+    integer      ,pointer              :: modTndx(:)
+    logical      ,pointer              :: modActive(:)
+    type(type_PL),pointer              :: modPetList(:)
+    character(10),pointer              :: conName(:,:)
+    character(6) ,pointer              :: conType(:,:)
+    logical      ,pointer              :: conActive(:,:)
+    character(ESMF_MAXSTR)             :: msgString
+    integer                            :: lrc, stat
+    integer                            :: i, j, k
+
+    rc = ESMF_SUCCESS
+
+    ! query the component for its name
+    call ESMF_GridCompGet(driver, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query component for internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(driver, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! set local pointers for internal state members
+    verbose = is%wrap%verbose
+    modCount => is%wrap%modCount
+    modFgdCount => is%wrap%modFgdCount
+    med => is%wrap%med
+    atm => is%wrap%atm
+    ocn => is%wrap%ocn
+    wav => is%wrap%wav
+    ice => is%wrap%ice
+    lnd => is%wrap%lnd
+    abg => is%wrap%abg
+    obg => is%wrap%obg
+    wbg => is%wrap%wbg
+    modName => is%wrap%modName
+    modType => is%wrap%modType
+    modTndx => is%wrap%modTndx
+    modActive => is%wrap%modActive
+    modPetList => is%wrap%modPetList
+    conName => is%wrap%conName
+    conType => is%wrap%conType
+    conActive => is%wrap%conActive
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered Finalize', ESMF_LOGMSG_INFO)
+
+    ! clean up internal state
+    do i = 1,modCount
+      if (.not.modActive(i)) cycle
+      deallocate(modPetList(i)%p, stat=stat)
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+        msg='Deallocation of '//modName(i)//' PET list array failed.', &
+        CONTEXT, rcToReturn=rc)) return ! bail out
+    enddo
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving Finalize', ESMF_LOGMSG_INFO)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
   subroutine RunPrep(driver, importState, exportState, clock, rc)
     type(ESMF_GridComp)  :: driver
     type(ESMF_State)     :: importState, exportState
@@ -1807,83 +1884,6 @@ module FRONT_DRM
 
 1   if (verbose) &
     call ESMF_LogWrite(trim(cname)//': leaving RunPost', ESMF_LOGMSG_INFO)
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
-  subroutine Finalize(driver, rc)
-    type(ESMF_GridComp)  :: driver
-    integer, intent(out) :: rc
-
-    ! local variables
-    character(ESMF_MAXSTR)             :: cname
-    type(ESMF_Config)                  :: config
-    type(type_InternalState)           :: is
-    logical                            :: verbose
-    integer      ,pointer              :: modCount
-    integer      ,pointer              :: modFgdCount
-    integer      ,pointer              :: med, atm, ocn, wav, ice, lnd
-    integer      ,pointer              :: abg, obg, wbg
-    character(3) ,pointer              :: modName(:)
-    character(8) ,pointer              :: modType(:,:)
-    integer      ,pointer              :: modTndx(:)
-    logical      ,pointer              :: modActive(:)
-    type(type_PL),pointer              :: modPetList(:)
-    character(10),pointer              :: conName(:,:)
-    character(6) ,pointer              :: conType(:,:)
-    logical      ,pointer              :: conActive(:,:)
-    character(ESMF_MAXSTR)             :: msgString
-    integer                            :: lrc, stat
-    integer                            :: i, j, k
-
-    rc = ESMF_SUCCESS
-
-    ! query the component for its name
-    call ESMF_GridCompGet(driver, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-    ! query component for internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(driver, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-    ! set local pointers for internal state members
-    verbose = is%wrap%verbose
-    modCount => is%wrap%modCount
-    modFgdCount => is%wrap%modFgdCount
-    med => is%wrap%med
-    atm => is%wrap%atm
-    ocn => is%wrap%ocn
-    wav => is%wrap%wav
-    ice => is%wrap%ice
-    lnd => is%wrap%lnd
-    abg => is%wrap%abg
-    obg => is%wrap%obg
-    wbg => is%wrap%wbg
-    modName => is%wrap%modName
-    modType => is%wrap%modType
-    modTndx => is%wrap%modTndx
-    modActive => is%wrap%modActive
-    modPetList => is%wrap%modPetList
-    conName => is%wrap%conName
-    conType => is%wrap%conType
-    conActive => is%wrap%conActive
-
-    if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': entered Finalize', ESMF_LOGMSG_INFO)
-
-    ! clean up internal state
-    do i = 1,modCount
-      if (.not.modActive(i)) cycle
-      deallocate(modPetList(i)%p, stat=stat)
-      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-        msg='Deallocation of '//modName(i)//' PET list array failed.', &
-        CONTEXT, rcToReturn=rc)) return ! bail out
-    enddo
-
-    if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving Finalize', ESMF_LOGMSG_INFO)
 
   end subroutine
 

@@ -135,7 +135,7 @@ module COAMPS_Dutil
       if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
       if (.not.isPresent) then
         call NUOPC_FieldDictionaryAddEntry(trim(standardName(i)), &
-          trim(canonicalUnits(i)), defaultLongName='none', defaultShortName='none', rc=rc)
+          trim(canonicalUnits(i)), rc=rc)
         if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
       endif
       ! background fields (add mbg_ prefix)
@@ -143,7 +143,7 @@ module COAMPS_Dutil
       if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
       if (.not.isPresent) then
         call NUOPC_FieldDictionaryAddEntry('mbg_'//trim(standardName(i)), &
-          trim(canonicalUnits(i)), defaultLongName='none', defaultShortName='none', rc=rc)
+          trim(canonicalUnits(i)), rc=rc)
         if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
       endif
       ! perturbation fields (add pert_ prefix)
@@ -151,7 +151,7 @@ module COAMPS_Dutil
       if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
       if (.not.isPresent) then
         call NUOPC_FieldDictionaryAddEntry('pert_'//trim(standardName(i)), &
-          trim(canonicalUnits(i)), defaultLongName='none', defaultShortName='none', rc=rc)
+          trim(canonicalUnits(i)), rc=rc)
         if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
       endif
     enddo

@@ -197,13 +197,13 @@ module NESPC_Connector
       acceptStringList=(/"IPDv03p"/), rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
-1   if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving InitializeP0', ESMF_LOGMSG_INFO)
-
     ! finish timing
-    call ESMF_VMWtime(wf1Time)
+1   call ESMF_VMWtime(wf1Time)
     is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
     is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving InitializeP0', ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -431,13 +431,13 @@ module NESPC_Connector
       endselect
     endselect
 
-1   if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving ComputeRH', ESMF_LOGMSG_INFO)
-
     ! finish timing
-    call ESMF_VMWtime(wf1Time)
+1   call ESMF_VMWtime(wf1Time)
     is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
     is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving ComputeRH', ESMF_LOGMSG_INFO)
  
   end subroutine
 
@@ -521,13 +521,13 @@ module NESPC_Connector
     is%wrap%wtime(it3) = is%wrap%wtime(it3) + wf3Time - ws3Time
     is%wrap%wtcnt(it3) = is%wrap%wtcnt(it3) + 1
 
-    if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving ExecuteRH', ESMF_LOGMSG_INFO)
-
     ! finish timing
-    call ESMF_VMWtime(wf1Time)
+1   call ESMF_VMWtime(wf1Time)
     is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
     is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving ExecuteRH', ESMF_LOGMSG_INFO)
  
   end subroutine
 
@@ -613,13 +613,13 @@ module NESPC_Connector
         CONTEXT, rcToReturn=rc)) return ! bail out
     endif
 
-    if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving ReleaseRH', ESMF_LOGMSG_INFO)
-
     ! finish timing
-    call ESMF_VMWtime(wf1Time)
+1   call ESMF_VMWtime(wf1Time)
     is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
     is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving ReleaseRH', ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -655,14 +655,11 @@ module NESPC_Connector
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
     verbose = is%wrap%verbose
 
-    ! if no coupled fields, then return
-    if (is%wrap%cplCount.eq.0) return
-
     if (verbose) &
     call ESMF_LogWrite(trim(cname)//': entered Finalize', ESMF_LOGMSG_INFO)
 
     ! finish timing
-    call ESMF_VMWtime(wf1Time)
+1   call ESMF_VMWtime(wf1Time)
     is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
     is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
 

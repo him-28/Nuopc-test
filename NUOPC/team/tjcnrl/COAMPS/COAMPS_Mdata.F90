@@ -95,7 +95,7 @@ module COAMPS_Mdata
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! initialize timers
-    is%wrap%numwt = 6
+    is%wrap%numwt = 8
     allocate(is%wrap%wtnam(is%wrap%numwt), is%wrap%wtcnt(is%wrap%numwt), &
       is%wrap%wtime(is%wrap%numwt), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
@@ -106,7 +106,9 @@ module COAMPS_Mdata
     is%wrap%wtnam(3) = 'InitializeP3'
     is%wrap%wtnam(4) = 'DataInitialize'
     is%wrap%wtnam(5) = 'ModelAdvance'
-    is%wrap%wtnam(6) = 'Finalize'
+    is%wrap%wtnam(6) = 'RunPrep'
+    is%wrap%wtnam(7) = 'RunPost'
+    is%wrap%wtnam(8) = 'Finalize'
     is%wrap%wtcnt(:) = 0
     is%wrap%wtime(:) = 0d0
 
@@ -1055,113 +1057,6 @@ module COAMPS_Mdata
 
   !-----------------------------------------------------------------------------
 
-  subroutine RunPrep(gcomp, importState, exportState, clock, rc)
-    type(ESMF_GridComp)  :: gcomp
-    type(ESMF_State)     :: importState, exportState
-    type(ESMF_Clock)     :: clock
-    integer, intent(out) :: rc
-
-    ! local variables
-    character(ESMF_MAXSTR)        :: cname
-    character(ESMF_MAXSTR)        :: msgString
-    logical                       :: verbose
-    type(type_InternalState)      :: is
-    integer                       :: lrc, stat
-    integer, parameter            :: it1=6, it2=0, it3=0
-    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
-    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
-    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
-    integer                       :: i
-    type(ESMF_Clock)              :: internalClock
-    type(ESMF_Time)               :: startTime
-    integer(ESMF_KIND_I8)         :: zero = 0
-
-    rc = ESMF_SUCCESS
-
-    ! start timing
-    call ESMF_VMWtime(ws1Time)
-
-    ! query the Component for its name
-    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-    ! query Component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    verbose = is%wrap%verbose
-
-    if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': entered RunPrep', ESMF_LOGMSG_INFO)
-
-    ! reset internal clock
-    call ESMF_GridCompGet(gcomp, clock=internalClock, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call ESMF_ClockGet(internalClock, startTime=startTime, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    call ESMF_ClockSet(internalClock, currTime=startTime, advanceCount=zero, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-1   if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving RunPrep', ESMF_LOGMSG_INFO)
-
-    ! finish timing
-    call ESMF_VMWtime(wf1Time)
-    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
-    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
-  subroutine RunPost(gcomp, importState, exportState, clock, rc)
-    type(ESMF_GridComp)  :: gcomp
-    type(ESMF_State)     :: importState, exportState
-    type(ESMF_Clock)     :: clock
-    integer, intent(out) :: rc
-
-    ! local variables
-    character(ESMF_MAXSTR)        :: cname
-    character(ESMF_MAXSTR)        :: msgString
-    logical                       :: verbose
-    type(type_InternalState)      :: is
-    integer                       :: lrc, stat
-    integer, parameter            :: it1=7, it2=0, it3=0
-    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
-    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
-    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
-    integer                       :: i
-
-    rc = ESMF_SUCCESS
-
-    ! start timing
-    call ESMF_VMWtime(ws1Time)
-
-    ! query the Component for its name
-    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-
-    ! query Component for its internal State
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
-    verbose = is%wrap%verbose
-
-    if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': entered RunPost', ESMF_LOGMSG_INFO)
-
-1   if (verbose) &
-    call ESMF_LogWrite(trim(cname)//': leaving RunPost', ESMF_LOGMSG_INFO)
-
-    ! finish timing
-    call ESMF_VMWtime(wf1Time)
-    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
-    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
   subroutine Finalize(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
@@ -1172,7 +1067,7 @@ module COAMPS_Mdata
     logical                       :: verbose
     type(type_InternalState)      :: is
     integer                       :: lrc, stat
-    integer, parameter            :: it1=6, it2=0, it3=0
+    integer, parameter            :: it1=8, it2=0, it3=0
     real(ESMF_KIND_R8)            :: ws1Time, wf1Time
     real(ESMF_KIND_R8)            :: ws2Time, wf2Time
     real(ESMF_KIND_R8)            :: ws3Time, wf3Time
@@ -1780,5 +1675,112 @@ module COAMPS_Mdata
     enddo
 
   end function
+
+  !-----------------------------------------------------------------------------
+
+  subroutine RunPrep(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    type(type_InternalState)      :: is
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=6, it2=0, it3=0
+    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
+    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
+    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
+    integer                       :: i
+    type(ESMF_Clock)              :: internalClock
+    type(ESMF_Time)               :: startTime
+    integer(ESMF_KIND_I8)         :: zero = 0
+
+    rc = ESMF_SUCCESS
+
+    ! start timing
+    call ESMF_VMWtime(ws1Time)
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered RunPrep', ESMF_LOGMSG_INFO)
+
+    ! reset internal clock
+    call ESMF_GridCompGet(gcomp, clock=internalClock, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_ClockGet(internalClock, startTime=startTime, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    call ESMF_ClockSet(internalClock, currTime=startTime, advanceCount=zero, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving RunPrep', ESMF_LOGMSG_INFO)
+
+    ! finish timing
+    call ESMF_VMWtime(wf1Time)
+    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
+    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine RunPost(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)        :: cname
+    character(ESMF_MAXSTR)        :: msgString
+    logical                       :: verbose
+    type(type_InternalState)      :: is
+    integer                       :: lrc, stat
+    integer, parameter            :: it1=7, it2=0, it3=0
+    real(ESMF_KIND_R8)            :: ws1Time, wf1Time
+    real(ESMF_KIND_R8)            :: ws2Time, wf2Time
+    real(ESMF_KIND_R8)            :: ws3Time, wf3Time
+    integer                       :: i
+
+    rc = ESMF_SUCCESS
+
+    ! start timing
+    call ESMF_VMWtime(ws1Time)
+
+    ! query the Component for its name
+    call ESMF_GridCompGet(gcomp, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+
+    ! query Component for its internal State
+    nullify(is%wrap)
+    call ESMF_UserCompGetInternalState(gcomp, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    verbose = is%wrap%verbose
+
+    if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': entered RunPost', ESMF_LOGMSG_INFO)
+
+1   if (verbose) &
+    call ESMF_LogWrite(trim(cname)//': leaving RunPost', ESMF_LOGMSG_INFO)
+
+    ! finish timing
+    call ESMF_VMWtime(wf1Time)
+    is%wrap%wtime(it1) = is%wrap%wtime(it1) + wf1Time - ws1Time
+    is%wrap%wtcnt(it1) = is%wrap%wtcnt(it1) + 1
+
+  end subroutine
 
 end module

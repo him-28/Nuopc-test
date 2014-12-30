@@ -37,9 +37,9 @@ program mainApp
 
   !! ocean observation variables
   integer                 :: n_ocn
-  real                    :: oc_inv,oc_val,oc_err
-  real                    :: oc_xi,oc_yj,oc_lvl
-  real                    :: oc_lat,oc_lon
+  real(4)                 :: oc_inv,oc_val,oc_err
+  real(4)                 :: oc_xi,oc_yj,oc_lvl
+  real(4)                 :: oc_lat,oc_lon
   integer,allocatable     :: ocn_dtg(:),ocn_tme( :)
   integer,allocatable     :: ocn_var(:),ocn_typ( :)
   real(8),allocatable     :: ocn_inv(:),ocn_err( :)
@@ -57,17 +57,21 @@ program mainApp
   integer, parameter      :: num_cg_itr = 5
   integer                 :: n_obs,cg_itr
   real(8),allocatable     :: beta(:),cgAp(:),cgr(:)
-  real(8),allocatable     :: cgp( :),cgp1(:),err(:)
+  real(8),allocatable     :: cgp( :),err(:)
   real(8)                 :: cg_rzOld,cg_beta
   real(8)                 :: cg_alpha,cg_omega
   real(8)                 :: cg_bsum,cg_rz
   real(8)                 :: cg_rAz,cg_rho
 
   !! local variables
+  logical                 :: post_mult
   integer,parameter       :: iounit=1005
-  integer                 :: i,j,k,ob,n_data
-  integer                 :: ana_dtg
-  character(ESMF_MAXSTR)  :: fname,sfx,cenv,anadtg
+  real(4),parameter       :: top_lvl=1.0E-03
+  integer                 :: i,j,k,ob,n_data,cond
+  integer                 :: ana_dtg,itermax
+  real(4)                 :: cg_stop
+  character(ESMF_MAXSTR)  :: fname,sfx,cenv
+  character(ESMF_MAXSTR)  :: anadtg,maxiter
   character(ESMF_MAXSTR)  :: obs_dir,io_dir
 
 !!===================================================================================!!
