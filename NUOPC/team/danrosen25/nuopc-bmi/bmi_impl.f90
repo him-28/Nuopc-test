@@ -46,7 +46,7 @@
       integer, parameter :: item_name_length = 22
       character (len=item_name_length), target, &
         dimension (input_item_count) :: &
-        input_items = (/'surface_elevation    '/)
+        input_items = (/'sea_surface_salinity    '/)
 
       character (len=item_name_length), target, &
         dimension (output_item_count) :: &
@@ -65,7 +65,7 @@
               close (15)
             else
               self%dt = 1.
-              self%t_end = 10000.
+              self%t_end = 60.
               self%n_x = 10
               self%n_y = 20
             end if
@@ -230,7 +230,7 @@
             character (len=*), intent (out) :: units
             ! end declaration section
 
-            units = "meter"
+            units = "1e-3"
           end subroutine BMI_Get_var_units
 
           subroutine BMI_Get_var_rank (self, var_name, rank)
