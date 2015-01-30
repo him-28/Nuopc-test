@@ -54,7 +54,7 @@
       ! end exchange item list
 
       contains
-          subroutine BMI_Initialize (self, config_file)
+          subroutine BmI_Initialize (self, config_file)
             type (BMI_Model), intent (out) :: self
             character (len=*), intent (in) :: config_file
             ! end declaration section
@@ -64,7 +64,7 @@
               read (15, *) self%dt, self%t_end, self%n_x, self%n_y
               close (15)
             else
-              self%dt = 1.
+              self%dt = 7.
               self%t_end = 60.
               self%n_x = 10
               self%n_y = 20

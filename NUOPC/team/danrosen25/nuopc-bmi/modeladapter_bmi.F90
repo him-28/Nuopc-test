@@ -73,7 +73,7 @@ module MODELADAPTER_BMI
     integer, intent(out)    :: rc
     real                    :: start, end, step
     character(len=10)       :: units
-    character(len=item_name_length), pointer    :: invarnames(:), outvarnames(:)
+    character(item_name_length), pointer    :: invarnames(:), outvarnames(:)
     integer                                     :: i
 
     rc = ESMF_SUCCESS
@@ -99,6 +99,8 @@ module MODELADAPTER_BMI
       file=__FILE__)) &
       return  ! bail out
 
+
+
     compclock = NUOPC_ClockInitialize(clock, stabilityTimeStep, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -112,10 +114,10 @@ module MODELADAPTER_BMI
       return  ! bail out
 
     call BMIAdapter_AddAllFieldsToDictionary(rc=rc)
-    if(ESMF_LogFoundError(rcToCheck=rc,msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return ! bail out
+    if(ESMF_LogFoundError(rcToCheck=rc,msg="Add Fields Error", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return ! bail out
 
 #define WITHIMPORTFIELDS_OFF
 #ifdef WITHIMPORTFIELDS
@@ -162,8 +164,7 @@ module MODELADAPTER_BMI
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = NUOPC_GridCreateSimpleXY(10._ESMF_KIND_R8, 20._ESMF_KIND_R8, &
-      100._ESMF_KIND_R8, 200._ESMF_KIND_R8, 10, 100, rc)
+    gridIn = BMIAdapter_GridCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -253,13 +254,14 @@ module MODELADAPTER_BMI
   !========================================
 
   subroutine BMIAdapter_PrintComponentInfo()
-
+    implicit none
     character(len=item_name_length), pointer        :: invarnames(:)
     character(len=item_name_length), pointer     :: outvarnames(:)
-    character(len=component_name_length), pointer    :: compname
+    character(len=component_name_length),pointer    :: compname
     real                            :: start
     real                            :: end
     real                            :: step
+    integer :: i
 
     call BMI_Get_input_var_names(bmodel,invarnames)
     call BMI_Get_output_var_names(bmodel,outvarnames)
@@ -272,31 +274,28 @@ module MODELADAPTER_BMI
     print *, "     Step: ",step
     print *, "     Start: ",start
     print *, "     End: ",end
+    print *, "     # Input Variables: ",SIZE(invarnames)
     print *, "     Input Variable Names: ",invarnames
+    print *, "     # Output Variables: ",SIZE(outvarnames)
     print *, "     Output Variable Names: ",outvarnames
     print *, "     Component Name: ",compname
   end subroutine
 
-  subroutine test(units)
-    character(len=10), intent(inout) :: units
-  end subroutine
-
-  subroutine BMIAdapter_PrintVarInfo(var_name)
-    character (len=item_name_length), intent (in) :: var_name
+  subroutine BMIAdapter_PrintVarInfo(var_name,var_rank)
+    implicit none
+    character (len=item_name_length),pointer, intent (in) :: var_name
+    integer, intent(in) :: var_rank
     integer             :: type
-    character(len=10)   :: units ! Assumed length for units string
-    character (len=10)  :: dict_units ! Assume length for units string
-    integer             :: rank
+    character(len=10)   :: units, dict_units ! Assumed length for units string
     integer             :: gtype
-    integer, dimension (1:2)  :: gshape   ! Assumed shape for grid shape array
-    real, dimension (1:2)     :: gspacing ! Assumed shape for grid spacing array
-    real, dimension (1:2)     :: gorigin ! Assumed shape for grid spacing array
-    logical :: in_dictionary
-    integer :: rc
+    integer     :: gshape(1:var_rank)   ! Assumed shape for grid shape array
+    real        :: gspacing(1:var_rank), gorigin(1:var_rank) ! Assumed shape for grid spacing array
+    logical     :: in_dictionary
+    integer     :: rc
+
 
     call BMI_Get_var_type (bmodel, var_name, type)
     call BMI_Get_var_units (bmodel, var_name, units)
-    call BMI_Get_var_rank (bmodel, var_name, rank)
     call BMI_Get_grid_type (bmodel, var_name, gtype)
     call BMI_Get_grid_shape (bmodel, var_name, gshape)
     call BMI_Get_grid_spacing (bmodel, var_name, gspacing)
@@ -310,7 +309,7 @@ module MODELADAPTER_BMI
 
     print *, "     Type: ", type
     print *, "     Units: ", units
-    print *, "     Rank: ", rank
+    print *, "     Rank: ", var_rank
     print *, "     Grid Type: ", gtype
     print *, "     Grid Shape: ", gshape
     print *, "     Grid Spacing: ", gspacing
@@ -329,6 +328,7 @@ module MODELADAPTER_BMI
   end subroutine
 
   subroutine BMIAdapter_PrintAllVarInfo()
+    implicit none
     character(len=item_name_length), pointer    :: invarnames(:), outvarnames(:)
     integer                                     :: i
 
@@ -337,12 +337,12 @@ module MODELADAPTER_BMI
 
     do i=1,SIZE(invarnames)
         print *,"In Variable Info: ",invarnames(i)
-        call BMIAdapter_PrintVarInfo(invarnames(i))
+        call BMIAdapter_PrintVarInfo(invarnames(i),BMIAdapter_GetRank(invarnames(i)))
     end do
 
     do i=1,SIZE(outvarnames)
         print *,"Out Variable Info: ",outvarnames(i)
-        call BMIAdapter_PrintVarInfo(outvarnames(i))
+        call BMIAdapter_PrintVarInfo(outvarnames(i),BMIAdapter_GetRank(invarnames(i)))
     end do
 
   end subroutine
@@ -352,14 +352,16 @@ module MODELADAPTER_BMI
   !========================================
 
   subroutine BMIAdapter_AddFieldToDictionary(var_name, rc)
-    character (len=item_name_length), intent (in) :: var_name
+    implicit none
+    character (len=item_name_length),pointer, intent (in) :: var_name
     character(len=10)   :: units, dict_units ! Assumed length for units string
     integer                                     :: rc
     logical                                     :: in_dictionary
-    character(len=100)                            :: unit_errmsg
 
     rc = ESMF_SUCCESS
     call BMI_Get_var_units (bmodel, var_name, units)
+
+    print *,"To be added: ",var_name," Length",LEN(var_name)
 
     in_dictionary = NUOPC_FieldDictionaryHasEntry(var_name, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -375,14 +377,18 @@ module MODELADAPTER_BMI
             return  ! bail out
         if (dict_units .ne. units) then
             rc=ESMF_RC_NOT_VALID
-            unit_errmsg = "BMI field units: " // units // "do not match dictionary units: " // dict_units
-            if(ESMF_LogFoundError(rcToCheck=rc,msg=unit_errmsg, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return ! bail out
+            return
         end if
     else
         call NUOPC_FieldDictionaryAddEntry(var_name, canonicalUnits=units, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        call ESMF_LogWrite("BMI Field Added <" // var_name // ":" // units // ">", ESMF_LOGMSG_INFO, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
@@ -392,6 +398,7 @@ module MODELADAPTER_BMI
   end subroutine
 
   subroutine BMIAdapter_AddAllFieldsToDictionary(rc)
+    implicit none
     character(len=item_name_length), pointer    :: invarnames(:), outvarnames(:)
     integer                                     :: i
     integer, intent(out)                        :: rc
@@ -401,18 +408,138 @@ module MODELADAPTER_BMI
 
     do i=1,SIZE(invarnames)
         call BMIAdapter_AddFieldToDictionary(invarnames(i),rc=rc)
-        if(ESMF_LogFoundError(rcToCheck=rc,msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return ! bail out
+        if (rc .ne. ESMF_SUCCESS) return
     end do
     do i=1,SIZE(outvarnames)
         call BMIAdapter_AddFieldToDictionary(outvarnames(i),rc=rc)
-        if(ESMF_LogFoundError(rcToCheck=rc,msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return ! bail out
+        if (rc .ne. ESMF_SUCCESS) return
     end do
   end subroutine
+
+  !========================================
+  ! BMI Wrapper Functions
+  !========================================
+    FUNCTION BMIAdapter_GetRank(var_name) result(rank)
+        use bmif, only: Get_Rank => BMI_Get_var_rank
+        implicit none
+        INTEGER :: rank
+        character (len=item_name_length),pointer, INTENT(in) :: var_name
+
+        call Get_Rank (bmodel, var_name, rank)
+
+    END FUNCTION BMIAdapter_GetRank
+
+
+    FUNCTION BMIAdapter_GridCreate(rc) result(grid)
+        type(ESMF_Grid) :: grid
+        real(ESMF_KIND_R8) :: x_min, x_max, y_min, y_max
+        integer :: i_count, j_count
+        integer,intent(out) :: rc
+        character (item_name_length), pointer :: invarnames(:),outvarnames(:)
+        real :: gridspacing(1:2)
+        real :: gridorigin(1:2)
+        integer :: gridshape(1:2)
+        integer :: gridtype
+
+        rc = ESMF_SUCCESS
+
+        call BMI_Get_input_var_names (bmodel, invarnames)
+        call BMI_Get_output_var_names (bmodel, outvarnames)
+
+        ! If model includes more than one input field or
+        ! more than one output field then FAILURE
+        ! Logic to create multiple field grids is not yet implemented
+        if(SIZE(invarnames) .ne. 1 .or. SIZE(outvarnames) .ne. 1) then
+            rc = ESMF_RC_NOT_IMPL
+            return
+        end if
+
+        ! If input field and output field do not share the same grid
+        ! then FAILURE.  Logic to create multiple field grids is not yet implemented
+        if (.NOT.(BMIAdapter_GridComparison(invarnames(1),outvarnames(1)))) then
+            rc = ESMF_RC_NOT_IMPL
+            return ! If variables do not share the same grid then return
+        end if
+
+        ! If grid is not uniform then FAILURE.  Logic to create non-uniform
+        ! grids is not yet implemented
+        call BMI_Get_grid_type(bmodel,invarnames(1),gridtype)
+        if (gridtype .ne. BMI_GRID_TYPE_UNIFORM) then
+            rc = ESMF_RC_NOT_IMPL
+            return
+        end if
+
+        call BMI_Get_grid_origin (bmodel, invarnames(1), gridorigin)
+        call BMI_Get_grid_spacing (bmodel, invarnames(1),gridspacing)
+        call BMI_Get_grid_shape (bmodel,invarnames(1),gridshape)
+
+        x_min = gridorigin(1)
+        x_max = gridorigin(1)+gridspacing(1)*gridshape(1)
+        y_min = gridorigin(2)
+        y_max = gridorigin(2)+gridspacing(2)*gridshape(2)
+        i_count = gridspacing(1)
+        j_count = gridspacing(2)
+
+        grid = NUOPC_GridCreateSimpleXY(x_min,y_min, x_max, y_max, &
+            i_count, j_count, rc=rc)
+
+        call ESMF_LogWrite("BMI Grid Created <NUOPCSimpleXY>", ESMF_LOGMSG_INFO, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+    END FUNCTION BMIAdapter_GridCreate
+
+  !========================================
+  ! Grid Comparison Functions
+  !========================================
+
+    Function BMIAdapter_GridComparison(var_name_1,var_name_2) result (equivalent)
+        character (item_name_length) :: var_name_1,var_name_2
+        real :: spacing_1(1:2), spacing_2(1:2)
+        real :: origin_1(1:2), origin_2(1:2)
+        integer :: shape_1(1:2), shape_2(1:2)
+        integer :: gridtype_1, gridtype_2
+        logical :: equivalent
+
+        equivalent = .true.
+
+        call BMI_Get_grid_origin (bmodel, var_name_1,origin_1)
+        call BMI_Get_grid_origin (bmodel, var_name_2, origin_2)
+
+        if(origin_1(1) .ne. origin_2 (1) .or. origin_1(2) .ne. origin_2(2)) then
+            equivalent = .false.
+            return
+        end if
+
+        call BMI_Get_grid_spacing (bmodel, var_name_1,spacing_1)
+        call BMI_Get_grid_spacing (bmodel, var_name_2, spacing_2)
+
+        if(spacing_1(1) .ne. spacing_2 (1) .or. spacing_1(2) .ne. spacing_2(2)) then
+            equivalent = .false.
+            return
+        end if
+
+        call BMI_Get_grid_shape (bmodel,var_name_1,shape_1)
+        call BMI_Get_grid_shape (bmodel,var_name_2,shape_2)
+
+        if(shape_1(1) .ne. shape_2 (1) .or. shape_1(2) .ne. shape_2(2)) then
+            equivalent = .false.
+            return
+        end if
+
+        call BMI_Get_grid_type(bmodel,var_name_2,gridtype_1)
+        call BMI_Get_grid_type(bmodel,var_name_1,gridtype_2)
+
+        if(gridtype_1 .ne. gridtype_2) then
+            equivalent = .false.
+            return
+        end if
+
+    End Function BMIAdapter_GridComparison
 
 end module
