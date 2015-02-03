@@ -99,8 +99,6 @@ module MODELADAPTER_BMI
       file=__FILE__)) &
       return  ! bail out
 
-
-
     compclock = NUOPC_ClockInitialize(clock, stabilityTimeStep, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -126,7 +124,7 @@ module MODELADAPTER_BMI
     call BMI_Get_input_var_names(bmodel,invarnames)
     do i=1,SIZE(invarnames)
         call NUOPC_StateAdvertiseField(importState, &
-            StandardName=invarnames(i), name="aaaa", rc=rc)
+            StandardName=trim(invarnames(i)), name=trim(invarnames(i)), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
@@ -139,7 +137,7 @@ module MODELADAPTER_BMI
 
     do i=1,SIZE(outvarnames)
         call NUOPC_StateAdvertiseField(exportState, &
-            StandardName=outvarnames(i), name="bbbb", rc=rc)
+            StandardName=trim(outvarnames(i)), name=trim(outvarnames(i)), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
@@ -160,44 +158,52 @@ module MODELADAPTER_BMI
     type(ESMF_Field)        :: field
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
+    character(item_name_length), pointer    :: invarnames(:), outvarnames(:)
+    integer                                     :: i
     
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = BMIAdapter_GridCreate(rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    gridIn = BMIAdapter_SingleGridCreate(rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter_SingleGridCreate failure.", &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     gridOut = gridIn ! for now out same as in
 
 #ifdef WITHIMPORTFIELDS
-    ! importable field: sea_surface_temperature
-    field = ESMF_FieldCreate(name="aaaa", grid=gridIn, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! importable field: add BMI input variable names
+    call BMI_Get_input_var_names(bmodel,invarnames)
+    do i=1,size(invarnames)
+        field = ESMF_FieldCreate(name=trim(invarnames(i)), grid=gridIn, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        call NUOPC_StateRealizeField(importState, field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+    end do
 #endif
 
-    ! exportable field: air_pressure_at_sea_level
-    field = ESMF_FieldCreate(name="bbbb", grid=gridOut, &
-      typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    ! exportable field: add BMI output variable names
+    call BMI_Get_output_var_names(bmodel,outvarnames)
+    do i=1,size(outvarnames)
+        field = ESMF_FieldCreate(name=trim(outvarnames(i)), grid=gridOut, &
+          typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+    end do
 
   end subroutine
   
@@ -281,6 +287,11 @@ module MODELADAPTER_BMI
     print *, "     Component Name: ",compname
   end subroutine
 
+  !========================================
+  ! Print all available info for a sigle
+  ! variable
+  !========================================
+
   subroutine BMIAdapter_PrintVarInfo(var_name,var_rank)
     implicit none
     character (len=item_name_length),pointer, intent (in) :: var_name
@@ -327,6 +338,11 @@ module MODELADAPTER_BMI
 
   end subroutine
 
+  !========================================
+  ! Iterate over all input and output
+  ! variables and print info.
+  !========================================
+
   subroutine BMIAdapter_PrintAllVarInfo()
     implicit none
     character(len=item_name_length), pointer    :: invarnames(:), outvarnames(:)
@@ -348,7 +364,7 @@ module MODELADAPTER_BMI
   end subroutine
 
   !========================================
-  ! BMI Defined Fields
+  ! Add individual field to NUOPC Dictionary
   !========================================
 
   subroutine BMIAdapter_AddFieldToDictionary(var_name, rc)
@@ -363,14 +379,14 @@ module MODELADAPTER_BMI
 
     print *,"To be added: ",var_name," Length",LEN(var_name)
 
-    in_dictionary = NUOPC_FieldDictionaryHasEntry(var_name, rc)
+    in_dictionary = NUOPC_FieldDictionaryHasEntry(trim(var_name), rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
 
     if (in_dictionary) then
-        call NUOPC_FieldDictionaryGetEntry(var_name, canonicalUnits=dict_units, rc=rc)
+        call NUOPC_FieldDictionaryGetEntry(trim(var_name), canonicalUnits=dict_units, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
@@ -380,7 +396,7 @@ module MODELADAPTER_BMI
             return
         end if
     else
-        call NUOPC_FieldDictionaryAddEntry(var_name, canonicalUnits=units, rc=rc)
+        call NUOPC_FieldDictionaryAddEntry(trim(var_name), canonicalUnits=units, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
@@ -396,6 +412,12 @@ module MODELADAPTER_BMI
     end if
 
   end subroutine
+
+  !========================================
+  ! Add All Fields To Dictionary
+  ! Iterate over all fields in input and
+  ! output variable arrays.
+  !========================================
 
   subroutine BMIAdapter_AddAllFieldsToDictionary(rc)
     implicit none
@@ -417,7 +439,7 @@ module MODELADAPTER_BMI
   end subroutine
 
   !========================================
-  ! BMI Wrapper Functions
+  ! Generic BMI Wrapper Functions
   !========================================
     FUNCTION BMIAdapter_GetRank(var_name) result(rank)
         use bmif, only: Get_Rank => BMI_Get_var_rank
@@ -429,11 +451,14 @@ module MODELADAPTER_BMI
 
     END FUNCTION BMIAdapter_GetRank
 
+  !========================================
+  ! Grid Creation Based on BMI
+  !========================================
 
-    FUNCTION BMIAdapter_GridCreate(rc) result(grid)
-        type(ESMF_Grid) :: grid
+    FUNCTION BMIAdapter_SingleGridCreate(rc) result(return_grid)
+        type(ESMF_Grid) :: return_grid
         real(ESMF_KIND_R8) :: x_min, x_max, y_min, y_max
-        integer :: i_count, j_count
+        integer :: i_count, j_count, iterator1, iterator2
         integer,intent(out) :: rc
         character (item_name_length), pointer :: invarnames(:),outvarnames(:)
         real :: gridspacing(1:2)
@@ -446,20 +471,16 @@ module MODELADAPTER_BMI
         call BMI_Get_input_var_names (bmodel, invarnames)
         call BMI_Get_output_var_names (bmodel, outvarnames)
 
-        ! If model includes more than one input field or
-        ! more than one output field then FAILURE
-        ! Logic to create multiple field grids is not yet implemented
-        if(SIZE(invarnames) .ne. 1 .or. SIZE(outvarnames) .ne. 1) then
-            rc = ESMF_RC_NOT_IMPL
-            return
-        end if
-
-        ! If input field and output field do not share the same grid
+        ! If input fields and outputs field do not share the same grid
         ! then FAILURE.  Logic to create multiple field grids is not yet implemented
-        if (.NOT.(BMIAdapter_GridComparison(invarnames(1),outvarnames(1)))) then
-            rc = ESMF_RC_NOT_IMPL
-            return ! If variables do not share the same grid then return
-        end if
+        do iterator1=1,SIZE(invarnames)
+            do iterator2=1,SIZE(outvarnames)
+                if (.NOT.(BMIAdapter_GridComparison(invarnames(iterator1),outvarnames(iterator2)))) then
+                    rc = ESMF_RC_NOT_IMPL
+                    return ! If variables do not share the same grid then return
+                end if
+            end do
+        end do
 
         ! If grid is not uniform then FAILURE.  Logic to create non-uniform
         ! grids is not yet implemented
@@ -480,7 +501,7 @@ module MODELADAPTER_BMI
         i_count = gridspacing(1)
         j_count = gridspacing(2)
 
-        grid = NUOPC_GridCreateSimpleXY(x_min,y_min, x_max, y_max, &
+        return_grid = NUOPC_GridCreateSimpleXY(x_min,y_min, x_max, y_max, &
             i_count, j_count, rc=rc)
 
         call ESMF_LogWrite("BMI Grid Created <NUOPCSimpleXY>", ESMF_LOGMSG_INFO, &
@@ -492,14 +513,14 @@ module MODELADAPTER_BMI
             file=__FILE__)) &
             return  ! bail out
 
-    END FUNCTION BMIAdapter_GridCreate
+    END FUNCTION BMIAdapter_SingleGridCreate
 
   !========================================
-  ! Grid Comparison Functions
+  ! Grid Comparison Function for BMI variables
   !========================================
 
     Function BMIAdapter_GridComparison(var_name_1,var_name_2) result (equivalent)
-        character (item_name_length) :: var_name_1,var_name_2
+        character (item_name_length), intent(in) :: var_name_1,var_name_2
         real :: spacing_1(1:2), spacing_2(1:2)
         real :: origin_1(1:2), origin_2(1:2)
         integer :: shape_1(1:2), shape_2(1:2)
