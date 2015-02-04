@@ -11,7 +11,18 @@ Build:
   
 Execution:
   - Optionally set environment variable ESMF_RUNTIME_COMPLIANCECHECK to ON.
-  - mpirun -np X ./esmApp (where X is the total number of PETs)
+  - This application requires three input files stored in a 'data' directory.  The input files
+    can be downloaded from ESMF's website.  Here are the commands to get the data
+    and run the application:
+
+	% mkdir -p data
+        % cd data
+        % wget -q -nd http://earthsystemmodeling.org/download/data/ipe3dgrid.nc
+        % wget -q -nd http://earthsystemmodeling.org/download/data/wam3dgrid.nc
+        % wget -q -nd http://earthsystemmodeling.org/download/data/sig2009011512.nc
+        % cd ..
+        % .... get a partition to run the application .....
+        % mpirun -np X ./mainApp (where X is the total number of PETs)
   
 Output:
   - PET*.Log files containing compliance checker output if turned on.
