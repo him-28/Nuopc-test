@@ -1,4 +1,4 @@
-      module bmif
+module bmif
       use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_f_pointer
       implicit none
 
@@ -41,12 +41,16 @@
         component_name = "Fortran test component"
 
       ! start exchange item list
-      integer, parameter :: input_item_count = 1
+      !integer, parameter :: input_item_count = 1
+      integer, parameter :: input_item_count = 2
       integer, parameter :: output_item_count = 1
       integer, parameter :: item_name_length = 22
+!      character (len=item_name_length), target, &
+!        dimension (input_item_count) :: &
+!        input_items = (/'surface_elevation    '/)
       character (len=item_name_length), target, &
         dimension (input_item_count) :: &
-        input_items = (/'sea_surface_salinity    '/)
+        input_items = (/'surface_elevation    ','surface_test         '/)
 
       character (len=item_name_length), target, &
         dimension (output_item_count) :: &
@@ -54,7 +58,7 @@
       ! end exchange item list
 
       contains
-          subroutine BmI_Initialize (self, config_file)
+          subroutine BMI_Initialize (self, config_file)
             type (BMI_Model), intent (out) :: self
             character (len=*), intent (in) :: config_file
             ! end declaration section
@@ -64,8 +68,8 @@
               read (15, *) self%dt, self%t_end, self%n_x, self%n_y
               close (15)
             else
-              self%dt = 7.
-              self%t_end = 60.
+              self%dt = 1.
+              self%t_end = 10000.
               self%n_x = 10
               self%n_y = 20
             end if
@@ -107,7 +111,6 @@
 
             deallocate (self%z)
             deallocate (self%z_temp)
-            print *,"BMI Finalize Complete"
           end subroutine BMI_Finalize
 
           subroutine BMI_Update (self)
@@ -210,7 +213,7 @@
             character (len=*), intent (out) :: units
             ! end declaration section
 
-            units = "-"
+            units = "s"
           end subroutine BMI_Get_time_units
 
           subroutine BMI_Get_var_type (self, var_name, type)
@@ -230,7 +233,7 @@
             character (len=*), intent (out) :: units
             ! end declaration section
 
-            units = "1e-3"
+            units = "meter"
           end subroutine BMI_Get_var_units
 
           subroutine BMI_Get_var_rank (self, var_name, rank)

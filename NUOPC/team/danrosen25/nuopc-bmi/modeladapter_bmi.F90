@@ -17,7 +17,7 @@ module MODELADAPTER_BMI
   
   public SetServices
   
-  type(BMI_Model) :: bmodel
+  type(BMI_Model) :: bmodel ! The BMI compliant model configured by the configuration file or default model values
 
   !-----------------------------------------------------------------------------
   contains
@@ -62,38 +62,18 @@ module MODELADAPTER_BMI
   
   !-----------------------------------------------------------------------------
 
-
-
   subroutine InitializeP1(model, importState, exportState, clock, rc)
     type(ESMF_GridComp)     :: model
     type(ESMF_State)        :: importState, exportState
     type(ESMF_Clock)        :: clock, compclock
-    type(ESMF_Time)         :: reftime, startTime, stopTime
-    type(ESMF_TimeInterval) :: stabilityTimeStep, interval
+    type(ESMF_TimeInterval) :: stabilityTimeStep
     integer, intent(out)    :: rc
-    real                    :: start, end, step
-    character(len=10)       :: units
-    character(item_name_length), pointer    :: invarnames(:), outvarnames(:)
-    integer                                     :: i
 
     rc = ESMF_SUCCESS
 
-    call BMI_Initialize(bmodel,"") ! Initialize BMI without config file
-    call BMIAdapter_PrintComponentInfo() ! Print BMI information after initializing
-    call BMIAdapter_PrintAllVarInfo()
+    call BMIAdapter_Initialize() ! Initialize BMI Model
 
-    call BMI_Get_time_step(bmodel,step)
-    call BMI_Get_start_time(bmodel,start)
-    call BMI_Get_end_time(bmodel,end)
-    call BMI_Get_time_units (bmodel, units)
-
-    if (units .eq. 's') then
-      call ESMF_TimeIntervalSet(stabilityTimeStep, s = INT(step), rc=rc)
-    else if(units .eq. 'm') then
-      call ESMF_TimeIntervalSet(stabilityTimeStep, m = INT(step), rc=rc)
-    else
-      call ESMF_TimeIntervalSet(stabilityTimeStep, s = INT(step), rc=rc)
-    end if
+    call BMIAdapter_TimeIntervalSet(stabilityTimeStep,rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -119,30 +99,18 @@ module MODELADAPTER_BMI
 
 #define WITHIMPORTFIELDS_OFF
 #ifdef WITHIMPORTFIELDS
-    ! importable field(s): Get Input Var Names from BMI
-
-    call BMI_Get_input_var_names(bmodel,invarnames)
-    do i=1,SIZE(invarnames)
-        call NUOPC_StateAdvertiseField(importState, &
-            StandardName=trim(invarnames(i)), name=trim(invarnames(i)), rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-    end do
+    call BMIAdapter_StateAdvertiseInputFields(importState,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Advertise Input Fields Error", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 #endif
 
-    ! exportable field(s): Get Output Var Names from BMI
-    call BMI_Get_output_var_names(bmodel,outvarnames)
-
-    do i=1,SIZE(outvarnames)
-        call NUOPC_StateAdvertiseField(exportState, &
-            StandardName=trim(outvarnames(i)), name=trim(outvarnames(i)), rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-    end do
+    call BMIAdapter_StateAdvertiseOutputFields(exportState,rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Advertise Output Fields Error", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
   end subroutine
   
@@ -165,45 +133,25 @@ module MODELADAPTER_BMI
     
     ! create a Grid object for Fields
     gridIn = BMIAdapter_SingleGridCreate(rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter_SingleGridCreate failure.", &
+    if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Single Grid Create error.", &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     gridOut = gridIn ! for now out same as in
 
 #ifdef WITHIMPORTFIELDS
-    ! importable field: add BMI input variable names
-    call BMI_Get_input_var_names(bmodel,invarnames)
-    do i=1,size(invarnames)
-        field = ESMF_FieldCreate(name=trim(invarnames(i)), grid=gridIn, &
-          typekind=ESMF_TYPEKIND_R8, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-        call NUOPC_StateRealizeField(importState, field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-    end do
+  call BMIAdapter_StateRealizeInputFields(importState,gridIn,rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Realize Input Fields Error", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 #endif
 
-    ! exportable field: add BMI output variable names
-    call BMI_Get_output_var_names(bmodel,outvarnames)
-    do i=1,size(outvarnames)
-        field = ESMF_FieldCreate(name=trim(outvarnames(i)), grid=gridOut, &
-          typekind=ESMF_TYPEKIND_R8, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-        call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-    end do
+  call BMIAdapter_StateRealizeOutputFields(exportState,gridOut,rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Realize Output Fields Error", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
   end subroutine
   
@@ -216,13 +164,10 @@ module MODELADAPTER_BMI
     ! local variables
     type(ESMF_Clock)              :: clock
     type(ESMF_State)              :: importState, exportState
-    real                          :: bmi_time
-
-    call BMI_Update(bmodel) ! Update BMI
-    call BMI_Get_current_time(bmodel,bmi_time)
-    print *,"BMI_Update Complete - Time: ", bmi_time
 
     rc = ESMF_SUCCESS
+
+    call BMIAdapter_Update()
     
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(model, clock=clock, importState=importState, &
@@ -255,6 +200,12 @@ module MODELADAPTER_BMI
 
   end subroutine
 
+  !########################################
+  !# Section II: BMI Wrapper Functions    #
+  !# The following functions wrap a BMI   #
+  !# model.                               #
+  !########################################
+
   !========================================
   ! Print BMI model information
   !========================================
@@ -264,10 +215,12 @@ module MODELADAPTER_BMI
     character(len=item_name_length), pointer        :: invarnames(:)
     character(len=item_name_length), pointer     :: outvarnames(:)
     character(len=component_name_length),pointer    :: compname
+    character(len=10)                               ::tunits
     real                            :: start
     real                            :: end
     real                            :: step
     integer :: i
+
 
     call BMI_Get_input_var_names(bmodel,invarnames)
     call BMI_Get_output_var_names(bmodel,outvarnames)
@@ -275,11 +228,13 @@ module MODELADAPTER_BMI
     call BMI_Get_time_step(bmodel,step)
     call BMI_Get_start_time(bmodel,start)
     call BMI_Get_end_time(bmodel,end)
+    call BMI_Get_time_units(bmodel,tunits)
 
     print *, "BMI Component Info"
     print *, "     Step: ",step
     print *, "     Start: ",start
     print *, "     End: ",end
+    print *, "     Time Units: ",tunits
     print *, "     # Input Variables: ",SIZE(invarnames)
     print *, "     Input Variable Names: ",invarnames
     print *, "     # Output Variables: ",SIZE(outvarnames)
@@ -303,7 +258,6 @@ module MODELADAPTER_BMI
     real        :: gspacing(1:var_rank), gorigin(1:var_rank) ! Assumed shape for grid spacing array
     logical     :: in_dictionary
     integer     :: rc
-
 
     call BMI_Get_var_type (bmodel, var_name, type)
     call BMI_Get_var_units (bmodel, var_name, units)
@@ -339,6 +293,18 @@ module MODELADAPTER_BMI
   end subroutine
 
   !========================================
+  ! Print BMI model current time
+  !========================================
+
+  SUBROUTINE BMIAdapter_PrintCurrentTime()
+    real                          :: bmi_time
+
+    call BMI_Get_current_time(bmodel,bmi_time)
+    print *,"BMI Current Time: ", bmi_time
+
+  END SUBROUTINE
+
+  !========================================
   ! Iterate over all input and output
   ! variables and print info.
   !========================================
@@ -361,6 +327,49 @@ module MODELADAPTER_BMI
         call BMIAdapter_PrintVarInfo(outvarnames(i),BMIAdapter_GetRank(invarnames(i)))
     end do
 
+  end subroutine
+
+  !========================================
+  ! Initialize BMI model
+  !========================================
+
+  SUBROUTINE BMIAdapter_Initialize()
+    call BMI_Initialize(bmodel,"") ! Initialize BMI without config file
+    call BMIAdapter_PrintComponentInfo() ! Print BMI information after initializing
+    call BMIAdapter_PrintAllVarInfo()
+  END SUBROUTINE
+
+  !========================================
+  ! Update BMI model
+  !========================================
+
+  SUBROUTINE BMIAdapter_Update()
+    call BMI_Update(bmodel) ! Update BMI
+    call BMIAdapter_PrintCurrentTime() ! Print BMI model time after update
+  END SUBROUTINE
+
+  !========================================
+  ! Set Time Interval based on BMI model
+  !========================================
+
+  subroutine BMIAdapter_TimeIntervalSet(stabilityTimeStep, rc)
+    type(ESMF_TimeInterval), intent(out) :: stabilityTimeStep
+    integer, intent(out)    :: rc
+    real                    :: step
+    character(len=10)       :: units
+
+    call BMI_Get_time_step(bmodel,step)
+    call BMI_Get_time_units(bmodel,units)
+
+    rc = ESMF_SUCCESS
+
+    if (units .eq. 's') then
+      call ESMF_TimeIntervalSet(stabilityTimeStep, s = INT(step), rc=rc)
+    else if(units .eq. 'm') then
+      call ESMF_TimeIntervalSet(stabilityTimeStep, m = INT(step), rc=rc)
+    else
+      rc = ESMF_RC_ARG_VALUE
+    end if
   end subroutine
 
   !========================================
@@ -439,15 +448,117 @@ module MODELADAPTER_BMI
   end subroutine
 
   !========================================
-  ! Generic BMI Wrapper Functions
+  ! Advertise all input fields to referenced state variable
+  !========================================
+
+    SUBROUTINE BMIAdapter_StateAdvertiseInputFields(importState,rc)
+        type(ESMF_State)        :: importState
+        integer, intent(out)    :: rc
+        character(item_name_length), pointer    :: invarnames(:)
+        integer                                     :: i
+
+        ! importable field(s): Get Input Var Names from BMI
+        rc = ESMF_SUCCESS
+
+        call BMI_Get_input_var_names(bmodel,invarnames)
+
+        do i=1,SIZE(invarnames)
+            call NUOPC_StateAdvertiseField(importState, &
+                StandardName=trim(invarnames(i)), name=trim(invarnames(i)), rc=rc)
+            if (rc .ne. ESMF_SUCCESS) return  ! bail out
+        end do
+    END SUBROUTINE
+
+  !========================================
+  ! Advertise all output fields ot referenced state variable
+  !========================================
+
+    SUBROUTINE BMIAdapter_StateAdvertiseOutputFields(exportState,rc)
+        type(ESMF_State)        :: exportState
+        integer, intent(out)    :: rc
+        character(item_name_length), pointer    ::  outvarnames(:)
+        integer                                     :: i
+
+        rc = ESMF_SUCCESS
+
+        ! exportable field(s): Get Output Var Names from BMI
+        call BMI_Get_output_var_names(bmodel,outvarnames)
+
+        do i=1,SIZE(outvarnames)
+            call NUOPC_StateAdvertiseField(exportState, &
+                StandardName=trim(outvarnames(i)), name=trim(outvarnames(i)), rc=rc)
+            if (rc .ne. ESMF_SUCCESS) return ! bail out
+        end do
+
+    END SUBROUTINE
+
+  !========================================
+  !  Realize all input fields to import
+  !========================================
+
+    SUBROUTINE BMIAdapter_StateRealizeInputFields(importState,gridIn,rc)
+        type(ESMF_State)     :: importState
+        type(ESMF_Grid)         :: gridIn
+        integer, intent(out) :: rc
+
+        ! local variables
+        type(ESMF_Field)        :: field
+        character(item_name_length), pointer    :: invarnames(:)
+        integer                                     :: i
+
+        rc = ESMF_SUCCESS
+
+        ! importable field: add BMI input variable names
+        call BMI_Get_input_var_names(bmodel,invarnames)
+
+        do i=1,size(invarnames)
+            field = ESMF_FieldCreate(name=trim(invarnames(i)), grid=gridIn, &
+              typekind=ESMF_TYPEKIND_R8, rc=rc)
+            if (rc .ne. ESMF_SUCCESS) return
+
+            call NUOPC_StateRealizeField(importState, field=field, rc=rc)
+            if (rc .ne. ESMF_SUCCESS) return
+        end do
+
+    END SUBROUTINE
+
+  !========================================
+  ! Realize all output fields to export
+  !========================================
+    SUBROUTINE BMIAdapter_StateRealizeOutputFields(exportState,gridOut,rc)
+        type(ESMF_State)     :: exportState
+        integer, intent(out) :: rc
+        type(ESMF_Grid)         :: gridOut
+
+        ! local variables
+        type(ESMF_Field)        :: field
+        character(item_name_length), pointer    ::  outvarnames(:)
+        integer                                     :: i
+
+        rc = ESMF_SUCCESS
+
+        ! exportable field: add BMI output variable names
+        call BMI_Get_output_var_names(bmodel,outvarnames)
+
+        do i=1,size(outvarnames)
+            field = ESMF_FieldCreate(name=trim(outvarnames(i)), grid=gridOut, &
+              typekind=ESMF_TYPEKIND_R8, rc=rc)
+            if (rc .ne. ESMF_SUCCESS) return
+
+            call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
+            if (rc .ne. ESMF_SUCCESS) return
+        end do
+    END SUBROUTINE
+
+  !========================================
+  ! Get variable rank / dimensions
   !========================================
     FUNCTION BMIAdapter_GetRank(var_name) result(rank)
-        use bmif, only: Get_Rank => BMI_Get_var_rank
         implicit none
         INTEGER :: rank
         character (len=item_name_length),pointer, INTENT(in) :: var_name
 
-        call Get_Rank (bmodel, var_name, rank)
+        call BMI_Get_var_rank (bmodel, var_name, rank)
 
     END FUNCTION BMIAdapter_GetRank
 
