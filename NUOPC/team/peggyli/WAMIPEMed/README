@@ -19,7 +19,7 @@ Execution:
         % cd data
         % wget -q -nd http://earthsystemmodeling.org/download/data/ipe3dgrid.nc
         % wget -q -nd http://earthsystemmodeling.org/download/data/wam3dgrid.nc
-        % wget -q -nd http://earthsystemmodeling.org/download/data/sig2009011512.nc
+        % wget -q -nd http://earthsystemmodeling.org/download/data/sigf2009011512.nc
         % cd ..
         % .... get a partition to run the application .....
         % mpirun -np X ./mainApp (where X is the total number of PETs)
