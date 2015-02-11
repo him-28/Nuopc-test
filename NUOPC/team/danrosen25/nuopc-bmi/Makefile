@@ -43,13 +43,14 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-mainApp: mainApp.o driver.o modeladapter_bmi.o bmi_impl.o
+mainApp: mainApp.o driver.o model_bmi.o nuopc_bmi_adapter.o bmi_impl.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 mainApp.o: driver.o
-driver.o: modeladapter_bmi.o
-modeladapter_bmi.o: bmi_impl.o
+driver.o: model_bmi.o
+model_bmi.o: nuopc_bmi_adapter.o
+nuopc_bmi_adapter.o: bmi_impl.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------

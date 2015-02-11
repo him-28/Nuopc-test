@@ -92,13 +92,12 @@ module bmif
           subroutine set_bc (z)
             real, dimension (:,:), intent (out) :: z
 
-            integer :: i
-            real :: top_x
-
-            top_x = size(z, 1)-1
+            integer :: i,j
             
-            do i = 0, size(z, 1)-1
-              z(i+1,1) = top_x**2*.25 - (i-top_x*.5)**2
+            do i = 1, size(z,1)
+              do j = 1, size(z,2)
+                z(i,j) = i*j
+              end do
             end do
 
           end subroutine set_bc
@@ -118,30 +117,16 @@ module bmif
             type (BMI_Model), intent (inout) :: self
             ! end declaration section
 
-            real, parameter :: rho = 0.
-            real :: dx2
-            real :: dy2
-            real :: dx2_dy2_rho
-            real :: coef
             integer :: i, j
 
-            dx2 = self%dx**2
-            dy2 = self%dy**2
-            dx2_dy2_rho = dx2 * dy2 * rho
-            coef = self%dt / (2. * (dx2 + dy2))
-
-            do j = 2, self%n_y-1
-              do i = 2, self%n_x-1
-                self%z_temp(i,j) = &
-                  coef * (dx2 * (self%z(i-1,j) + self%z(i+1,j)) + &
-                          dy2 * (self%z(i,j-1) + self%z(i,j+1)) - &
-                          dx2_dy2_rho)
+            do i = 1, size(self%z,1)
+              do j = 1, size(self%z,2)
+                self%z(i,j) = self%z(i,j)+1
               end do
             end do
 
             self%t = self%t + self%dt
 
-            self%z = self%z_temp
           end subroutine BMI_Update
 
           subroutine BMI_Update_until (self, t)
@@ -288,6 +273,16 @@ module bmif
             origin(1) = 0.
             origin(2) = 0.
           end subroutine BMI_Get_grid_origin
+
+          subroutine BMI_Get_farray_TEMP (self, var_name, farray)
+            implicit none
+            type(BMI_Model),intent(in) :: self
+            character(len=*),intent(in) :: var_name
+            real, pointer,intent(out) :: farray(:,:)
+
+            farray => self%z
+
+          end subroutine BMI_Get_farray_TEMP
 
           subroutine BMI_Get_double (self, var_name, dest)
             implicit none

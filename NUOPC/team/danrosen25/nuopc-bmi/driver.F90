@@ -10,7 +10,7 @@ module driver
     driver_routine_SS             => SetServices, &
     driver_label_SetModelServices => label_SetModelServices
   
-  use MODELADAPTER_BMI, only: &
+  use MODEL_BMI, only: &
     modelSS => SetServices
   
   implicit none
