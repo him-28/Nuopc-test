@@ -9,8 +9,9 @@ module ccsm_mediator_mod
   use ESMF
   use NUOPC
   use NUOPC_Mediator, only: &
-    mediator_routine_SS    => routine_SetServices, &
-    mediator_label_Advance => label_Advance
+    mediator_routine_SS           => routine_SetServices, &
+    mediator_label_DataInitialize => label_DataInitialize, &
+    mediator_label_Advance        => label_Advance
 !  use NUOPC_ModelBase, only: &
 !    ModelBase_label_TimestampExport => label_TimestampExport
 
@@ -58,6 +59,15 @@ module ccsm_mediator_mod
   implicit none
 
   private
+  
+  ! module variables that contain field from/to model components
+  type(ESMF_State)  :: frATM, toATM
+  type(ESMF_State)  :: frLND, toLND
+  type(ESMF_State)  :: frOCN, toOCN
+  type(ESMF_State)  :: frICE, toICE
+  type(ESMF_State)  :: frGLC, toGLC
+  type(ESMF_State)  :: frROF, toROF
+  type(ESMF_State)  :: frWAV, toWAV
 
   public SetServices
 #include <mpif.h>
@@ -81,8 +91,10 @@ print *, 'KDS: Mediator SetServices begin'
       return  ! bail out
 
     ! set entry point for methods that require specific implementation
+    
+    ! --- Initialization phases --------------------------------------
 
-    ! -> switching to IPD versions is done in InitializeP0
+    ! Provide InitializeP0 to switch from default IPDv00 to IPDv03
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       userRoutine=InitializeP0, phase=0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -90,24 +102,31 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! IPDv03p1: advertise Fields
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p1"/), userRoutine=InitializeP1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    
+    ! IPDv03p3: realize connected Fields with transfer action "provide"
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p3"/), userRoutine=InitializeP3, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    
+    ! IPDv03p4: optionally modify the decomp/distr of transferred Grid/Mesh
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p4"/), userRoutine=InitializeP4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    
+    ! IPDv03p5: realize all Fields with transfer action "accept"
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p5"/), userRoutine=InitializeP5, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -115,20 +134,9 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
-!    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-!      userRoutine=InitializeP1, phase=1, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-!      userRoutine=InitializeP2, phase=2, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
+    ! --- Run phases -------------------------------------------------
 
-
+    ! Run phase: UPDATE_ORBITAL_DATA_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_UpdateOrbitalData, phase=UPDATE_ORBITAL_DATA_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -136,13 +144,15 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_OCN_ICE_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepOCN_ICE, phase=PREP_OCN_ICE_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
+    
+    ! Run phase: PREP_OCN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepOCN, phase=PREP_OCN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -150,6 +160,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_LND_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepLND, phase=PREP_LND_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -157,6 +168,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_ICE_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepICE, phase=PREP_ICE_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -164,6 +176,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_WAV_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepWAV, phase=PREP_WAV_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -171,6 +184,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_ROF_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepROF, phase=PREP_ROF_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -178,6 +192,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_OCN_TIGHT_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostOCN_Tight, phase=POST_OCN_TIGHT_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -185,6 +200,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_LND_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostLND, phase=POST_LND_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -192,6 +208,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_GLC_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepGLC, phase=PREP_GLC_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -199,6 +216,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_ROF_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostROF, phase=POST_ROF_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -206,6 +224,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: BUDGET_OLD_FRACTIONS_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_BudgetOldFractions, &
       phase=BUDGET_OLD_FRACTIONS_PHASE, rc=rc)  
@@ -214,6 +233,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_ICE_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostICE, phase=POST_ICE_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -221,6 +241,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: UPDATE_FRACTIONS_FROM_ICE_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_UpdateFractionsFromICE, &
       phase=UPDATE_FRACTIONS_FROM_ICE_PHASE, rc=rc)  
@@ -229,6 +250,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: FLUX_CALC_ON_ATM_GRID_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_FluxCalcOnATM_Grid, &
       phase=FLUX_CALC_ON_ATM_GRID_PHASE, rc=rc)  
@@ -237,6 +259,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: PREP_ATM_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PrepATM, phase=PREP_ATM_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -244,6 +267,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_WAV_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostWAV, phase=POST_WAV_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -251,6 +275,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_GLC_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostGLC, phase=POST_GLC_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -258,6 +283,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_ATM_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostATM, phase=POST_ATM_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -265,6 +291,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: BUDGET_NEW_FRACTIONS_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_BudgetNewFractions, &
       phase=BUDGET_NEW_FRACTIONS_PHASE, rc=rc)  
@@ -273,6 +300,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: POST_OCN_LOOSE_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_PostOCN_Loose, phase=POST_OCN_LOOSE_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -280,6 +308,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: SAVE_RESTART_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_SaveRestart, phase=SAVE_RESTART_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -287,6 +316,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: WRITE_HISTORY_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_WriteHistory, phase=WRITE_HISTORY_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -294,6 +324,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ADVANCE_SYNC_CLOCK_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_AdvanceSyncClock, phase=ADVANCE_SYNC_CLOCK_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -301,6 +332,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: OVERRIDE_OCN_ALARMS_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=run_OverrideOcnAlarms, &
       phase=OVERRIDE_OCN_ALARMS_PHASE, rc=rc)  
@@ -309,6 +341,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ATM_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_atmPreRun, phase=ATM_PRE_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -316,6 +349,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ATM_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_atmPostRun, phase=ATM_POST_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -323,6 +357,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: GLC_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_glcPreRun, phase=GLC_PRE_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -330,6 +365,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: GLC_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_glcPostRun, phase=GLC_POST_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -337,6 +373,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ICE_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_icePreRun, phase=ICE_PRE_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -344,6 +381,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ICE_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_icePostRun, phase=ICE_POST_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -351,6 +389,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: LND_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_lndPreRun, phase=LND_PRE_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -358,6 +397,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: LND_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_lndPostRun, phase=LND_POST_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -365,6 +405,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: OCN_TIGHT_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_ocnPreRunTight, phase=OCN_TIGHT_PRE_RUN_PHASE, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -372,14 +413,16 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: OCN_TIGHT_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_ocnPostRunTight, phase=OCN_TIGHT_POST_RUN_PHASE, &
-		rc=rc)
+      rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: OCN_LOOSE_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_ocnPreRunLoose, phase=OCN_LOOSE_PRE_RUN_PHASE, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -387,14 +430,16 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: OCN_LOOSE_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_ocnPostRunLoose, phase=OCN_LOOSE_POST_RUN_PHASE, &
-		rc=rc)
+      rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ROF_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_rofPreRun, phase=ROF_PRE_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -402,6 +447,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: ROF_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_rofPostRun, phase=ROF_POST_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -409,6 +455,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: WAV_PRE_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_wavPreRun, phase=WAV_PRE_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -416,6 +463,7 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
+    ! Run phase: WAV_POST_RUN_PHASE
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       userRoutine=routine_wavPostRun, phase=WAV_POST_RUN_PHASE, rc=rc)  
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -423,10 +471,15 @@ print *, 'KDS: Mediator SetServices begin'
       file=__FILE__)) &
       return  ! bail out
 
-
-    ! attach specializing method(s)
+    ! Run specializing method(s)
     call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_Advance, &
       specRoutine=MediatorAdvance, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_CompSpecialize(mediator, specLabel=mediator_label_DataInitialize, &
+      specRoutine=DataInitialize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -462,8 +515,9 @@ print *, 'KDS: Mediator SetServices begin'
 
   end subroutine
 
-
   !-----------------------------------------------------------------------------
+
+#ifdef PREVIOUS
 
   subroutine InitializeP1(gcomp, importState, exportState, clock, rc)
     type(ESMF_GridComp)  :: gcomp
@@ -785,7 +839,288 @@ print *, 'KDS: Mediator InitializeP1 end'
 
   end subroutine
 
+#else
+
+  subroutine InitializeP1(mediator, importState, exportState, clock, rc)
+    ! IPDv03p1: advertise Fields
+    type(ESMF_GridComp)  :: mediator
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+    
+    rc = ESMF_SUCCESS
+    
+    ! Fields from ATM
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="ATM", &
+      nestedState=frATM, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(frATM, &
+      StandardNames=atm_export_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields to ATM
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="ATM", &
+      nestedState=toATM, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(toATM, &
+      StandardNames=atm_import_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields from LND
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="LND", &
+      nestedState=frLND, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(frLND, &
+      StandardNames=lnd_export_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields to LND
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="LND", &
+      nestedState=toLND, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(toLND, &
+      StandardNames=lnd_import_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields from OCN
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="OCN", &
+      nestedState=frOCN, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(frOCN, &
+      StandardNames=ocn_export_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields to OCN
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="OCN", &
+      nestedState=toOCN, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(toOCN, &
+      StandardNames=ocn_import_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields from ICE
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="ICE", &
+      nestedState=frICE, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(frICE, &
+      StandardNames=ice_export_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields to ICE
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="ICE", &
+      nestedState=toICE, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(toICE, &
+      StandardNames=ice_import_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields from ROF
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="ROF", &
+      nestedState=frROF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(frROF, &
+      StandardNames=rof_export_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields to ROF
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="ROF", &
+      nestedState=toROF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+    call newNUOPC_StateAdvertiseFields(toROF, &
+      StandardNames=rof_import_fields, &
+      TransferOfferGeomObject="cannot provide", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! Fields from GLC
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="GLC", &
+      nestedState=frGLC, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+!    call newNUOPC_StateAdvertiseFields(frGLC, &
+!      StandardNames=glc_export_fields, &
+!      TransferOfferGeomObject="cannot provide", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+    
+    ! Fields to GLC
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="GLC", &
+      nestedState=toGLC, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+!    call newNUOPC_StateAdvertiseFields(toGLC, &
+!      StandardNames=glc_import_fields, &
+!      TransferOfferGeomObject="cannot provide", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+    
+    ! Fields from WAV
+    !   use namespace in the importState
+    call NUOPC_StateNamespaceAdd(importState, namespace="WAV", &
+      nestedState=frWAV, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+!    call newNUOPC_StateAdvertiseFields(frWAV, &
+!      StandardNames=wav_export_fields, &
+!      TransferOfferGeomObject="cannot provide", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+    
+    ! Fields to WAV
+    !   use namespace in the exportState
+    call NUOPC_StateNamespaceAdd(exportState, namespace="WAV", &
+      nestedState=toWAV, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    !   advertise fields in the nested state
+!    call newNUOPC_StateAdvertiseFields(toWAV, &
+!      StandardNames=wav_import_fields, &
+!      TransferOfferGeomObject="cannot provide", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+    
+    contains ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    
+    subroutine newNUOPC_StateAdvertiseFields(state, StandardNames, &
+      ! The ESMF master already contains this changed interface -> can be 
+      ! removed here once the latest ESMF snapshot is used.
+      TransferOfferGeomObject, rc)
+      type(ESMF_State), intent(inout)         :: state
+      character(*),     intent(in)            :: StandardNames(:)
+      character(*),     intent(in),  optional :: TransferOfferGeomObject
+      integer,          intent(out), optional :: rc
+      ! local variables
+      integer                 :: i
+    
+      if (present(rc)) rc = ESMF_SUCCESS
+
+      do i=1, size(StandardNames)
+        call NUOPC_StateAdvertiseField(state, StandardName=StandardNames(i), &
+          TransferOfferGeomObject=TransferOfferGeomObject, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      enddo
+      
+    end subroutine
+
+  end subroutine
+  
+#endif
+
   !-----------------------------------------------------------------------------
+
+#ifdef PREVIOUS
 
   subroutine InitializeP3(gcomp, importState, exportState, clock, rc)
     type(ESMF_GridComp)  :: gcomp
@@ -1083,36 +1418,482 @@ print *, 'KDS: Mediator InitializeP3 end'
 
   end subroutine
 
-  !-----------------------------------------------------------------------------
+#else
 
-  subroutine InitializeP4(gcomp, importState, exportState, clock, rc)
-    type(ESMF_GridComp)   :: gcomp
-    type(ESMF_State)      :: importState, exportState
-    type(ESMF_Clock)      :: clock
-    integer, intent(out)  :: rc
-
+  subroutine InitializeP3(mediator, importState, exportState, clock, rc)
+    ! IPDv03p3: realize connected Fields with transfer action "provide"
+    ! and remove Fields that are not connected
+    type(ESMF_GridComp)  :: mediator
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+    
     rc = ESMF_SUCCESS
+    
+    call checkConnectedFlagProvide(importState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
+    call checkConnectedFlagProvide(exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    contains ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    
+    subroutine checkConnectedFlagProvide(state, rc)
+      ! Look at all of the fields in state, including in nested states. Error
+      ! out if a connected field is found for which geom object must be 
+      ! provided here. Remove all not connected fields.
+      type(ESMF_State)  :: state
+      integer, optional :: rc
+      ! local variables
+      integer                                 :: itemCount, item
+      character(len=80)                       :: stateName
+      type(ESMF_Field)                        :: field
+      character(len=80)                       :: connectedValue
+      character(len=20)                       :: transferAction
+      character(len=80), allocatable          :: itemNameList(:)
+      type(ESMF_StateItem_Flag), allocatable  :: itemTypeList(:)
+    
+      if (present(rc)) rc = ESMF_SUCCESS
+    
+      call ESMF_StateGet(state, name=stateName, nestedFlag=.true., &
+        itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    
+      allocate(itemNameList(itemCount), itemTypeList(itemCount))
+    
+      call ESMF_StateGet(state, nestedFlag=.true., &
+        itemNameList=itemNameList, itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      do item=1, itemCount
+        if (itemTypeList(item)==ESMF_STATEITEM_FIELD) then
+          ! this is a field -> get more info
+          call ESMF_StateGet(state, field=field, itemName=itemNameList(item), &
+            rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          call NUOPC_FieldAttributeGet(field, name="Connected", &
+            value=connectedValue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          if (connectedValue=="false") then
+            ! remove the field from the state
+            call ESMF_StateRemove(state, itemNameList(item), rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          else
+            call NUOPC_FieldAttributeGet(field, name="TransferActionGeomObject", &
+              value=transferAction, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            if (trim(transferAction)=="provide") then
+              ! the Connector instructed the Mediator to provide geom object
+              call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+                msg="Cannot fulfill request to provide geom object for "// &
+                trim(itemNameList(item))//" in State "//trim(stateName), &
+                line=__LINE__, &
+                file=__FILE__, &
+                rcToReturn=rc)
+              return ! bail out
+            endif
+          endif
+        endif
+      enddo
+      
+      deallocate(itemNameList, itemTypeList)
+    
+    end subroutine
 
   end subroutine
 
+#endif
 
   !-----------------------------------------------------------------------------
-  subroutine InitializeP5(gcomp, importState, exportState, clock, rc)
-    type(ESMF_GridComp)   :: gcomp
-    type(ESMF_State)      :: importState, exportState
-    type(ESMF_Clock)      :: clock
-    integer, intent(out)  :: rc
+
+  subroutine InitializeP4(mediator, importState, exportState, clock, rc)
+    ! IPDv03p4: optionally modify the decomp/distr of transferred Grid/Mesh
+    type(ESMF_GridComp)  :: mediator
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+    
+    rc = ESMF_SUCCESS
+
+    call adjustAcceptedGeom(importState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call adjustAcceptedGeom(exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    contains ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    
+    subroutine adjustAcceptedGeom(state, rc)
+      ! Look at all of the fields in state, including in nested states. Adjust
+      ! the distribution of the accepted geom object to a 1 DE/PET distribution.
+      type(ESMF_State)  :: state
+      integer, optional :: rc
+      ! local variables
+      integer                                 :: itemCount, item
+      type(ESMF_Field)                        :: field
+      character(len=20)                       :: transferAction
+      character(len=80), allocatable          :: itemNameList(:)
+      type(ESMF_StateItem_Flag), allocatable  :: itemTypeList(:)
+      type(ESMF_GeomType_Flag)                :: geomtype
+      type(ESMF_Grid)                         :: grid
+      type(ESMF_Mesh)                         :: mesh
+      character(160)                          :: msgString
+      type(ESMF_DistGrid)                     :: distgrid
+      integer                                 :: dimCount, tileCount, petCount
+      integer                                 :: deCountPTile, extraDEs
+      integer, allocatable                    :: minIndexPTile(:,:), maxIndexPTile(:,:)
+      integer, allocatable                    :: regDecompPTile(:,:)
+      integer                                 :: i, j
+    
+      if (present(rc)) rc = ESMF_SUCCESS
+      
+      call ESMF_StateGet(state, nestedFlag=.true., itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    
+      allocate(itemNameList(itemCount), itemTypeList(itemCount))
+    
+      call ESMF_StateGet(state, nestedFlag=.true., &
+        itemNameList=itemNameList, itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      do item=1, itemCount
+        if (itemTypeList(item)==ESMF_STATEITEM_FIELD) then
+          ! this is a field -> get more info
+          call ESMF_StateGet(state, field=field, itemName=itemNameList(item), &
+            rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          call NUOPC_FieldAttributeGet(field, name="TransferActionGeomObject", &
+            value=transferAction, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          if (trim(transferAction)=="accept") then
+            ! the Connector instructed the Mediator to accept geom object
+            ! -> find out which type geom object the field holds
+            call ESMF_FieldGet(field, geomtype=geomtype, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            if (geomtype==ESMF_GEOMTYPE_GRID) then
+              ! empty field holds a Grid with DistGrid
+              call ESMF_FieldGet(field, grid=grid, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! access the DistGrid
+              call ESMF_GridGet(grid, distgrid=distgrid, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! Create a custom DistGrid, based on the minIndex, maxIndex of the 
+              ! accepted DistGrid, but with a default regDecomp for the current VM
+              ! that leads to 1DE/PET.
+              ! get dimCount and tileCount
+              call ESMF_DistGridGet(distgrid, dimCount=dimCount, &
+                tileCount=tileCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! allocate minIndexPTile and maxIndexPTile accord. to dimCount and tileCount
+              allocate(minIndexPTile(dimCount, tileCount), &
+                maxIndexPTile(dimCount, tileCount))
+              ! get minIndex and maxIndex arrays
+              call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile, &
+                maxIndexPTile=maxIndexPTile, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! construct a default regDecompPTile -> TODO: move this into ESMF as default
+              call ESMF_GridCompGet(mediator, petCount=petCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              allocate(regDecompPTile(dimCount, tileCount))
+              deCountPTile = petCount/tileCount
+              extraDEs = max(0, petCount-deCountPTile)
+              do i=1, tileCount
+                if (i<=extraDEs) then
+                  regDecompPTile(1, i) = deCountPTile + 1
+                else
+                  regDecompPTile(1, i) = deCountPTile
+                endif
+                do j=2, dimCount
+                  regDecompPTile(j, i) = 1
+                enddo
+              enddo
+              ! create the new DistGrid with the same minIndexPTile and maxIndexPTile,
+              ! but with a default regDecompPTile
+              distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+                maxIndexPTile=maxIndexPTile, regDecompPTile=regDecompPTile, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! Create a new Grid on the new DistGrid and swap it in the Field
+              grid = ESMF_GridCreate(distgrid, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              call ESMF_FieldEmptySet(field, grid=grid, rc=rc)    
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! local clean-up
+              deallocate(minIndexPTile, maxIndexPTile, regDecompPTile)
+            elseif (geomtype==ESMF_GEOMTYPE_MESH) then
+              ! empty field holds a Mesh with DistGrid
+              call ESMF_FieldGet(field, mesh=mesh, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! access the DistGrid
+              call ESMF_MeshGet(mesh, elementDistgrid=distgrid, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! Create a custom DistGrid, based on the minIndex, maxIndex of the 
+              ! accepted DistGrid, but with a default regDecomp for the current VM
+              ! that leads to 1DE/PET.
+              ! get dimCount and tileCount
+              call ESMF_DistGridGet(distgrid, dimCount=dimCount, &
+                tileCount=tileCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! allocate minIndexPTile and maxIndexPTile accord. to dimCount and tileCount
+              allocate(minIndexPTile(dimCount, tileCount), &
+                maxIndexPTile(dimCount, tileCount))
+              ! get minIndex and maxIndex arrays
+              call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile, &
+                maxIndexPTile=maxIndexPTile, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! construct a default regDecompPTile -> TODO: move this into ESMF as default
+              call ESMF_GridCompGet(mediator, petCount=petCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              allocate(regDecompPTile(dimCount, tileCount))
+              deCountPTile = petCount/tileCount
+              extraDEs = max(0, petCount-deCountPTile)
+              do i=1, tileCount
+                if (i<=extraDEs) then
+                  regDecompPTile(1, i) = deCountPTile + 1
+                else
+                  regDecompPTile(1, i) = deCountPTile
+                endif
+                do j=2, dimCount
+                  regDecompPTile(j, i) = 1
+                enddo
+              enddo
+              ! create the new DistGrid with the same minIndexPTile and maxIndexPTile,
+              ! but with a default regDecompPTile
+              distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+                maxIndexPTile=maxIndexPTile, regDecompPTile=regDecompPTile, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! Create a new Grid on the new DistGrid and swap it in the Field
+              mesh = ESMF_MeshCreate(distgrid, distgrid, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              call ESMF_FieldEmptySet(field, mesh=mesh, rc=rc)    
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              ! local clean-up
+              deallocate(minIndexPTile, maxIndexPTile, regDecompPTile)
+            else
+              call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+                msg="Unsupported geom object found in "// &
+                trim(itemNameList(item)), &
+                line=__LINE__, &
+                file=__FILE__, &
+                rcToReturn=rc)
+              return ! bail out
+            endif
+          endif
+        endif
+      enddo
+      
+      deallocate(itemNameList, itemTypeList)
+    
+    end subroutine
+    
+  end subroutine
+    
+  !-----------------------------------------------------------------------------
+
+  subroutine InitializeP5(mediator, importState, exportState, clock, rc)
+    ! IPDv03p5: realize all Fields with transfer action "accept"
+    type(ESMF_GridComp)  :: mediator
+    type(ESMF_State)     :: importState, exportState
+    type(ESMF_Clock)     :: clock
+    integer, intent(out) :: rc
+    
+    ! local variables
+    type(ESMF_Field)              :: field
 
     rc = ESMF_SUCCESS
 
+    call realizeWithAcceptedGeom(importState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call realizeWithAcceptedGeom(exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+      
+    ! -> Now that all fields are realized on the transferred Grids/Meshes, it
+    ! -> is the time to issue RegridStore() calls. 
+    ! -> Code should inspected itemCount from the fr/to States to be robust 
+    ! -> wrt absent model components.
+    
+    contains ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    
+    subroutine realizeWithAcceptedGeom(state, rc)
+      ! Look at all of the fields in state, including in nested states. Realize
+      ! with the accepted and adjusted geom object.
+      type(ESMF_State)  :: state
+      integer, optional :: rc
+      ! local variables
+      integer                                 :: itemCount, item
+      type(ESMF_Field)                        :: field
+      character(len=20)                       :: transferAction
+      character(len=80), allocatable          :: itemNameList(:)
+      type(ESMF_StateItem_Flag), allocatable  :: itemTypeList(:)
+    
+      if (present(rc)) rc = ESMF_SUCCESS
+      
+      call ESMF_StateGet(state, nestedFlag=.true., itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    
+      allocate(itemNameList(itemCount), itemTypeList(itemCount))
+    
+      call ESMF_StateGet(state, nestedFlag=.true., &
+        itemNameList=itemNameList, itemTypeList=itemTypeList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      do item=1, itemCount
+        if (itemTypeList(item)==ESMF_STATEITEM_FIELD) then
+          ! this is a field -> get more info
+          call ESMF_StateGet(state, field=field, itemName=itemNameList(item), &
+            rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          call NUOPC_FieldAttributeGet(field, name="TransferActionGeomObject", &
+            value=transferAction, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          if (trim(transferAction)=="accept") then
+            ! the Connector instructed the Mediator to accept geom object
+            ! the transferred geom object is already set, allocate memory for data by complete
+            call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          endif
+        endif
+      enddo
+      
+      deallocate(itemNameList, itemTypeList)
+    
+    end subroutine
 
   end subroutine
-
-
+    
   !-----------------------------------------------------------------------------
 
+  subroutine DataInitialize(mediator, rc)
+    type(ESMF_GridComp)  :: mediator
+    integer, intent(out) :: rc
+    
+    rc = ESMF_SUCCESS
 
+    ! indicate that data initialization is complete (breaking out of init-loop)
+    call NUOPC_CompAttributeSet(mediator, &
+      name="InitializeDataComplete", value="true", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+  end subroutine
+
+  !-----------------------------------------------------------------------------
 
   subroutine MediatorAdvance(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
