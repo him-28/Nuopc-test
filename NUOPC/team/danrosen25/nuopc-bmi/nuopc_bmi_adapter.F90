@@ -11,6 +11,8 @@ module NUOPC_BMI_ADAPTER
   implicit none
 
   type(BMI_Model) :: bmodel ! The BMI compliant model configured by the configuration file or default model values
+  character(ESMF_MAXSTR) :: config_file
+  integer:: localPet, petCount
 
   !-----------------------------------------------------------------------------
   contains
@@ -36,12 +38,10 @@ module NUOPC_BMI_ADAPTER
     real                            :: end
     real                            :: step
     integer :: i
-    character(ESMF_MAXSTR) :: config_file
     integer :: rc
 
     rc = ESMF_SUCCESS
 
-    call BMIAdapter_GetArgConfigFile(config_file,rc)
     call BMI_Get_input_var_names(bmodel,invarnames)
     call BMI_Get_output_var_names(bmodel,outvarnames)
     call BMI_Get_component_name(bmodel,compname)
@@ -140,8 +140,11 @@ module NUOPC_BMI_ADAPTER
   ! Print BMI model current time
   !========================================
 
-  SUBROUTINE BMIAdapter_PrintCurrentTime()
+  SUBROUTINE BMIAdapter_PrintCurrentTime(rc)
     real                          :: bmi_time
+    integer,intent(out) :: rc
+
+    rc = ESMF_SUCCESS
 
     call BMI_Get_current_time(bmodel,bmi_time)
     print *,"BMI Current Time: ", bmi_time
@@ -196,6 +199,7 @@ module NUOPC_BMI_ADAPTER
             return
         end if
     else
+        config_file = ""
         rc = ESMF_RC_ARG_VALUE
     end if
   END SUBROUTINE
@@ -204,19 +208,24 @@ module NUOPC_BMI_ADAPTER
   ! Initialize BMI model
   !========================================
 
-  SUBROUTINE BMIAdapter_Initialize(config_file,rc)
-    character(*),intent(in) :: config_file
+  SUBROUTINE BMIAdapter_Initialize(file,rc)
+    character(*),intent(in) :: file
     integer,intent(out) :: rc
 
     character(component_name_length),pointer :: compname
     integer :: argindex, arglength
+    type(ESMF_VM):: vm
 
     rc = ESMF_SUCCESS
 
-    call BMI_Initialize(bmodel,config_file) ! Initialize BMI without config file
+    call ESMF_VMGetGlobal(vm=vm, rc=rc)
+    if (rc .ne. ESMF_SUCCESS) return
+    call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+    if (rc .ne. ESMF_SUCCESS) return
 
-    call BMIAdapter_PrintComponentInfo() ! Print BMI information after initializing
-    call BMIAdapter_PrintAllVarInfo()
+    call BMI_Initialize(bmodel,file) ! Initialize BMI without config file
+    config_file = file
+
     call BMI_Get_component_name(bmodel,compname)
     call ESMF_LogWrite("BMI initialized <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
     if (rc .ne. ESMF_SUCCESS) return
@@ -234,7 +243,7 @@ module NUOPC_BMI_ADAPTER
     rc = ESMF_SUCCESS
 
     call BMI_Update(bmodel) ! Update BMI
-    call BMIAdapter_PrintCurrentTime() ! Print BMI model time after update
+    ! call BMIAdapter_PrintCurrentTime() ! Print BMI model time after update
     call BMI_Get_component_name(bmodel,compname)
     call ESMF_LogWrite("BMI updated <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
     if (rc .ne. ESMF_SUCCESS) return
@@ -258,28 +267,55 @@ module NUOPC_BMI_ADAPTER
   END SUBROUTINE
 
   !========================================
-  ! Set Time Interval based on BMI model
+  ! Create Clock for BMI Model
   !========================================
 
-  subroutine BMIAdapter_TimeIntervalSet(stabilityTimeStep, rc)
-    type(ESMF_TimeInterval), intent(out) :: stabilityTimeStep
-    integer, intent(out)    :: rc
-    real                    :: step
-    character(len=10)       :: units
+  function BMIAdapter_ClockCreate(refClock, rc) result(clock)
+      ! reference the driver clock
+      type(ESMF_Clock),intent(in)  :: refClock
+      ! instantiate a clock
+      type(ESMF_Clock) :: clock
 
-    call BMI_Get_time_step(bmodel,step)
-    call BMI_Get_time_units(bmodel,units)
+      ! instantiate time_step, start and stop times
+      type(ESMF_TimeInterval) :: timeStep,startDelay,endReference
+      type(ESMF_Time) :: refStartTime, startTime, stopTime
 
-    rc = ESMF_SUCCESS
+      ! local variables for Get methods
+      real :: step,start,end
+      character(len=10) :: units
 
-    if (units .eq. 's') then
-      call ESMF_TimeIntervalSet(stabilityTimeStep, s = INT(step), rc=rc)
-    else if(units .eq. 'm') then
-      call ESMF_TimeIntervalSet(stabilityTimeStep, m = INT(step), rc=rc)
-    else
-      rc = ESMF_RC_ARG_VALUE
-    end if
-  end subroutine
+      ! return code
+      integer :: rc
+
+      rc = ESMF_SUCCESS
+
+      call BMI_Get_time_step(bmodel,step)
+      call BMI_Get_start_time(bmodel,start)
+      call BMI_Get_end_time(bmodel,end)
+      call BMI_Get_time_units(bmodel,units)
+
+      if (units .eq. 's') then
+          call ESMF_TimeIntervalSet(timeStep, s = INT(step), rc=rc)
+          call ESMF_TimeIntervalSet(startDelay, s = INT(start),rc=rc)
+          call ESMF_TimeIntervalSet(endReference, s = INT(end),rc=rc)
+      else if(units .eq. 'm') then
+          call ESMF_TimeIntervalSet(timeStep, m = INT(step), rc=rc)
+          call ESMF_TimeIntervalSet(startDelay, m = INT(start),rc=rc)
+          call ESMF_TimeIntervalSet(endReference, m = INT(end),rc=rc)
+      else
+          rc = ESMF_RC_ARG_VALUE
+      end if
+
+      call ESMF_ClockGet(refClock,startTime=refStartTime,rc=rc)
+
+      startTime = refStartTime + startDelay
+      stopTime = refStartTime + endReference
+
+      ! initialize the clock with the above values
+      clock = ESMF_ClockCreate(timeStep, startTime=startTime, stopTime=stopTime, &
+          name="bmiclock1", rc=rc)
+
+  end function
 
   !========================================
   ! Add individual field to NUOPC Dictionary
@@ -408,7 +444,6 @@ module NUOPC_BMI_ADAPTER
 
         rc = ESMF_SUCCESS
 
-
         ! importable field: add BMI input variable names
         call BMI_Get_input_var_names(bmodel,invarnames)
 
@@ -423,24 +458,32 @@ module NUOPC_BMI_ADAPTER
 
     END SUBROUTINE
 
-    FUNCTION BMIAdapter_CreateField(grid,name,rc) result(field)
+    FUNCTION BMIAdapter_FieldCreate(grid,name,rc) result(field)
         type(ESMF_Field) :: field
         type(ESMF_Grid),intent(in) :: grid
         character(*),pointer,intent(in) :: name
         integer :: rc
         real,pointer:: bmi1d(:)
         real,pointer:: bmi2d(:,:)
+        real,pointer:: arrayportion(:,:)
         integer, dimension (2) :: gridshape
-
-        call BMI_Get_grid_shape (bmodel, name, gridshape)
+        integer, dimension(2) :: gec
 
         rc = ESMF_SUCCESS
 
-        call BMI_Get_Double(bmodel,name,bmi1d)
-        bmi2d (1:gridshape(1), 1:gridshape(2)) => bmi1d
-        !bmi2d = reshape(bmi1d,(/n,m/))
+        call BMI_Get_grid_shape (bmodel, name, gridshape)
 
-        field = ESMF_FieldCreate(grid, bmi2d, ESMF_INDEX_DELOCAL,name=name, rc=rc)
+        call ESMF_GridGet(grid, localDE=0, staggerloc=ESMF_STAGGERLOC_CENTER, &
+            exclusiveCount=gec, rc=rc)
+        if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+        call BMI_Get_Double(bmodel,name,bmi1d)
+
+        bmi2d (1:gridshape(1), 1:gridshape(2)) => bmi1d
+        arrayportion => bmi2d(1:gec(1),1:gec(2))
+        !bmi2d = reshape(bmi1d,(/gec(1),gec(2)/))
+
+        field = ESMF_FieldCreate(grid, farrayptr=arrayportion,name=name, rc=rc)
     END FUNCTION
 
   !========================================
@@ -466,7 +509,7 @@ module NUOPC_BMI_ADAPTER
 
         do i=1,size(outvarnames)
             call BMI_Get_var_type(bmodel,outvarnames(i),vartype)
-            field = BMIAdapter_CreateField(grid=gridOut,name=outvarnames(i),rc=rc)
+            field = BMIAdapter_FieldCreate(grid=gridOut,name=outvarnames(i),rc=rc)
             if (rc .ne. ESMF_SUCCESS) return
 
             call NUOPC_StateRealizeField(exportState, field=field, rc=rc)
@@ -496,7 +539,8 @@ module NUOPC_BMI_ADAPTER
         character (*),pointer,intent(in) :: varname
 
         ! local variables
-        integer :: x_min, x_max, y_min, y_max
+        real(ESMF_KIND_R8) :: x_min, x_max, y_min, y_max
+        !integer :: x_min, x_max, y_min, y_max
         integer :: i_count, j_count
         real :: gridspacing(1:2)
         real :: gridorigin(1:2)
@@ -512,13 +556,15 @@ module NUOPC_BMI_ADAPTER
         x_max = gridorigin(1)+gridshape(1)-1
         y_min = gridorigin(2)
         y_max = gridorigin(2)+gridshape(2)-1
-        i_count = 1
-        j_count = 1
+        i_count = gridshape(1)
+        j_count = gridshape(2)
 
         ! ESMF_GridCreateNoPeriDim - Create a Grid with no periodic dim and a regular distribution
         ! Temporarily no decomp
-        return_grid = ESMF_GridCreateNoPeriDim(minIndex=(/x_min,y_min/), maxIndex=(/x_max,y_max/), &
-          regDecomp=(/i_count,j_count/), name="bmi_uniform2d", rc=rc)
+        !return_grid = ESMF_GridCreateNoPeriDim(minIndex=(/x_min,y_min/), maxIndex=(/x_max,y_max/), &
+        !    regDecomp=(/i_count,j_count/), name="bmi_uniform2d", rc=rc)
+        return_grid = NUOPC_GridCreateSimpleXY(x_min, y_min, x_max, y_max, &
+            i_count, j_count, rc)
         if (rc .ne. ESMF_SUCCESS) return
         call ESMF_LogWrite("BMI grid created <bmi_uniform2d>", ESMF_LOGMSG_INFO, rc=rc)
         if (rc .ne. ESMF_SUCCESS) return

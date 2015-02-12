@@ -68,8 +68,8 @@ module bmif
               read (15, *) self%dt, self%t_end, self%n_x, self%n_y
               close (15)
             else
-              self%dt = 1.
-              self%t_end = 10000.
+              self%dt = 5.
+              self%t_end = 20.
               self%n_x = 10
               self%n_y = 20
             end if
@@ -274,17 +274,7 @@ module bmif
             origin(2) = 0.
           end subroutine BMI_Get_grid_origin
 
-          subroutine BMI_Get_farray_TEMP (self, var_name, farray)
-            implicit none
-            type(BMI_Model),intent(in) :: self
-            character(len=*),intent(in) :: var_name
-            real, pointer,intent(out) :: farray(:,:)
-
-            farray => self%z
-
-          end subroutine BMI_Get_farray_TEMP
-
-          subroutine BMI_Get_double (self, var_name, dest)
+          subroutine BMI_Get_double (self, var_name, dest) ! compiler standards for order of dimensions
             implicit none
             type (BMI_Model), intent (in) :: self
             character (len=*), intent (in) :: var_name

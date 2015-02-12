@@ -77,19 +77,22 @@ module MODEL_BMI
 
     rc = ESMF_SUCCESS
 
+
     call BMIAdapter_Initialize("",rc) ! Initialize BMI Model
     if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Initialize BMI Failed", &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    call BMIAdapter_TimeIntervalSet(stabilityTimeStep,rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (localPet .eq. 0) then
+        call BMIAdapter_PrintComponentInfo() ! Print BMI information after initializing
+    end if
 
-    compclock = NUOPC_ClockInitialize(clock, stabilityTimeStep, rc)
+    if (localPet .eq. 0) then
+        call BMIAdapter_PrintAllVarInfo()
+    end if
+
+    compclock = BMIAdapter_ClockCreate(clock, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -163,8 +166,13 @@ module MODEL_BMI
       file=__FILE__)) &
       return  ! bail out
 
-  call BMIAdapter_PrintFieldArray(exportState,"surface_elevation",rc)
-
+!  if(localPet .eq. 0) then
+!  call BMIAdapter_PrintFieldArray(exportState,"surface_elevation",rc)
+!  if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Realize Output Fields Error", &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!  end if
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -214,6 +222,12 @@ module MODEL_BMI
       file=__FILE__)) &
       return  ! bail out
 
+    call BMIAdapter_PrintCurrentTime(rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -225,18 +239,20 @@ module MODEL_BMI
 
     rc = ESMF_SUCCESS
 
-    ! query the Component for its clock, importState and exportState
+    ! query the Component for its exportState
     call ESMF_GridCompGet(model, exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    call BMIAdapter_PrintFieldArray(exportState,"surface_elevation",rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+!    if(localPet .eq. 0) then
+!    call BMIAdapter_PrintFieldArray(exportState,"surface_elevation",rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!    end if
 
     call BMIAdapter_Finalize(rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter finalize failed", &
