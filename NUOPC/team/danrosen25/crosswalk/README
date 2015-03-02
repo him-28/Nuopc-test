@@ -1,0 +1,11 @@
+The Crosswalk Utility is part of the Earth Systems Bridge project at CIRES.
+
+=========================
+This utility provides the capability of mapping from CSDMS standard names to CF standard names and vice versa using Fortran.
+
+First load a mapping file formatted as a csv using loadMapping.
+
+=========================
+Dan Rosen
+CIRES
+daniel.rosen@colroado.edu
