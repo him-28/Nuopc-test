@@ -30,6 +30,9 @@ MODPATH=./mod
 LIBPATH=./lib
 TSTPATH=./tst
 
+LIB=libBmi.a
+APP=mainApp.exe
+
 ################################################################################
 ################################################################################
 
@@ -40,6 +43,8 @@ vpath %.c   : $(SRCPATH)
 vpath %.C   : $(SRCPATH)
 vpath %.o   : $(OBJPATH)
 vpath %.exe : $(BINPATH)
+vpath %.so  : $(LIBPATH)
+vpath %.a   : $(LIBPATH)
 
 %.o : %.f90
 	$(ESMF_F90COMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $< -o $(OBJPATH)/$@
@@ -52,22 +57,24 @@ vpath %.exe : $(BINPATH)
 
 %.o : %.C
 	$(ESMF_CXXCOMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $< -o $(OBJPATH)/$@
-	
+
 # -----------------------------------------------------------------------------
-all: mainApp.exe
+all: $(LIB) $(APP)
 	
-mainApp.exe: mainApp.o driver.o modelCmpBmi.o nuopcBmiAdapter.o testModelBmiWrapper.o testModel.o
-	$(ESMF_F90LINKER) -I$(OBJPATH) $(ESMF_F90LINKOPTS) $(BMI_F90LINKPATHS) $(ESMF_F90LINKPATHS) $(BMI_F90LINKRPATHS) $(ESMF_F90LINKRPATHS) -o $(BINPATH)/$@ $^ $(ESMF_F90ESMFLINKLIBS) $(BMI_F90LINKLIBS)
+$(APP): mainApp.o driver.o modelCmpBmi.o nuopcBmiAdapter.o
+	$(ESMF_F90LINKER) -I$(LIBPATH) $(ESMF_F90LINKOPTS) $(BMI_F90LINKPATHS) $(ESMF_F90LINKPATHS) $(BMI_F90LINKRPATHS) $(ESMF_F90LINKRPATHS) -o $(BINPATH)/$@ $(addprefix $(OBJPATH)/,$^) $(LIBPATH)/$(LIB) $(ESMF_F90ESMFLINKLIBS) $(BMI_F90LINKLIBS)
 	ln -sf $(BINPATH)/$@ $@
 
 # module dependencies:
 mainApp.o: driver.o
 driver.o: modelCmpBmi.o
-modelCmpBmi.o: nuopcBmiAdapter.o
-nuopcBmiAdapter.o : testModelBmiWrapper.o bmiDefinitions.o
-testModelBmiWrapper.o : testModel.o bmiDefinitions.o
-testModel.o: bmiDefinitions.o
+modelCmpBmi.o: nuopcBmiAdapter.o $(LIB)
+nuopcBmiAdapter.o : bmiDefinitions.o
 
+$(LIB) : testModelBmiWrapper.o testModel.o
+	ar rc $(LIBPATH)/$@ $(addprefix $(OBJPATH)/,$^)
+	
+testModelBmiWrapper.o : testModel.o bmiDefinitions.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------

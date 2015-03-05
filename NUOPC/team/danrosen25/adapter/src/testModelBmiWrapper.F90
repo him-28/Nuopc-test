@@ -1,4 +1,4 @@
-module TestModelBmiWrapper
+module testModelBmiWrapper
 contains
 subroutine BMI_Initialize (config_file)
     use TestModel_class, only: modelInitialize => initialize
