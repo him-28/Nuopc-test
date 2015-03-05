@@ -18,6 +18,7 @@ program testMapUtility
         call printError(rc)
         errorCount = errorCount + 1
     end if
+    call printMap()
 
     call csdmsToCF("",out,rc)
     testCount = testCount + 1

@@ -21,7 +21,7 @@ module bmif
       integer, parameter :: BMI_GRID_TYPE_NUMBER = 5
 
       type :: BMI_Model
-        private
+          private
           real :: dt
           real :: t
           real :: t_end
@@ -38,7 +38,7 @@ module bmif
 
       integer, parameter :: component_name_length = 22
       character (len=component_name_length), target :: &
-        component_name = "Fortran test component"
+        component_name = "Fortran test model"
 
       ! start exchange item list
       !integer, parameter :: input_item_count = 1
@@ -406,5 +406,5 @@ module bmif
 
             name => component_name
           end subroutine BMI_Get_component_name
-      end module
+end module
 

@@ -11,6 +11,7 @@ module MODEL_BMI
     model_label_Advance => label_Advance, &
     model_label_Finalize => label_Finalize
   use NUOPC_BMI_ADAPTER
+  use testModelBmiWrapper
   
   implicit none
   
@@ -63,6 +64,32 @@ module MODEL_BMI
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    call BMIAdapter_SetProcedures( &
+      initialize = BMI_Initialize, &
+      finalize = BMI_Finalize, &
+      update = BMI_Update, &
+      getStartTime = BMI_Get_start_time, &
+      getEndTime = BMI_Get_end_time, &
+      getCurrentTime = BMI_Get_current_time, &
+      getTimeStep = BMI_Get_time_step, &
+      getTimeUnits = BMI_Get_time_units, &
+      getVarType = BMI_Get_var_type, &
+      getVarUnits = BMI_Get_var_units, &
+      getVarRank = BMI_Get_var_rank, &
+      getGridType = BMI_Get_grid_type, &
+      getGridShape = BMI_Get_grid_shape, &
+      getGridSpacing = BMI_Get_grid_spacing, &
+      getGridOrigin = BMI_Get_grid_origin, &
+      getDouble = BMI_Get_double, &
+      getDoubleAt = BMI_Get_double_at_indices, &
+      setDouble = BMI_Set_double, &
+      setDoubleAt = BMI_Set_double_at_indices, &
+      getInputVarNames = BMI_Get_input_var_names, &
+      getOutputVarNames = BMI_Get_output_var_names, &
+      getComponentName = BMI_Get_component_name &
+      )
+
     
   end subroutine
   
@@ -139,7 +166,7 @@ module MODEL_BMI
     type(ESMF_Field)        :: field
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
-    character(item_name_length), pointer    :: invarnames(:), outvarnames(:)
+    character(BMI_MAXVARNAMESTR), pointer    :: invarnames(:), outvarnames(:)
     integer                                     :: i
     
     rc = ESMF_SUCCESS

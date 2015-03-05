@@ -23,34 +23,51 @@ $(error Environment variable ESMFMKFILE was not set.)
 endif
 
 include $(ESMFMKFILE)
+BINPATH=./bin
+OBJPATH=./obj
+SRCPATH=./src
+MODPATH=./mod
+LIBPATH=./lib
+TSTPATH=./tst
 
 ################################################################################
 ################################################################################
 
 .SUFFIXES: .f90 .F90 .c .C
+vpath %.f90 : $(SRCPATH)
+vpath %.F90 : $(SRCPATH)
+vpath %.c   : $(SRCPATH)
+vpath %.C   : $(SRCPATH)
+vpath %.o   : $(OBJPATH)
+vpath %.exe : $(BINPATH)
 
 %.o : %.f90
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
+	$(ESMF_F90COMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $< -o $(OBJPATH)/$@
 
 %.o : %.F90
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
+	$(ESMF_F90COMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $< -o $(OBJPATH)/$@
         
 %.o : %.c
-	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
+	$(ESMF_CXXCOMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $< -o $(OBJPATH)/$@
 
 %.o : %.C
-	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
-
-
+	$(ESMF_CXXCOMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $< -o $(OBJPATH)/$@
+	
 # -----------------------------------------------------------------------------
-mainApp: mainApp.o driver.o model_bmi.o nuopc_bmi_adapter.o bmi_impl.o
-	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
+all: mainApp.exe
+	
+mainApp.exe: mainApp.o driver.o modelCmpBmi.o nuopcBmiAdapter.o testModelBmiWrapper.o testModel.o
+	$(ESMF_F90LINKER) -I$(OBJPATH) $(ESMF_F90LINKOPTS) $(BMI_F90LINKPATHS) $(ESMF_F90LINKPATHS) $(BMI_F90LINKRPATHS) $(ESMF_F90LINKRPATHS) -o $(BINPATH)/$@ $^ $(ESMF_F90ESMFLINKLIBS) $(BMI_F90LINKLIBS)
+	ln -sf $(BINPATH)/$@ $@
 
 # module dependencies:
 mainApp.o: driver.o
-driver.o: model_bmi.o
-model_bmi.o: nuopc_bmi_adapter.o
-nuopc_bmi_adapter.o: bmi_impl.o
+driver.o: modelCmpBmi.o
+modelCmpBmi.o: nuopcBmiAdapter.o
+nuopcBmiAdapter.o : testModelBmiWrapper.o bmiDefinitions.o
+testModelBmiWrapper.o : testModel.o bmiDefinitions.o
+testModel.o: bmiDefinitions.o
+
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -58,7 +75,11 @@ nuopc_bmi_adapter.o: bmi_impl.o
 dust:
 	rm -f PET*.ESMF_LogFile *.nc
 clean:
-	rm -f mainApp *.o *.mod
+	rm -f mainApp.exe	
+	rm -f $(BINPATH)/*
+	rm -f $(LIBPATH)/*
+	rm -f $(OBJPATH)/*
+	rm -f $(MODPATH)/*
 distclean: dust clean
 
 info:
@@ -67,6 +88,9 @@ info:
 	@echo ==================================================================
 	@cat $(ESMFMKFILE)
 	@echo ==================================================================
+
+test:
+	@$(TSTPATH)/testBMIadapter.sh
 
 edit:
 	nedit mainApp.F90 driver.F90 modeladapter_bmi.F90 &

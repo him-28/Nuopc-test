@@ -1,3 +1,4 @@
+
    subroutine bmi_wrf_initialize( config_file)
        use module_BMI_WRF, only: initialize
        implicit none
@@ -93,4 +94,4 @@
             character (len=19), target :: component_name
             component_name = "WRF"
             name => component_name
-     end subroutine BMI_wrf_Get_component_name
+    end subroutine BMI_wrf_Get_component_name

@@ -18,12 +18,11 @@ else
 testResult[count]="FAIL"
 fi
 echo FINISHED: $1
-cd ..
 echo ---------------------------------------------------------------------------
 echo
 }
 
-TestProto . mainApp
+TestProto . mainApp.exe
 
 i=1
 while [[ $i -le $count ]]

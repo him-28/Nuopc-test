@@ -1,5 +1,8 @@
 The NUOPC-BMI Adapter is part of the Earth Systems Bridge Project.  This project wraps the Basic Modeling Interface (BMI) in a NUOPC Model Component for compatibility within the Earth Systems Modeling Framework.
 
+Runtime linking
+See ESMF reference document section 16.4.3 User-code SetServices method for GridComp runtime linking.
+
 =========================
 Dependencies:
   - ESMF v7.0.0 beta
