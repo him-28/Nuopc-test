@@ -111,13 +111,8 @@ module MODEL_BMI
       file=__FILE__)) &
       return  ! bail out
 
-    if (localPet .eq. 0) then
-        call BMIAdapter_PrintComponentInfo() ! Print BMI information after initializing
-    end if
-
-    if (localPet .eq. 0) then
-        call BMIAdapter_PrintAllVarInfo()
-    end if
+    call BMIAdapter_PrintComponentInfo() ! Print BMI information after initializing
+    call BMIAdapter_PrintAllVarInfo()
 
     compclock = BMIAdapter_ClockCreate(clock, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -166,8 +161,6 @@ module MODEL_BMI
     type(ESMF_Field)        :: field
     type(ESMF_Grid)         :: gridIn
     type(ESMF_Grid)         :: gridOut
-    character(BMI_MAXVARNAMESTR), pointer    :: invarnames(:), outvarnames(:)
-    integer                                     :: i
     
     rc = ESMF_SUCCESS
     
