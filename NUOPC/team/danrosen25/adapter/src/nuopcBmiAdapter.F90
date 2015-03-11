@@ -1,14 +1,15 @@
-module NUOPC_BMI_ADAPTER
+module NuopcBmiAdapter
 
     use ESMF
     use NUOPC
-    use BMIDefinitions
+    use BmiDefinitions
 
     implicit none
 
     private
 
     public BMIAdapter_SetProcedures, &
+        BMIAdapter_TestModel, &
         BMIAdapter_Initialize, &
         BMIAdapter_Update, &
         BMIAdapter_Finalize, &
@@ -168,10 +169,10 @@ contains
         pBmiInitialize => initialize
         pBmiUpdate => update
         pBmiFinalize => finalize
+        pBmiGetTimeStep => getTimeStep
         pBmiGetStartTime => getStartTime
         pBmiGetEndTime => getEndTime
         pBmiGetCurrentTime => getCurrentTime
-        pBmiGetTimeStep => getTimeStep
         pBmiGetTimeUnits => getTimeUnits
         pBmiGetVarType => getVarType
         pBmiGetVarUnits => getVarUnits
@@ -192,9 +193,6 @@ contains
 
     end subroutine
 
-    subroutine BMIAdapter_TestProcedures(rc)
-        integer,intent(out) :: rc
-    end subroutine
 
     !#########################################
     !# Section II:                           #
@@ -346,6 +344,7 @@ contains
     end function
 
     !####################
+    !# Section IV:      #
     !# Field Procedures #
     !####################
 
@@ -591,6 +590,7 @@ contains
     END FUNCTION BMIAdapter_GetRank
 
     !###########################
+    !# Section V:              #
     !# Grid Adapter Procedures #
     !###########################
 
@@ -754,9 +754,10 @@ contains
 
     End Function BMIAdapter_GridComparison
 
-    !#########################
-    !#OS Interface Procedures#
-    !#########################
+    !##########################
+    !# Section VI:            #
+    !# OS Interface Procedures#
+    !##########################
 
     !========================================
     ! Command Line Config File
@@ -786,9 +787,10 @@ contains
         end if
     END SUBROUTINE
 
-    !#########################
-    !#Standard Out Procedures#
-    !#########################
+    !###########################
+    !# Section VII:            #
+    !# Standard Out Procedures #
+    !###########################
 
     !=========================
     !=Print Model Information=
@@ -942,5 +944,32 @@ contains
 
     end subroutine
 
+    !###############################
+    !# Section VIII:               #
+    !# Basic Model Interface Tests #
+    !###############################
 
-end module
+    subroutine BMIAdapter_TestModel(rc)
+        integer,intent(out) :: rc
+
+        if(testTimeStep()) then
+            print *,"GetTimeStep Passed"
+        else
+            print *,"GetTimeStep Failed"
+        end if
+
+    end subroutine
+
+    logical function testTimeStep()
+        real :: step
+
+        testTimeStep = .false.
+        if(.not. associated(pBmiGetTimeStep)) then
+            return
+        end if
+
+        call pBmiGetTimeStep(step)
+        if(step .gt. 0) testTimeStep = .true.
+    end function
+
+end module NuopcBmiAdapter

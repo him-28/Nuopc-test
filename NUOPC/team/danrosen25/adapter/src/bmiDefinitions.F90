@@ -1,4 +1,4 @@
-module BMIDefinitions
+module BmiDefinitions
     integer, parameter :: BMI_VAR_TYPE_UNKNOWN = 0
     integer, parameter :: BMI_VAR_TYPE_CHAR = 1
     integer, parameter :: BMI_VAR_TYPE_UNSIGNED_CHAR = 2
@@ -21,4 +21,4 @@ module BMIDefinitions
     integer, parameter :: BMI_MAXVARNAMESTR = 22
     integer, parameter :: BMI_MAXCOMPNAMESTR = 22
 
-end module
+end module BmiDefinitions

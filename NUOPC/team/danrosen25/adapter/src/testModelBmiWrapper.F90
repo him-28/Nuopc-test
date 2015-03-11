@@ -1,4 +1,4 @@
-module testModelBmiWrapper
+module TestModelBmiWrapper
 contains
 subroutine BMI_Initialize (config_file)
     use TestModel_class, only: modelInitialize => initialize
@@ -91,7 +91,7 @@ subroutine BMI_Get_var_type (var_name, type)
 end subroutine BMI_Get_var_type
 
 subroutine BMI_Get_var_units (var_name, units)
-    use BMIDefinitions
+    use BmiDefinitions
     use TestModel_class, only: modelGetVarUnits => getVarUnits
     implicit none
     character (len=*), intent (in) :: var_name
@@ -112,7 +112,7 @@ subroutine BMI_Get_var_rank (var_name, rank)
 end subroutine BMI_Get_var_rank
 
 subroutine BMI_Get_grid_type (var_name, type)
-    use BMIDefinitions
+    use BmiDefinitions
     use TestModel_class, only: modelGetGridType => getGridType
     implicit none
     character (len=*), intent (in) :: var_name
@@ -252,7 +252,7 @@ subroutine BMI_Get_output_var_names (names)
 end subroutine BMI_Get_output_var_names
 
 subroutine BMI_Get_component_name (name)
-    use BMIDefinitions
+    use BmiDefinitions
     use TestModel_class, only: modelGetComponentName => getComponentName, modelCompNameLen => component_name_length
     implicit none
     character (len=*),pointer, intent (out) :: name
@@ -265,4 +265,4 @@ subroutine BMI_Get_component_name (name)
     name => compname
 
 end subroutine BMI_Get_component_name
-end module
+end module TestModelBmiWrapper

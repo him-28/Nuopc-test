@@ -13,7 +13,7 @@
 ## If you notice that this Makefile cannot find variable ESMFMKFILE then      ##
 ## please contact the person responsible for the ESMF installation on your    ##
 ## system.                                                                    ##
-## As a work-around you can simply hardcode the path to "esmf.mk" in the      ##
+## As a work-around you can simply hardcode the DIR to "esmf.mk" in the      ##
 ## include line below. However, doing so will render this Makefile a lot less ##
 ## flexible and non-portable.                                                 ##
 ################################################################################
@@ -23,56 +23,52 @@ $(error Environment variable ESMFMKFILE was not set.)
 endif
 
 include $(ESMFMKFILE)
-BINPATH=./bin
-OBJPATH=./obj
-SRCPATH=./src
-MODPATH=./mod
-LIBPATH=./lib
-TSTPATH=./tst
 
-LIB=libBmi.a
-APP=mainApp.exe
+BINDIR=./bin
+LIBDIR=./lib
+OBJDIR=./obj
+MODDIR=./mod
+SRCDIR=./src
+
+#ESMF_F90COMPILEDIRSLOCAL += -I$(OBJDIR) -I$(MODDIR)
+#ESMF_CXXCOMPILEDIRSLOCAL += -I$(OBJDIR) -I$(MODDIR)
 
 ################################################################################
 ################################################################################
 
 .SUFFIXES: .f90 .F90 .c .C
-vpath %.f90 : $(SRCPATH)
-vpath %.F90 : $(SRCPATH)
-vpath %.c   : $(SRCPATH)
-vpath %.C   : $(SRCPATH)
-vpath %.o   : $(OBJPATH)
-vpath %.exe : $(BINPATH)
-vpath %.so  : $(LIBPATH)
-vpath %.a   : $(LIBPATH)
+
+vpath %.f90 $(SRCDIR)
+vpath %.F90 $(SRCDIR)
+vpath %.c $(SRCDIR)
+vpath %.C $(SRCDIR)
 
 %.o : %.f90
-	$(ESMF_F90COMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $< -o $(OBJPATH)/$@
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
 
 %.o : %.F90
-	$(ESMF_F90COMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $< -o $(OBJPATH)/$@
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
         
 %.o : %.c
-	$(ESMF_CXXCOMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $< -o $(OBJPATH)/$@
+	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
 
 %.o : %.C
-	$(ESMF_CXXCOMPILER) -I$(MODPATH) -J$(MODPATH) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $< -o $(OBJPATH)/$@
+	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
 
 # -----------------------------------------------------------------------------
-all: $(LIB) $(APP)
+all: libTestModelBMI.a mainApp.exe
 	
-$(APP): mainApp.o driver.o modelCmpBmi.o nuopcBmiAdapter.o
-	$(ESMF_F90LINKER) -I$(LIBPATH) $(ESMF_F90LINKOPTS) $(BMI_F90LINKPATHS) $(ESMF_F90LINKPATHS) $(BMI_F90LINKRPATHS) $(ESMF_F90LINKRPATHS) -o $(BINPATH)/$@ $(addprefix $(OBJPATH)/,$^) $(LIBPATH)/$(LIB) $(ESMF_F90ESMFLINKLIBS) $(BMI_F90LINKLIBS)
-	ln -sf $(BINPATH)/$@ $@
+mainApp.exe: mainApp.o driver.o modelCmpBmi.o nuopcBmiAdapter.o libTestModelBMI.a
+	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 mainApp.o: driver.o
 driver.o: modelCmpBmi.o
-modelCmpBmi.o: nuopcBmiAdapter.o $(LIB)
+modelCmpBmi.o: nuopcBmiAdapter.o libTestModelBMI.a
 nuopcBmiAdapter.o : bmiDefinitions.o
 
-$(LIB) : testModelBmiWrapper.o testModel.o
-	ar rc $(LIBPATH)/$@ $(addprefix $(OBJPATH)/,$^)
+libTestModelBMI.a : testModelBmiWrapper.o testModel.o
+	ar rc $@ $^
 	
 testModelBmiWrapper.o : testModel.o bmiDefinitions.o
 
@@ -82,11 +78,7 @@ testModelBmiWrapper.o : testModel.o bmiDefinitions.o
 dust:
 	rm -f PET*.ESMF_LogFile *.nc
 clean:
-	rm -f mainApp.exe	
-	rm -f $(BINPATH)/*
-	rm -f $(LIBPATH)/*
-	rm -f $(OBJPATH)/*
-	rm -f $(MODPATH)/*
+	rm -f *.exe *.a *.so *.o *.mod
 distclean: dust clean
 
 info:
@@ -97,7 +89,7 @@ info:
 	@echo ==================================================================
 
 test:
-	@$(TSTPATH)/testBMIadapter.sh
+	@$(TSTDIR)/testBMIadapter.sh
 
 edit:
 	nedit mainApp.F90 driver.F90 modeladapter_bmi.F90 &
