@@ -1,4 +1,4 @@
-module MODEL_BMI
+module NUOPC_Model_BMI
 
     !-----------------------------------------------------------------------------
     ! MODEL Component.
@@ -6,93 +6,138 @@ module MODEL_BMI
 
     use ESMF
     use NUOPC
-    use NUOPC_Model, only: &
-        model_routine_SS    => SetServices, &
-        model_label_Advance => label_Advance, &
-        model_label_Finalize => label_Finalize
-    use NuopcBmiAdapter
-    use TestModelBmiWrapper
+    use NUOPC_Model, &
+        model_routine_SS => SetServices ! Override NUOPC_Model SetServices
+    use NuopcBmiAdapter ! NUOPC BMI Adapter is a component class of NUOPC Model BMI
   
     implicit none
   
     private
   
-    public SetServices
-  
+    public &
+        SetModel, &
+        SetServices, &
+        routine_Run
+
+    public &
+        label_AdvanceClock, &
+        label_CheckImport, &
+        label_DataInitialize, &
+        label_SetClock, &
+        label_SetRunClock
+
+    character(:),allocatable :: modelConfigFile
+
 !-----------------------------------------------------------------------------
 contains
     !-----------------------------------------------------------------------------
-  
-    subroutine SetServices(model, rc)
-        type(ESMF_GridComp)  :: model
+
+    subroutine SetModel(configFile, initialize,finalize,update, getStartTime, getEndTime, getCurrentTime, getTimeStep, getTimeUnits, getVarType, getVarUnits, getVarRank, getGridType, getGridShape, getGridSpacing, getGridOrigin, getDouble, getDoubleAt, setDouble, setDoubleAt, getInputVarNames, getOutputVarNames, getComponentName, rc)
+        character(*),intent(in) :: configFile
+        procedure(bmiInitialize) :: initialize
+        procedure(bmiUpdate) :: update
+        procedure(bmiFinalize) :: finalize
+        procedure(bmiGetStartTime) :: getStartTime
+        procedure(bmiGetEndTime) :: getEndTime
+        procedure(bmiGetCurrentTime) :: getCurrentTime
+        procedure(bmiGetTimeStep) :: getTimeStep
+        procedure(bmiGetTimeUnits) :: getTimeUnits
+        procedure(bmiGetVarType) :: getVarType
+        procedure(bmiGetVarUnits) :: getVarUnits
+        procedure(bmiGetVarRank) :: getVarRank
+        procedure(bmiGetGridType) :: getGridType
+        procedure(bmiGetGridShape) :: getGridShape
+        procedure(bmiGetGridSpacing) :: getGridSpacing
+        procedure(bmiGetGridOrigin) :: getGridOrigin
+        procedure(bmiGetDouble) :: getDouble
+        procedure(bmiGetDoubleAt) :: getDoubleAt
+        procedure(bmiSetDouble) :: setDouble
+        procedure(bmiSetDoubleAt) :: setDoubleAt
+        procedure(bmiGetInputVarNames) :: getInputVarNames
+        procedure(bmiGetOutputVarNames) :: getOutputVarNames
+        procedure(bmiGetComponentName) :: getComponentName
         integer, intent(out) :: rc
-    
+
         rc = ESMF_SUCCESS
+
+        modelConfigFile = configFile
+
+        call BMIAdapter_SetProcedures( &
+            initialize = initialize, &
+            finalize = finalize, &
+            update = update, &
+            getStartTime = getStartTime, &
+            getEndTime = getEndTime, &
+            getCurrentTime = getCurrentTime, &
+            getTimeStep = getTimeStep, &
+            getTimeUnits = getTimeUnits, &
+            getVarType = getVarType, &
+            getVarUnits = getVarUnits, &
+            getVarRank = getVarRank, &
+            getGridType = getGridType, &
+            getGridShape = getGridShape, &
+            getGridSpacing = getGridSpacing, &
+            getGridOrigin = getGridOrigin, &
+            getDouble = getDouble, &
+            getDoubleAt = getDoubleAt, &
+            setDouble = setDouble, &
+            setDoubleAt = setDoubleAt, &
+            getInputVarNames = getInputVarNames, &
+            getOutputVarNames = getOutputVarNames, &
+            getComponentName = getComponentName )
+
+    end subroutine SetModel
     
-        ! the NUOPC model component will register the generic methods
-        call NUOPC_CompDerive(model, model_routine_SS, rc=rc)
+    !-----------------------------------------------------------------------------
+    subroutine SetServices(gcomp,rc)
+        type(ESMF_GridComp)   :: gcomp
+        integer, intent(out) :: rc
+
+        rc = ESMF_SUCCESS
+
+        call BMIAdapter_isModelSet(rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
-            return  ! bail out
-    
+            return  ! bail ou
+
+        call model_routine_SS(gcomp,rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail ou
+
          ! set entry point for methods that require specific implementation
-        call NUOPC_CompSetEntryPoint(model, ESMF_METHOD_INITIALIZE, &
+        call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
             phaseLabelList=(/"IPDv00p1"/), userRoutine=InitializeP1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-        call NUOPC_CompSetEntryPoint(model, ESMF_METHOD_INITIALIZE, &
+        call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
             phaseLabelList=(/"IPDv00p2"/), userRoutine=InitializeP2, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-    
+
         ! attach specializing method(s)
-        call NUOPC_CompSpecialize(model, specLabel=model_label_Advance, &
+        call NUOPC_CompSpecialize(gcomp, specLabel=label_Advance, &
             specRoutine=ModelAdvance, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
 
-        call NUOPC_CompSpecialize(model,specLabel=model_label_Finalize, &
+        call NUOPC_CompSpecialize(gcomp,specLabel=label_Finalize, &
             specRoutine=ModelFinalize, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
 
-        call BMIAdapter_SetProcedures( &
-            initialize = BMI_Initialize, &
-            finalize = BMI_Finalize, &
-            update = BMI_Update, &
-            getStartTime = BMI_Get_start_time, &
-            getEndTime = BMI_Get_end_time, &
-            getCurrentTime = BMI_Get_current_time, &
-            getTimeStep = BMI_Get_time_step, &
-            getTimeUnits = BMI_Get_time_units, &
-            getVarType = BMI_Get_var_type, &
-            getVarUnits = BMI_Get_var_units, &
-            getVarRank = BMI_Get_var_rank, &
-            getGridType = BMI_Get_grid_type, &
-            getGridShape = BMI_Get_grid_shape, &
-            getGridSpacing = BMI_Get_grid_spacing, &
-            getGridOrigin = BMI_Get_grid_origin, &
-            getDouble = BMI_Get_double, &
-            getDoubleAt = BMI_Get_double_at_indices, &
-            setDouble = BMI_Set_double, &
-            setDoubleAt = BMI_Set_double_at_indices, &
-            getInputVarNames = BMI_Get_input_var_names, &
-            getOutputVarNames = BMI_Get_output_var_names, &
-            getComponentName = BMI_Get_component_name &
-            )
-
     end subroutine
-  
-    !-----------------------------------------------------------------------------
+
 
     subroutine InitializeP1(model, importState, exportState, clock, rc)
         type(ESMF_GridComp)     :: model
@@ -103,15 +148,8 @@ contains
 
         rc = ESMF_SUCCESS
 
-
-        call BMIAdapter_Initialize("",rc) ! Initialize BMI Model
+        call BMIAdapter_Initialize(trim(adjustl(modelConfigFile)),rc) ! Initialize BMI Model
         if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Initialize BMI Failed", &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-
-        call BMIAdapter_TestModel(rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
@@ -153,7 +191,7 @@ contains
             return  ! bail out
 
     end subroutine
-  
+
     !-----------------------------------------------------------------------------
 
     subroutine InitializeP2(model, importState, exportState, clock, rc)
@@ -161,14 +199,14 @@ contains
         type(ESMF_State)     :: importState, exportState
         type(ESMF_Clock)     :: clock
         integer, intent(out) :: rc
-    
+
         ! local variables
         type(ESMF_Field)        :: field
         type(ESMF_Grid)         :: gridIn
         type(ESMF_Grid)         :: gridOut
-    
+
         rc = ESMF_SUCCESS
-    
+
         ! create a Grid object for Fields
         gridIn = BMIAdapter_SingleGridCreate(rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg="BMIAdapter Single Grid Create error.", &
@@ -199,13 +237,13 @@ contains
     !      return  ! bail out
     !  end if
     end subroutine
-  
+
     !-----------------------------------------------------------------------------
 
     subroutine ModelAdvance(model, rc)
         type(ESMF_GridComp)  :: model
         integer, intent(out) :: rc
-    
+
         ! local variables
         type(ESMF_Clock)              :: clock
         type(ESMF_State)              :: importState, exportState
@@ -226,20 +264,6 @@ contains
             file=__FILE__)) &
             return  ! bail out
 
-        ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
-    
-        ! Because of the way that the internal Clock was set by default,
-        ! its timeStep is equal to the parent timeStep. As a consequence the
-        ! currTime + timeStep is equal to the stopTime of the internal Clock
-        ! for this call of the ModelAdvance() routine.
-    
-        !    call NUOPC_ClockPrintCurrTime(clock, &
-        !      "------>Advancing MODEL from: ", rc=rc)
-        !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        !      line=__LINE__, &
-        !      file=__FILE__)) &
-        !      return  ! bail out
-    
         call NUOPC_ClockPrintStopTime(clock, &
             "------>Advancing MODEL to stop time: ", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -287,4 +311,6 @@ contains
 
     end subroutine
 
-end module
+
+end module NUOPC_Model_BMI
+

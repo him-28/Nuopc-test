@@ -9,7 +9,6 @@ module NuopcBmiAdapter
     private
 
     public BMIAdapter_SetProcedures, &
-        BMIAdapter_TestModel, &
         BMIAdapter_Initialize, &
         BMIAdapter_Update, &
         BMIAdapter_Finalize, &
@@ -22,13 +21,31 @@ module NuopcBmiAdapter
         BMIAdapter_PrintCurrentTime, &
         BMIAdapter_SingleGridCreate, &
         BMIAdapter_ClockCreate, &
-        BMIAdapter_AddAllFieldsToDictionary
+        BMIAdapter_AddAllFieldsToDictionary, &
+        BMIAdapter_IsModelSet
 
-    character(ESMF_MAXSTR) :: config_file
-    type(ESMF_Grid),allocatable :: grid_array(:)
-    integer:: localPet, petCount
-    logical :: proceduresSet = .false.
-    logical :: modelInit = .false.
+    public bmiInitialize, &
+        bmiUpdate, &
+        bmiFinalize, &
+        bmiGetStartTime, &
+        bmiGetEndTime, &
+        bmiGetCurrentTime, &
+        bmiGetTimeStep, &
+        bmiGetTimeUnits, &
+        bmiGetVarType, &
+        bmiGetVarUnits, &
+        bmiGetVarRank, &
+        bmiGetGridType, &
+        bmiGetGridShape, &
+        bmiGetGridSpacing, &
+        bmiGetGridOrigin, &
+        bmiGetDouble, &
+        bmiGetDoubleAt, &
+        bmiSetDouble, &
+        bmiSetDoubleAt, &
+        bmiGetInputVarNames, &
+        bmiGetOutputVarNames, &
+        bmiGetComponentName
 
     interface
         subroutine bmiInitialize(config_file)
@@ -189,8 +206,6 @@ contains
         pBmiGetOutputVarNames => getOutputVarNames
         pBmiGetComponentName => getComponentName
 
-        proceduresSet = .true.
-
     end subroutine
 
 
@@ -204,34 +219,17 @@ contains
     !========================================
 
     SUBROUTINE BMIAdapter_Initialize(file,rc)
-        use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_f_pointer
         character(*),intent(in) :: file
         integer,intent(out) :: rc
 
         character(BMI_MAXCOMPNAMESTR), pointer :: compname
-        integer :: argindex, arglength
-        type(ESMF_VM):: vm
 
         rc = ESMF_SUCCESS
 
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
-
-        call ESMF_VMGetGlobal(vm=vm, rc=rc)
-        if (rc .ne. ESMF_SUCCESS) return
-        call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
-        if (rc .ne. ESMF_SUCCESS) return
-
         call pBmiInitialize(file)
-        config_file = file
-
         call pBmiGetComponentName(compname)
         call ESMF_LogWrite("BMI initialized <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
         if (rc .ne. ESMF_SUCCESS) return
-
-        modelInit = .true.
 
     END SUBROUTINE
 
@@ -244,11 +242,6 @@ contains
         character(BMI_MAXCOMPNAMESTR),pointer :: compname
 
         rc = ESMF_SUCCESS
-
-        if(modelInit .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiUpdate() ! Update BMI
         ! call BMIAdapter_PrintCurrentTime() ! Print BMI model time after update
@@ -267,17 +260,10 @@ contains
 
         rc = ESMF_SUCCESS
 
-        if(modelInit .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
-
         call pBmiFinalize() ! Finalize BMI
         call pBmiGetComponentName(compname)
         call ESMF_LogWrite("BMI finalized <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
         if (rc .ne. ESMF_SUCCESS) return
-
-        modelInit = .false.
 
     END SUBROUTINE
 
@@ -308,11 +294,6 @@ contains
         integer :: rc
 
         rc = ESMF_SUCCESS
-
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiGetTimeStep(step)
         call pBmiGetStartTime(start)
@@ -360,11 +341,6 @@ contains
         logical                                     :: in_dictionary
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
-
 
         call pBmiGetVarUnits ( var_name, units)
 
@@ -406,10 +382,6 @@ contains
         integer, intent(out)                        :: rc
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiGetInputVarNames(invarnames)
         call pBmiGetOutputVarNames(outvarnames)
@@ -435,10 +407,6 @@ contains
         integer                                     :: i
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiGetInputVarNames(invarnames)
 
@@ -460,10 +428,6 @@ contains
         integer                                     :: i
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         ! exportable field(s): Get Output Var Names from BMI
         call pBmiGetOutputVarNames(outvarnames)
@@ -491,10 +455,6 @@ contains
         integer                                     :: i
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         ! importable field: add BMI input variable names
         call pBmiGetInputVarNames(invarnames)
@@ -522,10 +482,6 @@ contains
         integer, dimension(2) :: gec
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiGetGridShape ( name, gridshape)
 
@@ -557,10 +513,6 @@ contains
         integer :: vartype
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         ! exportable field: add BMI output variable names
         call pBmiGetOutputVarNames(outvarnames)
@@ -612,10 +564,6 @@ contains
         integer :: gridshape(1:2)
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiGetGridOrigin (varname, gridorigin)
         call pBmiGetGridSpacing (varname,gridspacing)
@@ -651,10 +599,6 @@ contains
         integer :: gridtype, gridrank
 
         rc = ESMF_SUCCESS
-        if(proceduresSet .eqv. .false.) then
-            rc = ESMF_RC_OBJ_INIT
-            return
-        end if
 
         call pBmiGetInputVarNames ( invarnames)
         call pBmiGetOutputVarNames ( outvarnames)
@@ -819,7 +763,6 @@ contains
         call pBmiGetTimeUnits(tunits)
 
         print *, "BMI Component Info"
-        print *, "     Config File: ",trim(config_file)
         print *, "     Step: ",step
         print *, "     Start: ",start
         print *, "     End: ",end
@@ -838,7 +781,7 @@ contains
 
     subroutine BMIAdapter_PrintVarInfo(var_name,var_rank)
         implicit none
-        character (len=BMI_MAXVARNAMESTR),pointer, intent (in) :: var_name
+        character (len=BMI_MAXVARNAMESTR), intent (in) :: var_name
         integer, intent(in) :: var_rank
         integer             :: type
         character(len=10)   :: units, dict_units ! Assumed length for units string
@@ -949,27 +892,47 @@ contains
     !# Basic Model Interface Tests #
     !###############################
 
-    subroutine BMIAdapter_TestModel(rc)
-        integer,intent(out) :: rc
+    logical function isModelSet()
+        isModelSet = .false.
 
-        if(testTimeStep()) then
-            print *,"GetTimeStep Passed"
+        if(associated(pBmiInitialize) .and. &
+            associated(pBmiUpdate) .and. &
+            associated(pBmiFinalize) .and. &
+            associated(pBmiGetStartTime) .and. &
+            associated(pBmiGetEndTime) .and. &
+            associated(pBmiGetCurrentTime) .and. &
+            associated(pBmiGetTimeStep) .and. &
+            associated(pBmiGetTimeUnits) .and. &
+            associated(pBmiGetVarType) .and. &
+            associated(pBmiGetVarUnits) .and. &
+            associated(pBmiGetVarRank) .and. &
+            associated(pBmiGetGridType) .and. &
+            associated(pBmiGetGridShape) .and. &
+            associated(pBmiGetGridSpacing) .and. &
+            associated(pBmiGetGridOrigin) .and. &
+            associated(pBmiGetDouble) .and. &
+            associated(pBmiGetDoubleAt) .and. &
+            associated(pBmiSetDouble) .and. &
+            associated(pBmiSetDoubleAt) .and. &
+            associated(pBmiGetInputVarNames) .and. &
+            associated(pBmiGetOutputVarNames) .and. &
+            associated(pBmiGetComponentName)) then
+
+            isModelSet = .true.
+
+        endif
+
+    end function
+
+    subroutine BMIAdapter_isModelSet(rc)
+        integer, intent(out) :: rc
+
+        if (isModelSet()) then
+            rc = ESMF_SUCCESS
         else
-            print *,"GetTimeStep Failed"
+            rc = ESMF_RC_OBJ_INIT
         end if
 
     end subroutine
-
-    logical function testTimeStep()
-        real :: step
-
-        testTimeStep = .false.
-        if(.not. associated(pBmiGetTimeStep)) then
-            return
-        end if
-
-        call pBmiGetTimeStep(step)
-        if(step .gt. 0) testTimeStep = .true.
-    end function
 
 end module NuopcBmiAdapter
