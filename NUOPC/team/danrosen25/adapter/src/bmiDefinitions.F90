@@ -20,5 +20,6 @@ module BmiDefinitions
 
     integer, parameter :: BMI_MAXVARNAMESTR = 22
     integer, parameter :: BMI_MAXCOMPNAMESTR = 22
+    integer, parameter :: BMI_MAXUNITSSTR = 22
 
 end module BmiDefinitions

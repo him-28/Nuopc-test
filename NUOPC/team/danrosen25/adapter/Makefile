@@ -58,15 +58,15 @@ vpath %.C $(SRCDIR)
 # -----------------------------------------------------------------------------
 all: libTestModelBMI.a mainApp.exe
 	
-mainApp.exe: mainApp.o driver.o testNuopcBmiCmp.o NUOPC_Model_BMI.o nuopcBmiAdapter.o libTestModelBMI.a
+mainApp.exe: mainApp.o driver.o testNuopcBmiCmp.o NUOPC_Model_BMI.o esmfBmiAdapter.o libTestModelBMI.a
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 mainApp.o: driver.o
 driver.o: testNuopcBmiCmp.o
 testNuopcBmiCmp.o: NUOPC_Model_BMI.o libTestModelBMI.a
-NUOPC_Model_BMI.o: nuopcBmiAdapter.o
-nuopcBmiAdapter.o : bmiDefinitions.o
+NUOPC_Model_BMI.o: esmfBmiAdapter.o
+esmfBmiAdapter.o : bmiDefinitions.o
 
 libTestModelBMI.a : testModelBmiWrapper.o testModel.o
 	ar rc $@ $^
