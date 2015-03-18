@@ -24,6 +24,8 @@ module IPE_Regrid
 #endif
 
 #define OUT_IPEFILE
+!#define USE_CART3D_COORDSYS
+!#define OUT_WEIGHT
 
   private
 
@@ -143,7 +145,7 @@ module IPE_Regrid
   type(ESMF_Arrayspec) :: arrayspec
   type(ESMF_Array) :: array, array1, array2
   real(ESMF_KIND_R8) :: maxerror, minerror, totalerrors, deg2rad
-  real(ESMF_KIND_R8) :: starttime, endtime
+  real(ESMF_KIND_R8) :: starttime, endtime, timesend(1), timereport(1)
   real(ESMF_KIND_R8) :: differr
   real(ESMF_KIND_R8), pointer :: varout(:), lonbuf(:)
   real(ESMF_KIND_R8), pointer :: weights(:)
@@ -154,6 +156,7 @@ module IPE_Regrid
   real, parameter :: PI=3.1415927
   integer :: j1
   integer :: localrc, status
+  real, parameter :: earthradius=6371.0  !in kilometers
 
   ! For output
   real(ESMF_KIND_R8), pointer :: lontbl(:), lattbl(:), hgttbl(:)
@@ -312,7 +315,7 @@ module IPE_Regrid
     localnodes=totalnodes
   endif
   if (PetNo == 0) then
-     print *, ' Total nodes:', localnodes, totalnodes
+     !print *, ' Total nodes:', localnodes, totalnodes
   endif
   allocate(nodeIds(totalnodes), nodeCoords(totalnodes*3),nodeOwners(totalnodes))
 
@@ -441,14 +444,17 @@ module IPE_Regrid
      enddo
   enddo
   nodestartid = startid+1
-  print *, PetNo, 'totalnodes, localnodes ', count1-1, localcount-1
+  !print *, PetNo, 'totalnodes, localnodes ', count1-1, localcount-1
   if (count1-1 /= totalnodes) then
      print *, 'count mismatch:', count1-1, totalnodes
   endif
 
   ! Create mesh and add node
-  srcMesh=ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_CART, rc=rc)
-  !srcMesh=ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+#ifdef USE_CART3D_COORDSYS
+  srcMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_CART, rc=rc)
+#else
+  srcMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+#endif
   if (rc /= ESMF_SUCCESS) call ESMF_Finalize()
   call ESMF_MeshAddNodes(srcMesh, nodeIds, nodeCoords, nodeOwners, rc=rc)
   if (rc /= ESMF_SUCCESS) call ESMF_Finalize()
@@ -495,7 +501,7 @@ module IPE_Regrid
   enddo
   deallocate(elementCnt, sendbuf)
 
-  print *, PetNo, 'Total Elements: ', totalelements, 'starting at', startid
+  !print *, PetNo, 'Total Elements: ', totalelements, 'starting at', startid
 
   ! Build the local elementConn table using local node indices
   count1=1
@@ -933,8 +939,14 @@ module IPE_Regrid
   allocate(lontbl(totalnodes), lattbl(totalnodes), hgttbl(totalnodes))
   count3 = 1
   do i = 1, totalnodes
+#ifdef USE_CART3D_COORDSYS
    call Convert2Sphdeg(nodeCoords(count3), nodeCoords(count3+1), nodeCoords(count3+2), &
        lontbl(i), lattbl(i), hgttbl(i))
+#else
+   lontbl(i)=nodeCoords(count3)
+   lattbl(i)=nodeCoords(count3+1)
+   hgttbl(i)=(nodeCoords(count3+2)-1)*earthradius
+#endif
    count3=count3+3
   enddo
 
@@ -1220,8 +1232,11 @@ module IPE_Regrid
   if (count1-1 /= localnodes) then
      print *, 'localnodes mismatch in dstdata', count1-1, localnodes
   endif
+#ifdef USE_CART3D_COORDSYS
   dstMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_CART, rc=rc)
-  !dstMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+#else
+  dstMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+#endif
   if (rc /= ESMF_SUCCESS) call ESMF_Finalize()
   call ESMF_MeshAddNodes(dstMesh, nodeIds, nodeCoords, nodeOwners, rc=rc)
   if (rc /= ESMF_SUCCESS) call ESMF_Finalize()
@@ -1492,9 +1507,13 @@ module IPE_Regrid
 
   do i=1, localnodes
      count1=(i-1)*3
+#ifdef USE_CART3D_COORDSYS
      call Convert2Sphdeg(nodeCoords(count1+1), nodeCoords(count1+2), &
      	  nodeCoords(count1+3),fptr2d(1,i), fptr2d(2,i), fptr2d(3,i))
-     !fptr2d(1:3,i)=nodeCoords((i-1)*3+1:(i-1)*3+3)
+#else
+     fptr2d(1:2,i)=nodeCoords((i-1)*3+1:(i-1)*3+2)
+     fptr2d(3,i)=(nodeCoords(i*3)-1)*earthradius
+#endif
   enddo
 
 
@@ -1765,20 +1784,30 @@ enddo
   deallocate(weights, indices)
 
 #endif  ! IPE to WAM regrid
-
-  call ESMF_VMWTime(starttime)
   call ESMF_VMLogMemInfo('Before ESMF_FieldRegridStore',rc=rc)
+  call ESMF_VMBarrier(vm)
+  call ESMF_VMWTime(starttime)
   call ESMF_FieldRegridStore(is%wrap%dstField, is%wrap%srcField, &
        	 unmappedaction =ESMF_UNMAPPEDACTION_IGNORE, &
 	 regridmethod = ESMF_REGRIDMETHOD_BILINEAR, &
 	 polemethod = ESMF_POLEMETHOD_NONE, &
 	 routehandle = is%wrap%routehandle, &
 	 factorList=weights, factorIndexList=indices, rc=rc)
+  if (rc /= ESMF_SUCCESS) call ErrorMsgAndAbort(-1)
+  call ESMF_VMWtime(endtime)
+  !call ESMF_VMLogMemInfo('After ESMF_FieldRegridStore',rc=rc)
+  timesend(1)=endtime-starttime
+  call ESMF_VMReduce(vm, sendData=timesend, recvData=timereport, count=1, &
+    	 reduceflag=ESMF_REDUCE_MAX, rootPet=0, rc=rc)
+  if (rc /= ESMF_SUCCESS) call ErrorMsgAndAbort(-1)
+  if (PetNo==0) then
+       print *, 'Time to do RegridStore WAM->IPE is ', timereport(1)*1000, 'msec'
+  endif
+
+  !call ESMF_VMWTime(endtime)
+  !write(*,*) "Completed weight generation WAM->IPE in ", (endtime-starttime)*1000, "msecs"
   call ESMF_VMLogMemInfo('After ESMF_FieldRegridStore',rc=rc)
   if (rc /= ESMF_SUCCESS) call ErrorMsgAndAbort(-1)
-
-  call ESMF_VMWTime(endtime)
-  write(*,*) "Completed weight generation WAM->IPE in ", (endtime-starttime)*1000, "msecs"
 
   ! find out total number of weights
   wgtcount(1)=size(weights,1)
@@ -1798,7 +1827,7 @@ enddo
 
   ! print *, PetNo, 'local count ', wgtcount(1),  startid, totalwgts
 
-#if OUT_WEIGHT
+#ifdef OUT_WEIGHT
   ! Output the weights into a NetCDF file
   if (PetNo==0) then
 !    status = nf90_create('wam2ipewgt.nc', IOR(nf90_clobber, nf90_netcdf4), nc1)
@@ -1875,7 +1904,7 @@ subroutine RunRegrid(model, rc)
   type(ESMF_Array) :: array, array1, array2
   type(ESMF_DistGrid) :: distgrid
   real(ESMF_KIND_R8) :: maxerror, minerror, totalerrors, deg2rad
-  real(ESMF_KIND_R8) :: starttime, endtime
+  real(ESMF_KIND_R8) :: starttime, endtime, timesend(1), timereport(1)
   real(ESMF_KIND_R8) :: differr
   real(ESMF_KIND_R8), pointer :: varout(:), lonbuf(:)
   character(len=80) :: filename
@@ -1988,7 +2017,14 @@ subroutine RunRegrid(model, rc)
     enddo
   enddo
   call ESMF_VMWTime(endtime)
-  write(*,*) "1D Interpolation ", (endtime-starttime)*1000, "msecs"
+  timesend(1)=endtime-starttime
+  call ESMF_VMReduce(vm, sendData=timesend, recvData=timereport, count=1, &
+    	 reduceflag=ESMF_REDUCE_MAX, rootPet=0, rc=rc)
+  if (rc /= ESMF_SUCCESS) call ErrorMsgAndAbort(-1)
+  if (PetNo==0) then
+       print *, 'Time to do 1D interpolation is ', timereport(1)*1000, 'msec'
+  endif
+!  write(*,*) PetNo, is%wrap%localnodes, " 1D Interpolation ", (endtime-starttime)*1000, "msecs"
 
   !print *, PetNo, 'dstdata ', is%wrap%rowinds(1), lonbuf(1:20), is%wrap%dstlon(1:20,is%wrap%rowinds(1))
   if (count1-1 /= is%wrap%localnodes) then
@@ -2015,7 +2051,14 @@ subroutine RunRegrid(model, rc)
        zeroregion=ESMF_REGION_SELECT, rc=rc)
   if (rc /= ESMF_SUCCESS) call ErrorMsgAndAbort(-1)
   call ESMF_VMWTime(endtime)
-  write(*,*) "Completed FieldRegrid ", (endtime-starttime)*1000, "msecs"
+  timesend(1)=endtime-starttime
+  call ESMF_VMReduce(vm, sendData=timesend, recvData=timereport, count=1, &
+    	 reduceflag=ESMF_REDUCE_MAX, rootPet=0, rc=rc)
+  if (rc /= ESMF_SUCCESS) call ErrorMsgAndAbort(-1)
+  if (PetNo==0) then
+       print *, 'Time to do FieldRegrid WAM->IPE is ', timereport(1)*1000, 'msec'
+  endif
+  !write(*,*) "Completed FieldRegrid ", (endtime-starttime)*1000, "msecs"
   
  !This will only work when analytical data is used, can't compare and calculate 
  !errors if using real data.
@@ -2161,7 +2204,7 @@ end subroutine CheckNCError
 !
 #undef  ESMF_METHOD
 #define ESMF_METHOD "convet2Cart"
-#if 1
+#ifdef USE_CART3D_COORDSYS
 subroutine convert2Cart (lon, lat, hgt, coords, rc)
    real(ESMF_KIND_R8):: lon, lat, hgt
    real(ESMF_KIND_R8):: coords(3)
