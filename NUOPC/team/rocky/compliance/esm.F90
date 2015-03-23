@@ -113,6 +113,19 @@ module ESM
       file=__FILE__)) &
       return  ! bail out
       
+    ! Explicit registering of NUOPCModel_ComplianceIC for OCN
+
+    call ESMF_GridCompSetServices(child, userRoutine=registerIC, &
+        userRc=userrc, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    if (ESMF_LogFoundError(rcToCheck=userrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     ! Disabling the following macro, e.g. renaming to WITHCONNECTORS_disable,
     ! will result in a driver that does not call connectors between the model
     ! components. This mode can be used if all model components are driven 

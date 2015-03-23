@@ -6,6 +6,7 @@ program esmApp
 
   use ESMF
   use ESM, only: esmSS => SetServices
+  use NUOPCDriver_ComplianceIC, only: registerIC
 
   implicit none
 
@@ -43,6 +44,18 @@ program esmApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
     
+  ! Explicit registering of NUOPCDriver_ComplianceIC for ESM
+    call ESMF_GridCompSetServices(esmComp, userRoutine=registerIC, &
+    userRc=urc, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
   ! Call Initialize for the earth system Component
   call ESMF_GridCompInitialize(esmComp, userRc=urc, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

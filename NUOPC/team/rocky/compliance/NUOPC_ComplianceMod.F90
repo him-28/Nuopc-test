@@ -18,19 +18,19 @@ module NUOPC_ComplianceMod
 
     private
 
-    public checkComponentMetadata
-    public checkComponentAttribute
-    public checkState
-    public checkStateAttribute
-    public checkFieldAttribute
-    public clockUsageIncoming
-    public clockUsageOutgoing
-    public checkInternalClock
-    public checkComponentStatistics
+    public NUOPCCompliance_CheckComponentMetadata
+    public NUOPCCompliance_CheckComponentAttribute
+    public NUOPCCompliance_CheckState
+    public NUOPCCompliance_CheckStateAttribute
+    public NUOPCCompliance_CheckFieldAttribute
+    public NUOPCCompliance_ClockUsageIncoming
+    public NUOPCCompliance_ClockUsageOutgoing
+    public NUOPCCompliance_CheckInternalClock
+    public NUOPCCompliance_CheckComponentStatistics
 
 contains
 
-    recursive subroutine checkComponentMetadata(prefix, comp, rc)
+    recursive subroutine NUOPCCompliance_CheckComponentMetadata(prefix, comp, rc)
         character(*), intent(in)              :: prefix
         type(ESMF_GridComp)                   :: comp
         integer,      intent(out), optional   :: rc
@@ -64,7 +64,7 @@ contains
                 return  ! bail out
 
             attributeName = "ShortName"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -73,7 +73,7 @@ contains
                 return  ! bail out
 
             attributeName = "LongName"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -82,7 +82,7 @@ contains
                 return  ! bail out
 
             attributeName = "Description"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -91,7 +91,7 @@ contains
                 return  ! bail out
 
             attributeName = "ModelType"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -100,7 +100,7 @@ contains
                 return  ! bail out
 
             attributeName = "ReleaseDate"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -109,7 +109,7 @@ contains
                 return  ! bail out
 
             attributeName = "PreviousVersion"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -120,7 +120,7 @@ contains
 #if 0
             ! skip Citation* attributes as per Cecelia 10/05/10
       attributeName = "ShortTitle"
-      call checkComponentAttribute(prefix, comp=comp, &
+      call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
         attributeName=attributeName, convention=convention, purpose=purpose, &
         rc=rc)
       if (ESMF_LogFoundError(rc, &
@@ -129,7 +129,7 @@ contains
         return  ! bail out
 
       attributeName = "LongTitle"
-      call checkComponentAttribute(prefix, comp=comp, &
+      call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
         attributeName=attributeName, convention=convention, purpose=purpose, &
         rc=rc)
       if (ESMF_LogFoundError(rc, &
@@ -138,7 +138,7 @@ contains
         return  ! bail out
 
       attributeName = "Date"
-      call checkComponentAttribute(prefix, comp=comp, &
+      call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
         attributeName=attributeName, convention=convention, purpose=purpose, &
         rc=rc)
       if (ESMF_LogFoundError(rc, &
@@ -147,7 +147,7 @@ contains
         return  ! bail out
 
       attributeName = "PresentationForm"
-      call checkComponentAttribute(prefix, comp=comp, &
+      call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
         attributeName=attributeName, convention=convention, purpose=purpose, &
         rc=rc)
       if (ESMF_LogFoundError(rc, &
@@ -156,7 +156,7 @@ contains
         return  ! bail out
 
       attributeName = "DOI"
-      call checkComponentAttribute(prefix, comp=comp, &
+      call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
         attributeName=attributeName, convention=convention, purpose=purpose, &
         rc=rc)
       if (ESMF_LogFoundError(rc, &
@@ -166,7 +166,7 @@ contains
 #endif
 
             attributeName = "ResponsiblePartyRole"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -175,7 +175,7 @@ contains
                 return  ! bail out
 
             attributeName = "Name"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -184,7 +184,7 @@ contains
                 return  ! bail out
 
             attributeName = "EmailAddress"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -193,7 +193,7 @@ contains
                 return  ! bail out
 
             attributeName = "PhysicalAddress"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -202,7 +202,7 @@ contains
                 return  ! bail out
 
             attributeName = "URL"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -211,7 +211,7 @@ contains
                 return  ! bail out
 
             attributeName = "Verbosity"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -220,7 +220,7 @@ contains
                 return  ! bail out
 
             attributeName = "InitializePhaseMap"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -239,7 +239,7 @@ contains
             !                return  ! bail out
 
             attributeName = "RunPhaseMap"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -248,7 +248,7 @@ contains
                 return  ! bail out
 
             attributeName = "FinalizePhaseMap"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -257,7 +257,7 @@ contains
                 return  ! bail out
 
             attributeName = "NestingGeneration"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -266,7 +266,7 @@ contains
                 return  ! bail out
 
             attributeName = "Nestling"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -275,7 +275,7 @@ contains
                 return  ! bail out
 
             attributeName = "InitializeDataComplete"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -284,7 +284,7 @@ contains
                 return  ! bail out
 
             attributeName = "InitializeDataProgress"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -307,7 +307,7 @@ contains
                 return  ! bail out
 
             attributeName = "ComponentLongName"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -316,7 +316,7 @@ contains
                 return  ! bail out
 
             attributeName = "Verbosity"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -325,7 +325,7 @@ contains
                 return  ! bail out
 
             attributeName = "InitializePhaseMap"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -334,7 +334,7 @@ contains
                 return  ! bail out
 
             attributeName = "RunPhaseMap"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -343,7 +343,7 @@ contains
                 return  ! bail out
 
             attributeName = "FinalizePhaseMap"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -352,7 +352,7 @@ contains
                 return  ! bail out
 
             attributeName = "CplList"
-            call checkComponentAttribute(prefix, comp=comp, &
+            call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -367,7 +367,7 @@ contains
     end subroutine
 
 
-    recursive subroutine checkComponentAttribute(prefix, comp, attributeName, &
+    recursive subroutine NUOPCCompliance_CheckComponentAttribute(prefix, comp, attributeName, &
         convention, purpose, rc)
         character(*), intent(in)              :: prefix
         type(ESMF_GridComp)                   :: comp
@@ -503,7 +503,7 @@ contains
 
     end subroutine
 
-    recursive subroutine checkState(prefix, referenceName, state, rc)
+    recursive subroutine NUOPCCompliance_CheckState(prefix, referenceName, state, rc)
         character(*), intent(in)              :: prefix
         character(*), intent(in)              :: referenceName
         type(ESMF_State)                      :: state
@@ -584,7 +584,7 @@ contains
                 return  ! bail out
 
             attributeName = "Namespace"
-            call checkStateAttribute(prefix, state=state, &
+            call NUOPCCompliance_CheckStateAttribute(prefix, state=state, &
                 attributeName=attributeName, convention=convention, purpose=purpose, &
                 rc=rc)
             if (ESMF_LogFoundError(rc, &
@@ -713,7 +713,7 @@ contains
                             file=FILENAME)) &
                             return  ! bail out
                         nestedPrefix = trim(prefix)//trim(itemNameList(item))//":"
-                        call checkState(nestedPrefix, referenceName, nestedState, rc=rc)
+                        call NUOPCCompliance_CheckState(nestedPrefix, referenceName, nestedState, rc=rc)
                         if (ESMF_LogFoundError(rc, &
                             line=__LINE__, &
                             file=FILENAME)) &
@@ -728,7 +728,7 @@ contains
         endif
     end subroutine
 
-    recursive subroutine checkStateAttribute(prefix, state, attributeName, &
+    recursive subroutine NUOPCCompliance_CheckStateAttribute(prefix, state, attributeName, &
         convention, purpose, rc)
         character(*), intent(in)              :: prefix
         type(ESMF_State)                      :: state
@@ -867,7 +867,7 @@ contains
     !-------------------------------------------------------------------------
 
 
-    recursive subroutine checkFieldAttribute(prefix, field, attributeName, &
+    recursive subroutine NUOPCCompliance_CheckFieldAttribute(prefix, field, attributeName, &
         convention, purpose, rc)
         character(*), intent(in)              :: prefix
         type(ESMF_Field)                      :: field
@@ -1005,7 +1005,7 @@ contains
 
 
 
-    recursive subroutine clockUsageIncoming(prefix, clock, clockCopy, rc)
+    recursive subroutine NUOPCCompliance_ClockUsageIncoming(prefix, clock, clockCopy, rc)
         character(*), intent(in)                :: prefix
         type(ESMF_Clock), intent(in)            :: clock
         type(ESMF_Clock), intent(inout)         :: clockCopy
@@ -1047,7 +1047,7 @@ contains
 
     !-------------------------------------------------------------------------
 
-    recursive subroutine clockUsageOutgoing(prefix, clock, clockCopy, rc)
+    recursive subroutine NUOPCCompliance_ClockUsageOutgoing(prefix, clock, clockCopy, rc)
         character(*), intent(in)                :: prefix
         type(ESMF_Clock), intent(in)            :: clock
         type(ESMF_Clock), intent(inout)         :: clockCopy
@@ -1148,7 +1148,7 @@ contains
 
     end subroutine
 
-    recursive subroutine checkInternalClock(prefix, comp, clock, mustMatchCurr, &
+    recursive subroutine NUOPCCompliance_CheckInternalClock(prefix, comp, clock, mustMatchCurr, &
         mustReachStop, rc)
         character(*), intent(in)                :: prefix
         type(ESMF_GridComp)                     :: comp
@@ -1307,7 +1307,7 @@ contains
 
     end subroutine
 
-    recursive subroutine checkComponentStatistics(prefix, comp, rc)
+    recursive subroutine NUOPCCompliance_CheckComponentStatistics(prefix, comp, rc)
         character(*), intent(in)              :: prefix
         type(ESMF_GridComp)                   :: comp
         integer,      intent(out), optional   :: rc
@@ -1372,3 +1372,100 @@ contains
 
 
 end module NUOPC_ComplianceMod
+
+
+!
+! The below should be moved into NUOPC_Comp with appropriate interface definition
+!
+
+!BOP
+! !IROUTINE: NUOPC_CompSearchPhaseMapByIndex - Search the Phase Map of a GridComp
+! !INTERFACE:
+! Private name; call using NUOPC_CompSearchPhaseMapByIndex()
+subroutine NUOPC_GridCompSearchPhaseMapByIndex(comp, methodflag, phaseIndex, &
+    phaseLabel, rc)
+
+    ! remove these when put into NUOPC_Comp module
+    use ESMF
+    use NUOPC_Base, only : NUOPC_PhaseMapStringLength
+    implicit none
+
+    ! !ARGUMENTS:
+    type(ESMF_GridComp)                           :: comp
+    type(ESMF_Method_Flag), intent(in)            :: methodflag
+    integer,                intent(in)            :: phaseIndex
+    character(*),           intent(out)           :: phaseLabel
+    integer,                intent(out), optional :: rc
+    !
+    ! !DESCRIPTION:
+    ! Return the {\tt phaseLabel} associated with a {\tt methodFlag} and
+    ! {\tt phaseIndex}.  If a matching {\tt methodFlag} and {\tt phaseIndex}
+    ! are not found, {\tt phaseLabel} is set to an empty string. If multiple
+    ! matching {\tt phaseLabel}s are found, the first is returned.
+    !EOP
+
+    !-----------------------------------------------------------------------------
+    ! local variables
+    integer                   :: i
+    integer                   :: itemCount, stat, ind, max, tempPhaseIndex
+    character(ESMF_MAXSTR)    :: name
+    character(len=40)         :: attributeName
+    character(len=NUOPC_PhaseMapStringLength), pointer  :: phases(:)
+
+    rc = ESMF_SUCCESS
+
+    ! query the Component for info
+    call ESMF_GridCompGet(comp, name=name, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
+    ! determine which phaseMap to deal with
+    attributeName = "UnknownPhaseMap" ! initialize to something obvious
+    if (methodflag == ESMF_METHOD_INITIALIZE) then
+        attributeName = "InitializePhaseMap"
+    elseif (methodflag == ESMF_METHOD_RUN) then
+        attributeName = "RunPhaseMap"
+    elseif (methodflag == ESMF_METHOD_FINALIZE) then
+        attributeName = "FinalizePhaseMap"
+    endif
+
+    phaseLabel = "none"
+
+    ! access phaseMap info
+    call ESMF_AttributeGet(comp, name=trim(attributeName), &
+        itemCount=itemCount, &
+        convention="NUOPC", purpose="General", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
+    ! search the phaseMap
+    if (itemCount > 0) then
+        allocate(phases(itemCount), stat=stat)
+        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+            msg="Allocation of temporary data structure.", &
+            line=__LINE__, &
+            file=trim(name)//":"//FILENAME)) return  ! bail out
+        call ESMF_AttributeGet(comp, name=trim(attributeName), valueList=phases, &
+            convention="NUOPC", purpose="General", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
+        do i=1, itemCount
+            !print *, "PHASES(i) = " // phases(i)
+            ind = index(phases(i), trim("="))
+            if (ind==0) cycle
+            max = len(phases(i))
+            read (phases(i)(ind+1:max), "(i4)") tempPhaseIndex
+            !print *, "tempPhaseIndex = ", tempPhaseIndex
+            if (tempPhaseIndex==phaseIndex) then
+                phaseLabel = (phases(i)(1:ind-1))
+                exit ! just take first one
+            endif
+        enddo
+
+        ! clean-up
+        deallocate(phases)
+    endif
+
+end subroutine
+
