@@ -1,0 +1,47 @@
+README for component-specific compliance
+checking prototype
+----------------------------------------
+
+The NUOPCModel_ComplianceIC module in this prototype is based on the
+original compliance checker, but extends/alters it to add support
+for phase-specific compliance checks.
+
+The original compliance checker attempted to define a general notion
+of compliance that could be applied to all types of NUOPC components
+at all phases of execution. This new approach recognizes that 
+what constitutes a valid component state depends on the type of
+component and its current phase in the overall execution flow. 
+
+The code structure of this prototype is based off of v7-AtmOcnProto.
+
+Currently, the new NUOPCModel_ComplianceIC is registered explicitly
+in esm.F90 and the ESMF_RUNTIME_COMPLIANCECHECK environment variable
+is IGNORED.
+
+
+Dependencies:
+  - ESMF v7.0.0 beta
+  
+Build:
+  - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF
+    installation.
+  - gmake
+  
+Execution:
+  - mpirun -np X ./esmApp (where X is the total number of PETs)
+  
+Output:
+  - PET*.Log files containing compliance checker output if turned on.
+  - The prototype outputs time stepping information to stdout.
+  
+
+
+Code structure:
+  - Makefile    - Makefile that is based on the standard esmf.mk mechanism.
+  - NUOPCModel_ComplainceIC.F90     - Compliance checking component designed
+    				      specifically for NUOPC Models 
+  - atm.F90     - The ATM component, specializing generic NUOPC_Model.
+  - ocn.F90     - The OCN component, specializing generic NUOPC_Model.
+  - esm.F90     - The Earth System Model (ESM) component, specializing generic
+                  NUOPC_Driver.
+  - esmApp.F90  - ESM driver application.
