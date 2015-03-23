@@ -2,9 +2,10 @@ README for component-specific compliance
 checking prototype
 ----------------------------------------
 
-The NUOPCModel_ComplianceIC module in this prototype is based on the
-original compliance checker, but extends/alters it to add support
-for phase-specific compliance checks.
+The NUOPCModel_ComplianceIC and NUOPCDriver_ComplianceIC modules 
+in this prototype are based on the original compliance checker, 
+but extends/alters it to add support for phase-specific compliance 
+checks.
 
 The original compliance checker attempted to define a general notion
 of compliance that could be applied to all types of NUOPC components
@@ -14,9 +15,9 @@ component and its current phase in the overall execution flow.
 
 The code structure of this prototype is based off of v7-AtmOcnProto.
 
-Currently, the new NUOPCModel_ComplianceIC is registered explicitly
-in esm.F90 and the ESMF_RUNTIME_COMPLIANCECHECK environment variable
-is IGNORED.
+Currently, the new interface components are registered explicitly
+in esm.F90 and esmApp.F90 and the ESMF_RUNTIME_COMPLIANCECHECK 
+environment variable is IGNORED.
 
 
 Dependencies:
@@ -31,15 +32,20 @@ Execution:
   - mpirun -np X ./esmApp (where X is the total number of PETs)
   
 Output:
-  - PET*.Log files containing compliance checker output if turned on.
+  - PET*.Log files containing compliance checker output.
   - The prototype outputs time stepping information to stdout.
   
 
 
 Code structure:
+  - NUOPCModel_ComplainceIC.F90 - Compliance checking component designed
+    				              specifically for NUOPC Models
+  - NUOPCDriver_ComplainceIC.F90 - Compliance checking component designed
+    				              specifically for NUOPC Drivers
+  - NUOPC_ComplianceMod.F90 - General compliance checks not that apply to
+                              multiple NUOPC components
+
   - Makefile    - Makefile that is based on the standard esmf.mk mechanism.
-  - NUOPCModel_ComplainceIC.F90     - Compliance checking component designed
-    				      specifically for NUOPC Models 
   - atm.F90     - The ATM component, specializing generic NUOPC_Model.
   - ocn.F90     - The OCN component, specializing generic NUOPC_Model.
   - esm.F90     - The Earth System Model (ESM) component, specializing generic
