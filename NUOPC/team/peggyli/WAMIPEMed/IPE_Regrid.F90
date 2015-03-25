@@ -1964,7 +1964,7 @@ subroutine RunRegrid(model, rc)
     do i=1,dstdims(1)
        kk = 1  ! source ind
        do k=1,dstdims(3)  ! dest ind
-         do while (kk<=dstdims(3) .and. hgtbuf(i,j,k)>is%wrap%dsthgt(kk))
+         do while (kk<=dstdims(3) .and. hgtbuf(i,j,kk)<is%wrap%dsthgt(k))
 	       kk=kk+1
          enddo
          if (kk>dstdims(3)) then
