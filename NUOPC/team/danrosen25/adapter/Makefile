@@ -30,8 +30,21 @@ OBJDIR=./obj
 MODDIR=./mod
 SRCDIR=./src
 
+#LOCAL_F90COMPILEOPTS = -w -ffree-form -fconvert=swap
+#LOCAL_F90LINKOPTS = -w -ffree-form -fconvert=swap
+LOCAL_F90LINKPATHS = -Llib -L$(NETCDF)/lib 
+LOCAL_F90LINKLIBS = -lwrf_bmi -lnetcdff -lnetcdf
+#LOCAL_F90LINKPATHS = -L lib/
+#LOCAL_F90LINKLIBS = -lwrf_bmi
+
+
 #ESMF_F90COMPILEDIRSLOCAL += -I$(OBJDIR) -I$(MODDIR)
 #ESMF_CXXCOMPILEDIRSLOCAL += -I$(OBJDIR) -I$(MODDIR)
+
+FILTER_STRING = -Wl,--no-as-needed
+#AS_NEEDED = -Wl,--as-needed
+
+ESMF_F90LINKOPTSASNEEDED = $(filter-out $(FILTER_STRING),$(ESMF_F90LINKOPTS))
 
 ################################################################################
 ################################################################################
@@ -44,10 +57,10 @@ vpath %.c $(SRCDIR)
 vpath %.C $(SRCDIR)
 
 %.o : %.f90
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(LOCAL_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
 
 %.o : %.F90
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(LOCAL_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
         
 %.o : %.c
 	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
@@ -56,22 +69,34 @@ vpath %.C $(SRCDIR)
 	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
 
 # -----------------------------------------------------------------------------
-all: libTestModelBMI.a mainApp.exe
-	
-mainApp.exe: mainApp.o driver.o testNuopcBmiCmp.o NUOPC_Model_BMI.o esmfBmiAdapter.o libTestModelBMI.a
+all: libtest_bmi.a testApp.exe
+# -----------------------------------------------------------------------------
+testApp.exe: testApp.o testNuopcDriver.o testNuopcBmiCmp.o NUOPC_Model_BMI.o esmfBmiAdapter.o libtest_bmi.a
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
-# module dependencies:
-mainApp.o: driver.o
-driver.o: testNuopcBmiCmp.o
-testNuopcBmiCmp.o: NUOPC_Model_BMI.o libTestModelBMI.a
-NUOPC_Model_BMI.o: esmfBmiAdapter.o
-esmfBmiAdapter.o : bmiDefinitions.o
+wrfApp.exe: wrfApp.o wrfNuopcDriver.o wrfNuopcBmiCmp.o NUOPC_Model_BMI.o esmfBmiAdapter.o
+	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTSASNEEDED) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) $(LOCAL_F90LINKPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)  $(LOCAL_F90LINKLIBS)
 
-libTestModelBMI.a : testModelBmiWrapper.o testModel.o
-	ar rc $@ $^
+wrfTest.exe:
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(LOCAL_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) src/wrfTest.F90
+	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTSASNEEDED) $(LOCAL_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) $(LOCAL_F90LINKPATHS) -o wrfTest.exe wrfTest.o $(ESMF_F90ESMFLINKLIBS) $(LOCAL_F90LINKLIBS)
+
+# module dependencies:
+testApp.o: testNuopcDriver.o
+testNuopcDriver.o: testNuopcBmiCmp.o
+testNuopcBmiCmp.o: NUOPC_Model_BMI.o
+
+wrfApp.o: wrfNuopcDriver.o
+wrfNuopcDriver.o: wrfNuopcBmiCmp.o
+wrfNuopcBmiCmp.o: NUOPC_Model_BMI.o
+
+NUOPC_Model_BMI.o: esmfBmiAdapter.o
+
+# -----------------------------------------------------------------------------
+libtest_bmi.a : testModelBmiWrapper.o testModel.o testmodelbmiwrapper.mod
+	ar rc libtest_bmi.a $^
 	
-testModelBmiWrapper.o : testModel.o bmiDefinitions.o
+testModelBmiWrapper.o : testModel.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -79,7 +104,7 @@ testModelBmiWrapper.o : testModel.o bmiDefinitions.o
 dust:
 	rm -f PET*.ESMF_LogFile *.nc
 clean:
-	rm -f *.exe *.a *.so *.o *.mod
+	rm -f *.exe *.a *.so *.o *.mod rsl.error.* rsl.out.*
 distclean: dust clean
 
 info:

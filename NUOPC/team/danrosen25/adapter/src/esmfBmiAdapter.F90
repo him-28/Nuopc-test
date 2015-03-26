@@ -1,3 +1,38 @@
+module BmiDefinitions
+    integer, parameter :: BMI_VAR_TYPE_UNKNOWN = 0
+    integer, parameter :: BMI_VAR_TYPE_CHAR = 1
+    integer, parameter :: BMI_VAR_TYPE_UNSIGNED_CHAR = 2
+    integer, parameter :: BMI_VAR_TYPE_INT = 3
+    integer, parameter :: BMI_VAR_TYPE_LONG = 4
+    integer, parameter :: BMI_VAR_TYPE_UNSIGNED_INT = 5
+    integer, parameter :: BMI_VAR_TYPE_UNSIGNED_LONG = 6
+    integer, parameter :: BMI_VAR_TYPE_FLOAT = 7
+    integer, parameter :: BMI_VAR_TYPE_DOUBLE = 8
+    integer, parameter :: BMI_VAR_TYPE_NUMBER = 9
+
+
+    integer, parameter :: BMI_GRID_TYPE_UNKNOWN = 0
+    integer, parameter :: BMI_GRID_TYPE_UNIFORM = 1
+    integer, parameter :: BMI_GRID_TYPE_RECTILINEAR = 2
+    integer, parameter :: BMI_GRID_TYPE_STRUCTURED = 3
+    integer, parameter :: BMI_GRID_TYPE_UNSTRUCTURED = 4
+    integer, parameter :: BMI_GRID_TYPE_NUMBER = 5
+
+    integer, parameter :: BMI_MAXVARNAMESTR = 22
+    integer, parameter :: BMI_MAXCOMPNAMESTR = 22
+    integer, parameter :: BMI_MAXUNITSSTR = 22
+
+    integer,parameter :: BMI_CHAR = 1
+    integer,parameter :: BMI_UNSIGNED_CHAR = 1
+    integer,parameter :: BMI_INT =  2
+    integer,parameter :: BMI_LONG = 4
+    integer,parameter :: BMI_UNSIGNED_INT = 2
+    integer,parameter :: BMI_UNSIGNED_LONG = 4
+    integer,parameter :: BMI_FLOAT = 4
+    integer,parameter :: BMI_DOUBLE = 8
+
+end module BmiDefinitions
+
 module esmfBmiAdapter
 
     use ESMF
@@ -17,6 +52,10 @@ module esmfBmiAdapter
         BMIAdapter_FieldUnitsGet, &
         BMIAdapter_ImportFieldListGet, &
         BMIAdapter_ExportFieldListGet, &
+        BMIAdapter_ImportCount, &
+        BMIAdapter_ExportCount, &
+        BMIAdapter_ImportFieldAt, &
+        BMIAdapter_ExportFieldAt, &
         BMIAdapter_GridComparison
 
     public bmiInitialize, &
@@ -34,6 +73,7 @@ module esmfBmiAdapter
         bmiGetGridShape, &
         bmiGetGridSpacing, &
         bmiGetGridOrigin, &
+        bmiGetGridCoord, &
         bmiGetDouble, &
         bmiGetDoubleAt, &
         bmiSetDouble, &
@@ -44,7 +84,7 @@ module esmfBmiAdapter
 
     interface
         subroutine bmiInitialize(config_file)
-            character(*), intent(in) :: config_file
+            character(len=*),intent(in) ::  config_file
         end subroutine
         subroutine bmiUpdate()
         end subroutine
@@ -92,6 +132,11 @@ module esmfBmiAdapter
         subroutine bmiGetGridOrigin(var_name, origin)
             character (len=*), intent (in) :: var_name
             real, dimension (:), intent (out) :: origin
+        end subroutine
+        subroutine bmiGetGridCoord(var_name,dimension,gridX)
+            character (len=*), intent (in) :: var_name
+            integer, intent(in) :: dimension
+            real, dimension (:), intent (out) :: gridX
         end subroutine
         subroutine bmiGetDouble(var_name, dest)
             character (len=*), intent (in) :: var_name
@@ -144,6 +189,7 @@ module esmfBmiAdapter
     procedure(bmiGetGridShape), pointer :: pBmiGetGridShape => null()
     procedure(bmiGetGridSpacing), pointer :: pBmiGetGridSpacing => null()
     procedure(bmiGetGridOrigin), pointer :: pBmiGetGridOrigin => null()
+    procedure(bmiGetGridCoord), pointer :: pBmiGetGridCoord => null()
     procedure(bmiGetDouble), pointer :: pBmiGetDouble => null()
     procedure(bmiGetDoubleAt), pointer :: pBmiGetDoubleAt => null()
     procedure(bmiSetDouble), pointer :: pBmiSetDouble => null()
@@ -162,7 +208,11 @@ contains
     !# Model Setup Procedures         #
     !##################################
 
-    subroutine BMIAdapter_SetModel(initialize,finalize,update, getStartTime, getEndTime, getCurrentTime, getTimeStep, getTimeUnits, getVarType, getVarUnits, getVarRank, getGridType, getGridShape, getGridSpacing, getGridOrigin, getDouble, getDoubleAt, setDouble, setDoubleAt, getInputVarNames, getOutputVarNames, getComponentName, rc)
+    subroutine BMIAdapter_SetModel(initialize,finalize,update, getStartTime, getEndTime, &
+        getCurrentTime, getTimeStep, getTimeUnits, getVarType, getVarUnits, &
+        getVarRank, getGridType, getGridShape, getGridSpacing, getGridOrigin, &
+        getGridCoord,getDouble, getDoubleAt, setDouble, setDoubleAt, &
+        getInputVarNames, getOutputVarNames, getComponentName, rc)
         procedure(bmiInitialize) :: initialize
         procedure(bmiUpdate) :: update
         procedure(bmiFinalize) :: finalize
@@ -178,6 +228,7 @@ contains
         procedure(bmiGetGridShape) :: getGridShape
         procedure(bmiGetGridSpacing) :: getGridSpacing
         procedure(bmiGetGridOrigin) :: getGridOrigin
+        procedure(bmiGetGridCoord),optional  :: getGridCoord
         procedure(bmiGetDouble) :: getDouble
         procedure(bmiGetDoubleAt) :: getDoubleAt
         procedure(bmiSetDouble) :: setDouble
@@ -204,6 +255,7 @@ contains
         pBmiGetGridShape => getGridShape
         pBmiGetGridSpacing => getGridSpacing
         pBmiGetGridOrigin => getGridOrigin
+        if(present(getGridCoord)) pbmiGetGridCoord => getGridCoord
         pBmiGetDouble => getDouble
         pBmiGetDoubleAt => getDoubleAt
         pBmiSetDouble => setDouble
@@ -240,7 +292,8 @@ contains
             if (rc .ne. ESMF_SUCCESS) return
         else
             rc = ESMF_RC_OBJ_INIT
-            if (BMIAdapter_LogFoundError(rcToCheck=rc, msg="Model set failed! Check external model.", &
+            if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                msg="Model set failed! Check external model.", &
                 line=__LINE__, &
                 file=__FILE__)) &
                 return  ! bail out
@@ -278,20 +331,24 @@ contains
 
             if( timeStep > 0 .and. timeEnd > 0) then
                 state%initialized = .true.
-                call BMIAdapter_LogWrite("Model initialized <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
+                call BMIAdapter_LogWrite("Model initialized <" // trim(compname) //">", &
+                    ESMF_LOGMSG_INFO, rc=rc)
                 if (rc .ne. ESMF_SUCCESS) return
                 call BMIAdapter_PrintComponentInfo(rc) ! Print BMI information after initializing
                 call BMIAdapter_PrintAllVarInfo(rc)
             else
                 rc = ESMF_RC_OBJ_INIT
-                if (BMIAdapter_LogFoundError(rcToCheck=rc, msg="Model initialization failed <" // trim(compname) //">! Check model configuration.", &
+                if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                    msg="Model initialization failed <" // trim(compname) // &
+                    ">! Check model configuration.", &
                     line=__LINE__, &
                     file=__FILE__)) &
                     return  ! bail out
             end if
         else
             rc = ESMF_RC_OBJ_INIT
-            if (BMIAdapter_LogFoundError(rcToCheck=rc, msg="Cannot initialize model before model is set!", &
+            if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                msg="Cannot initialize model before model is set!", &
                 line=__LINE__, &
                 file=__FILE__)) &
                 return  ! bail out
@@ -314,19 +371,22 @@ contains
                 call pBmiUpdate() ! Update BMI
                 ! call BMIAdapter_PrintCurrentTime() ! Print BMI model time after update
                 call pBmiGetComponentName(compname)
-                call BMIAdapter_LogWrite("Model updated <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
+                call BMIAdapter_LogWrite("Model updated <" // trim(compname) //">", &
+                    ESMF_LOGMSG_INFO, rc=rc)
                 if (rc .ne. ESMF_SUCCESS) return
                 call BMIAdapter_PrintCurrentTime(rc)
             else
                 rc = ESMF_RC_OBJ_INIT
-                if (BMIAdapter_LogFoundError(rcToCheck=rc, msg="Cannot update model after finalization!", &
+                if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                    msg="Cannot update model after finalization!", &
                     line=__LINE__, &
                     file=__FILE__)) &
                     return  ! bail out
             end if
         else
             rc = ESMF_RC_OBJ_INIT
-            if (BMIAdapter_LogFoundError(rcToCheck=rc, msg="Cannot update model before model is initialized!", &
+            if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                msg="Cannot update model before model is initialized!", &
                 line=__LINE__, &
                 file=__FILE__)) &
                 return  ! bail out
@@ -347,11 +407,13 @@ contains
             call pBmiFinalize() ! Finalize BMI
             call pBmiGetComponentName(compname)
             state%finalized = .true.
-            call BMIAdapter_LogWrite("model finalized <" // trim(compname) //">", ESMF_LOGMSG_INFO, rc=rc)
+            call BMIAdapter_LogWrite("model finalized <" // trim(compname) //">", &
+                ESMF_LOGMSG_INFO, rc=rc)
             if (rc .ne. ESMF_SUCCESS) return
         else
             rc = ESMF_RC_OBJ_INIT
-            if (BMIAdapter_LogFoundError(rcToCheck=rc, msg="Cannot finalize model before model is initialized!", &
+            if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                msg="Cannot finalize model before model is initialized!", &
                 line=__LINE__, &
                 file=__FILE__)) &
                 return  ! bail out
@@ -363,6 +425,48 @@ contains
     !# Variable Info #
     !#################
 
+    function BMIAdapter_ImportCount(rc) result(num)
+        integer,intent(out) :: rc
+        integer :: num
+        character(len=BMI_MAXVARNAMESTR),pointer :: varlist(:)
+
+        rc = ESMF_SUCCESS
+        call pBmiGetInputVarNames(varlist)
+        num=size(varlist)
+    end function BMIAdapter_ImportCount
+
+    function BMIAdapter_ExportCount(rc) result(num)
+        integer,intent(out) :: rc
+        integer :: num
+        character(len=BMI_MAXVARNAMESTR),pointer :: varlist(:)
+
+        rc = ESMF_SUCCESS
+        call pBmiGetOutputVarNames(varlist)
+        num=size(varlist)
+    end function BMIAdapter_ExportCount
+
+    function BMIAdapter_ImportFieldAt(id,rc) result(field)
+        integer,intent(in) :: id
+        integer,intent(out) :: rc
+        character(len=BMI_MAXVARNAMESTR)    :: field
+        character(len=BMI_MAXVARNAMESTR),pointer :: varlist(:)
+
+        rc = ESMF_SUCCESS
+        call pBmiGetInputVarNames(varlist)
+        field=varlist(id)
+    end function BMIAdapter_ImportFieldAt
+
+    function BMIAdapter_ExportFieldAt(id,rc) result(field)
+        integer,intent(in) :: id
+        integer,intent(out) :: rc
+        character(len=BMI_MAXVARNAMESTR)    :: field
+        character(len=BMI_MAXVARNAMESTR),pointer :: varlist(:)
+
+        rc = ESMF_SUCCESS
+        call pBmiGetOutputVarNames(varlist)
+        field=varlist(id)
+    end function BMIAdapter_ExportFieldAt
+
     function BMIAdapter_ImportFieldListGet(rc) result(list)
         integer, intent(out) :: rc
         character(len=BMI_MAXVARNAMESTR),dimension(:),allocatable    :: list
@@ -370,10 +474,8 @@ contains
 
         rc = ESMF_SUCCESS
         call pBmiGetInputVarNames(varlist)
-
         allocate(list(size(varlist)))
         list=varlist
-
     end function BMIAdapter_ImportFieldListGet
 
     function BMIAdapter_ExportFieldListGet(rc) result(list)
@@ -385,7 +487,6 @@ contains
         call pBmiGetOutputVarNames(varlist)
         allocate(list(size(varlist)))
         list=varlist
-
     end function BMIAdapter_ExportFieldListGet
 
     function BMIAdapter_FieldUnitsGet(field,rc) result(units)
@@ -395,7 +496,6 @@ contains
 
         rc = ESMF_SUCCESS
         call pBmiGetVarUnits(field,units)
-
     end function BMIAdapter_FieldUnitsGet
 
     function BMIAdapter_FieldRank(varname,rc) result(rank)
@@ -482,7 +582,7 @@ contains
 
         call pBmiGetGridShape ( name, gridshape)
 
-        call ESMF_GridGet(grid, localDE=0, staggerloc=ESMF_STAGGERLOC_CENTER, &
+        call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDE = 0, &
             exclusiveCount=gec, rc=rc)
         if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
@@ -508,60 +608,261 @@ contains
         integer :: rank
 
         rc = ESMF_SUCCESS
-        return_grid = privateGridCreate(varname,BMIAdapter_FieldRank(varname,rc),rc)
+        return_grid = gridCreateNoDecomp(varname,BMIAdapter_FieldRank(varname,rc),rc)
     end function BMIAdapter_ESMFGridCreate
 
-    function privateGridCreate(varname,rank,rc) result(return_grid)
+    function minIndex(varname,rank)
+        integer, intent(in) :: rank
+        character(*),intent(in) ::varname
+        integer :: minIndex(1:rank)
+        real :: gridorigin(1:rank)
+
+        call pBmiGetGridOrigin (varname, gridorigin)
+
+        if(rank .eq. 1) then
+            minIndex = (/gridorigin(1)/)
+        else if(rank .eq. 2) then
+            minIndex = (/gridorigin(1),gridorigin(2)/)
+        else if(rank .eq. 3) then
+            minIndex = (/gridorigin(1),gridorigin(2),gridorigin(3)/)
+        else
+            minIndex = 0
+        end if
+
+    end function minIndex
+
+    function maxIndex(varname,rank)
+        integer, intent(in) :: rank
+        character(*),intent(in) ::varname
+        integer :: maxIndex(1:rank)
+        integer :: gridshape(1:rank)
+        real :: gridorigin(1:rank)
+
+        call pBmiGetGridOrigin (varname, gridorigin)
+        call pBmiGetGridShape (varname,gridshape)
+
+        if(rank .eq. 1) then
+            maxIndex = (/(gridorigin(1)+gridshape(1)-1)/)
+        else if(rank .eq. 2) then
+            maxIndex = (/(gridorigin(1)+gridshape(1)-1), &
+                (gridorigin(2)+gridshape(2)-1)/)
+        else if(rank .eq. 3) then
+            maxIndex = (/(gridorigin(1)+gridshape(1)-1), &
+                (gridorigin(2)+gridshape(2)-1), &
+                (gridorigin(3)+gridshape(3)-1)/)
+        else
+            maxIndex = 0
+        end if
+
+    end function maxIndex
+
+    function noDecomp(varname,rank)
+        integer, intent(in) :: rank
+        character(*),intent(in) ::varname
+        integer :: noDecomp(1:rank)
+
+        if(rank .eq. 1) then
+            noDecomp = (/1/)
+        else if(rank .eq. 2) then
+            noDecomp = (/1,1/)
+        else if(rank .eq. 3) then
+            noDecomp = (/1,1,1/)
+        else
+            noDecomp = 0
+        end if
+
+    end function noDecomp
+
+    subroutine setGridCoord2D(grid,varname,dimension,rc)
+        type(ESMF_Grid),intent(inout) :: grid
+        character(*), intent(in) :: varname
+        integer, intent(in) :: dimension
+        integer, intent(out) :: rc
+        integer :: lbnd(1:2), ubnd(1:2), i,j
+        real (ESMF_KIND_R4), pointer :: coordESMF(:,:)
+        real,allocatable :: coordBMI(:)
+
+        rc = ESMF_SUCCESS
+
+        call pBmiGetGridCoord(varname, dimension, coordBMI)
+        call ESMF_GridGetCoord(grid, coordDim=dimension, &
+            staggerloc=ESMF_STAGGERLOC_CENTER, &
+            computationalLBound=lbnd, computationalUBound=ubnd, &
+            farrayPtr=coordESMF, rc=rc)
+
+        do j=lbnd(2),ubnd(2)
+            do i=lbnd(1),ubnd(1)
+                coordESMF(i,j)=coordBMI(i*j)
+            end do
+        end do
+
+    end subroutine setGridCoord2D
+
+    subroutine setGridCoord3D(grid,varname,dimension,rc)
+        type(ESMF_Grid),intent(inout) :: grid
+        character(*), intent(in) :: varname
+        integer, intent(in) :: dimension
+        integer, intent(out) :: rc
+        integer :: lbnd(1:3), ubnd(1:3), i,j,k
+        real (ESMF_KIND_R4), pointer :: coordESMF(:,:,:)
+        real,allocatable :: coordBMI(:)
+
+        rc = ESMF_SUCCESS
+
+        call pBmiGetGridCoord(varname, dimension, coordBMI)
+        call ESMF_GridGetCoord(grid, coordDim=dimension, &
+            staggerloc=ESMF_STAGGERLOC_CENTER, &
+            computationalLBound=lbnd, computationalUBound=ubnd, &
+            farrayPtr=coordESMF, rc=rc)
+
+        do k=lbnd(3),ubnd(3)
+            do j=lbnd(2),ubnd(2)
+                do i=lbnd(1),ubnd(1)
+                    coordESMF(i,j,k)=coordBMI(i*j*k)
+                end do
+            end do
+        end do
+
+    end subroutine setGridCoord3D
+
+    subroutine setGridCoord1D(grid,varname,dimension,rc)
+        type(ESMF_Grid),intent(inout) :: grid
+        character(*), intent(in) :: varname
+        integer, intent(in) :: dimension
+        integer, intent(out) :: rc
+        integer :: lbnd(1:1), ubnd(1:1), i
+        real (ESMF_KIND_R4), pointer :: coordESMF(:)
+        real,allocatable :: coordBMI(:)
+
+        rc = ESMF_SUCCESS
+
+        call pBmiGetGridCoord(varname, dimension, coordBMI)
+
+        call ESMF_GridGetCoord(grid, coordDim=dimension, &
+            staggerloc=ESMF_STAGGERLOC_CENTER, &
+            computationalLBound=lbnd, computationalUBound=ubnd, &
+            farrayPtr=coordESMF, rc=rc)
+
+        do i=lbnd(1),ubnd(1)
+            coordESMF(i) = coordBMI(i)
+        enddo
+
+    end subroutine setGridCoord1D
+
+    function gridCreateNoDecomp(varname,rank,rc) result(return_grid)
         type(ESMF_Grid) :: return_grid
         integer, intent(out) :: rc
         integer, intent(in) :: rank
         character(*),intent(in) ::varname
+        integer :: i
 
         ! local variables
         integer :: gridtype
-        real :: gridspacing(1:rank)
-        real :: gridorigin(1:rank)
-        integer :: gridshape(1:rank)
-        integer :: x_min, x_max, y_min, y_max
-
 
         rc = ESMF_SUCCESS
 
         call pBmiGetGridType (varname,gridtype)
-        call pBmiGetGridOrigin (varname, gridorigin)
-        call pBmiGetGridSpacing (varname,gridspacing)
-        call pBmiGetGridShape (varname,gridshape)
 
-        ! If grid is not uniform then FAILURE.  Logic to create non-uniform
-        ! grids is not yet implemented
+        if(rank .lt. 1) then
+            rc = ESMF_RC_OBJ_CREATE
+            if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                msg="Cannot create grid with rank less than one!", &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+        else if(rank .gt. 3) then
+            rc = ESMF_RC_OBJ_CREATE
+            if (BMIAdapter_LogFoundError(rcToCheck=rc, &
+                msg="Cannot create grid with rank greater than three!", &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+        end if
+
         select case (gridtype)
             case(BMI_GRID_TYPE_UNIFORM)
-                if(rank .eq. 2) then
-                    ! To be reviewed
-                    x_min = gridorigin(1)
-                    x_max = gridorigin(1)+gridshape(1)-1
-                    y_min = gridorigin(2)
-                    y_max = gridorigin(2)+gridshape(2)-1
+                ! ESMF_GridCreateNoPeriDim - Create a Grid with no periodic dim and a regular distribution
+                ! Temporarily no decomp
 
-                    ! ESMF_GridCreateNoPeriDim - Create a Grid with no periodic dim and a regular distribution
-                    ! Temporarily no decomp
-                    return_grid = ESMF_GridCreateNoPeriDim(minIndex=(/x_min,y_min/), maxIndex=(/x_max,y_max/), &
-                        regDecomp=(/1,1/), name="bmi_uniform2d", rc=rc)
-!                    return_grid = NUOPC_GridCreateSimpleXY(x_min, y_min, x_max, y_max, &
-!                        i_count, j_count, rc)
-                    if (rc .ne. ESMF_SUCCESS) return
-                    call BMIAdapter_LogWrite("model grid created <bmi_uniform2d>", ESMF_LOGMSG_INFO, rc=rc)
-                    if (rc .ne. ESMF_SUCCESS) return
-                else
-                    rc = ESMF_RC_NOT_IMPL
-                    return
-                end if
+                return_grid = ESMF_GridCreateNoPeriDim( &
+                    minIndex=minIndex(varname,rank), &
+                    maxIndex=maxIndex(varname,rank), &
+                    regDecomp=noDecomp(varname,rank), &
+                    name=varname, rc=rc)
             case(BMI_GRID_TYPE_RECTILINEAR)
-                rc = ESMF_RC_NOT_IMPL
-                return
+                if(rank .eq. 1) then
+                    return_grid=ESMF_GridCreateNoPeriDim( &
+                        minIndex=minIndex(varname,rank), &
+                        maxIndex=maxIndex(varname,rank), &
+                        regDecomp=noDecomp(varname,rank),  &
+                        coordDep1=(/1/), &
+                        name=varname,  rc=rc)
+                else if(rank .eq. 2) then
+                    return_grid=ESMF_GridCreateNoPeriDim( &
+                        minIndex=minIndex(varname,rank), &
+                        maxIndex=maxIndex(varname,rank), &
+                        regDecomp=noDecomp(varname,rank),  &
+                        coordDep1=(/1/), &
+                        coordDep2=(/2/), &
+                        name=varname,  rc=rc)
+                else if(rank .eq. 3) then
+                    return_grid=ESMF_GridCreateNoPeriDim( &
+                        minIndex=minIndex(varname,rank), &
+                        maxIndex=maxIndex(varname,rank), &
+                        regDecomp=noDecomp(varname,rank),  &
+                        coordDep1=(/1/), &
+                        coordDep2=(/2/), &
+                        coordDep3=(/3/), &
+                        name=varname,  rc=rc)
+                end if
+                call ESMF_GridAddCoord(return_grid, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+
+                do i=1,rank
+                    call setGridCoord1D(return_grid,varname,i,rc)
+                end do
+
             case(BMI_GRID_TYPE_STRUCTURED)
-                rc = ESMF_RC_NOT_IMPL
-                return
+                if(rank .eq. 1) then
+                    return_grid=ESMF_GridCreateNoPeriDim( &
+                        minIndex=minIndex(varname,rank), &
+                        maxIndex=maxIndex(varname,rank), &
+                        regDecomp=noDecomp(varname,rank),  &
+                        coordDep1=(/1/), &
+                        name=varname,  rc=rc)
+                    call ESMF_GridAddCoord(return_grid, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+
+                    do i=1,rank
+                        call setGridCoord1D(return_grid,varname,i,rc)
+                    end do
+                else if(rank .eq. 2) then
+                    return_grid=ESMF_GridCreateNoPeriDim( &
+                        minIndex=minIndex(varname,rank), &
+                        maxIndex=maxIndex(varname,rank), &
+                        regDecomp=noDecomp(varname,rank),  &
+                        coordDep1=(/1,2/), &
+                        coordDep2=(/1,2/), &
+                        name=varname,  rc=rc)
+                    call ESMF_GridAddCoord(return_grid, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+
+                    do i=1,rank
+                        call setGridCoord2D(return_grid,varname,i,rc)
+                    end do
+                else if(rank .eq. 3) then
+                    return_grid=ESMF_GridCreateNoPeriDim( &
+                        minIndex=minIndex(varname,rank), &
+                        maxIndex=maxIndex(varname,rank), &
+                        regDecomp=noDecomp(varname,rank),  &
+                        coordDep1=(/1,2,3/), &
+                        coordDep2=(/1,2,3/), &
+                        coordDep3=(/1,2,3/), &
+                        name=varname,  rc=rc)
+                    call ESMF_GridAddCoord(return_grid, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+
+                    do i=1,rank
+                        call setGridCoord1D(return_grid,varname,i,rc)
+                    end do
+                end if
+
             case(BMI_GRID_TYPE_UNSTRUCTURED)
                 rc = ESMF_RC_NOT_IMPL
                 return
@@ -576,7 +877,11 @@ contains
                 return
         end select
 
-    END FUNCTION privateGridCreate
+        if (rc .ne. ESMF_SUCCESS) return
+        call BMIAdapter_LogWrite("Grid created: " // varname, ESMF_LOGMSG_INFO, rc=rc)
+        if (rc .ne. ESMF_SUCCESS) return
+
+    END FUNCTION gridCreateNoDecomp
 
     !========================================
     ! Grid Comparison Function for BMI variables
@@ -772,12 +1077,6 @@ contains
 
     end subroutine
 
-
-    !##########################
-    !# Section                #
-    !# OS Interface Procedures#
-    !##########################
-
     !############################
     !# BMI Adapter Log Wrappers #
     !############################
@@ -794,7 +1093,9 @@ contains
         ! Local Variable
         character(len=*),parameter :: errPrefix = "BMI Adapter ERROR: "
 
-        BMIAdapter_LogFoundError = ESMF_LogFoundError(rcToCheck=rcToCheck, msg = errPrefix // msg, line=line, file=file, method=method, rcToReturn=rcToReturn, log=log)
+        BMIAdapter_LogFoundError = ESMF_LogFoundError(rcToCheck=rcToCheck, &
+            msg = errPrefix // msg, line=line, file=file, method=method, &
+            rcToReturn=rcToReturn, log=log)
 
     end function BMIAdapter_LogFoundError
 
@@ -810,7 +1111,8 @@ contains
         ! Local Variable
         character(len=*),parameter :: msgPrefix = "BMI Adapter MSG: "
 
-        call ESMF_LogWrite(msg=msgPrefix // msg,logmsgFlag=logmsgFlag,line=line,file=file,method=method,log=log,rc=rc)
+        call ESMF_LogWrite(msg=msgPrefix // msg,logmsgFlag=logmsgFlag, &
+            line=line,file=file,method=method,log=log,rc=rc)
 
     end subroutine BMIAdapter_LogWrite
 

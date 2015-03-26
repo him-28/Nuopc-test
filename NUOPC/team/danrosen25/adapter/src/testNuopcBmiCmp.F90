@@ -28,7 +28,7 @@ contains
         rc = ESMF_SUCCESS
 
         ! Set model - Pass NUOPC Model BMI config file and model procedures
-        call bmi_model_routine_SM(configFile = "", &
+        call bmi_model_routine_SM(configFile = "bmi.config", &
             initialize = BMI_Initialize, &
             finalize = BMI_Finalize, &
             update = BMI_Update, &
@@ -66,4 +66,4 @@ contains
 
     end subroutine
   
-end module TestNuopcBmiCmp
+end module
