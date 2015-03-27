@@ -1,4 +1,4 @@
-program mainApp
+program testApp
 
   !-----------------------------------------------------------------------------
   ! Generic ESMF Main
@@ -6,7 +6,7 @@ program mainApp
 
   use ESMF
 
-  use driver, only: &
+  use TestNuopcDriver, only: &
     driver_SS => SetServices
 
   implicit none
@@ -21,7 +21,7 @@ program mainApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
     
-  call ESMF_LogWrite("mainApp STARTING", ESMF_LOGMSG_INFO, rc=rc)
+  call ESMF_LogWrite("testApp STARTING", ESMF_LOGMSG_INFO, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
