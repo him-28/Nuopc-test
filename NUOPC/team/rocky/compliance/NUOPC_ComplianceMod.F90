@@ -18,7 +18,7 @@ module NUOPC_ComplianceMod
 
     private
 
-    public NUOPCCompliance_CheckComponentMetadata
+    public NUOPCCompliance_CheckComponentMetadataCIM
     public NUOPCCompliance_CheckComponentAttribute
     public NUOPCCompliance_CheckState
     public NUOPCCompliance_CheckStateAttribute
@@ -30,7 +30,7 @@ module NUOPC_ComplianceMod
 
 contains
 
-    recursive subroutine NUOPCCompliance_CheckComponentMetadata(prefix, comp, rc)
+    recursive subroutine NUOPCCompliance_CheckComponentMetadataCIM(prefix, comp, rc)
         character(*), intent(in)              :: prefix
         type(ESMF_GridComp)                   :: comp
         integer,      intent(out), optional   :: rc
@@ -62,6 +62,8 @@ contains
                 line=__LINE__, &
                 file=FILENAME)) &
                 return  ! bail out
+
+
 
             attributeName = "ShortName"
             call NUOPCCompliance_CheckComponentAttribute(prefix, comp=comp, &

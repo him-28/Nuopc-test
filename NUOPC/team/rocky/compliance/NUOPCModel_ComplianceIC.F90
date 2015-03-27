@@ -390,12 +390,15 @@ contains
                 file=FILENAME)) &
                 return  ! bail out
 
+            ! REMOVE below as general check, instead the component
+            ! metadata should be checked as  CIM compliance issue
+
             ! compliance check Component metadata
-            call NUOPCCompliance_CheckComponentMetadata(prefix, comp=comp, rc=rc)
-            if (ESMF_LogFoundError(rc, &
-                line=__LINE__, &
-                file=FILENAME)) &
-                return  ! bail out
+            !call NUOPCCompliance_CheckComponentMetadata(prefix, comp=comp, rc=rc)
+            !if (ESMF_LogFoundError(rc, &
+            !    line=__LINE__, &
+            !    file=FILENAME)) &
+            !    return  ! bail out
 
             ! phase specific checks
             call dispatchPhaseChecks(prefix, comp, ESMF_METHOD_INITIALIZE, &
@@ -454,11 +457,11 @@ contains
                 return  ! bail out
 
             ! compliance check Component metadata
-            call NUOPCCompliance_CheckComponentMetadata(prefix, comp=comp, rc=rc)
-            if (ESMF_LogFoundError(rc, &
-                line=__LINE__, &
-                file=FILENAME)) &
-                return  ! bail out
+            !call NUOPCCompliance_CheckComponentMetadata(prefix, comp=comp, rc=rc)
+            !if (ESMF_LogFoundError(rc, &
+            !    line=__LINE__, &
+            !    file=FILENAME)) &
+            !    return  ! bail out
 
             ! compliance check importState
             call NUOPCCompliance_CheckState(prefix, referenceName="importState", state=importState, &
