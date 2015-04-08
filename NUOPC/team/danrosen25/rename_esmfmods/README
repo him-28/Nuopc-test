@@ -1,0 +1,32 @@
+The esmfmodrenamewrf.sh script is a bash script intended to rename several ESMF fortran 
+modules so that modules don't conflict when ESMF is used to drive a WRF model.
+
+Background: Several ESMF classes are embedded in WRF.  When coupling WRF using ESMF 
+  the linker will use the first module matching the desired symbol.  This causes an 
+  issue as WRF must use the ESMF modules built into WRF and ESMF must use its own 
+  modules.
+  
+Solution: The following ESMF modules embedded in WRF are renamed to W<Module Name> for all
+  *.f,*.F,*.f90,*.F90 files in WRF.  Running undo will remove the W.
+
+Modules:
+ + ESMF_TimeMod
+ + ESMF_TimeIntervalMod
+ + ESMF_CalendarMod
+ + ESMF_Stubs
+ + ESMF_BaseTimeMod
+ + ESMF_ClockMod
+ + ESMF_BaseMod
+ + ESMF_AlarmMod
+ + ESMF_AlarmClockMod
+
+=========================
+Run:
+  % cd <wrf root directory>
+  % bash esmfmodrenamewrf.sh
+  
+Undo:
+  % cd <wrf root directory>
+  % bash esmfmodrenamewrf.sh -undo
+  
+========================= 
