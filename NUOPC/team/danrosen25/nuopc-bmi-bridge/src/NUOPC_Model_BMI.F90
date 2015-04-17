@@ -1,11 +1,8 @@
 module NUOPC_Model_BMI
 
     !-----------------------------------------------------------------------------
-<<<<<<< HEAD
     ! BMI MODEL Component.
-=======
     ! MODEL Component.
->>>>>>> a46016f488954e03c673f22e3fa605a42af15fbd
     !-----------------------------------------------------------------------------
 
     use ESMF
@@ -37,10 +34,7 @@ module NUOPC_Model_BMI
         label_SetRunClock
 
     character(:),allocatable        :: modelConfigFile
-    !character(:),allocatable        :: invarnames(:)
-    !character(:),allocatable        :: outvarnames(:)
 
-!-----------------------------------------------------------------------------
 contains
     !-----------------------------------------------------------------------------
 
