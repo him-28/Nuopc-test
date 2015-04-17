@@ -52,9 +52,19 @@ vpath %.C $(SRCDIR)
 	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
 
 # -----------------------------------------------------------------------------
+<<<<<<< HEAD
+all: directories libesmfbmi.a
+# -----------------------------------------------------------------------------
+
+directories :
+	mkdir -p mod
+	mkdir -p lib
+
+=======
 all: libesmfbmi.a
 # -----------------------------------------------------------------------------
 
+>>>>>>> a46016f488954e03c673f22e3fa605a42af15fbd
 libesmfbmi.a : NUOPC_Model_BMI.o esmfBmiAdapter.o
 	cp *.mod $(ESMF_BMIMODDIR)/.
 	ar rc $(ESMF_BMILIBDIR)/libesmfbmi.a $^

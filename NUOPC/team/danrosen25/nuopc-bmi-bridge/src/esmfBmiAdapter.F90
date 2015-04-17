@@ -671,14 +671,38 @@ contains
         real,pointer :: arrayportion_3D (:,:,:)
         integer, dimension (rank) :: gridshape
         integer, dimension(rank) :: gec
+<<<<<<< HEAD
+        type(ESMF_VM) :: vm
+        integer :: lpe, ldecount
+=======
+>>>>>>> a46016f488954e03c673f22e3fa605a42af15fbd
 
         rc = ESMF_SUCCESS
 
         call pBmiGetGridShape (name, gridshape)
 
+<<<<<<< HEAD
+        ! Get current VM and pet number
+        call ESMF_VMGetCurrent(vm, rc=rc)
+        if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+        call ESMF_VMGet(vm, localPet=lpe, rc=rc)
+        if (rc /= ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+        call ESMF_GridGet(grid, localDECount=ldecount, rc=rc)
+        if (rc .ne. ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+        print *,"Local DE Count: ",ldecount," for PET: ",lpe
+
         call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDE = 0, &
             exclusiveCount=gec, rc=rc)
         if (rc .ne. ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+        print *,"Local Exclusive Count: ",gec," for PET: ",lpe
+
+=======
+        call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDE = 0, &
+            exclusiveCount=gec, rc=rc)
+        if (rc .ne. ESMF_SUCCESS) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+>>>>>>> a46016f488954e03c673f22e3fa605a42af15fbd
 
         if(rank == 1) then
             call pBmiGetReal(name,bmiflat)
