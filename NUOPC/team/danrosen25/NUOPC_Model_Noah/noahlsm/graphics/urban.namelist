@@ -1,0 +1,424 @@
+&datetime
+ ! May be overwritten by command-line arguments -startdate and -enddate
+ startdate = "199801020000"
+ enddate   = "199806150015"
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SHEAT"
+ NOAH_NAME2 = "SHEAT"
+ vald_name  = "H"
+ MINMAX     = .FALSE.
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+ SCATTER = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "QFX"
+ NOAH_NAME2 = "QFX"
+ vald_name  = "LE"
+ MINMAX     = .FALSE.
+ SCATTER = .TRUE.
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CH"
+ NOAH_NAME2 = "CH"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CM"
+ NOAH_NAME2 = "CM"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "PRCP"
+ NOAH_NAME2 = "PRCP"
+ AVERAGE_DIURNAL_CYCLE = .FALSE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "RES"
+ NOAH_NAME2 = "RES"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SSOIL"
+ NOAH_NAME2 = "SSOIL"
+ ! VALD_NAME  = "GHF"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "EDIR"
+ NOAH_NAME2 = "EDIR"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ETT"
+ NOAH_NAME2 = "ETT"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ET:Level1"
+ NOAH_NAME2 = "ET:Level1"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ET:Level2"
+ NOAH_NAME2 = "ET:Level2"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ET:Level3"
+ NOAH_NAME2 = "ET:Level3"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ET:Level4"
+ NOAH_NAME2 = "ET:Level4"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ESNOW"
+ NOAH_NAME2 = "ESNOW"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "ALBEDO"
+ NOAH_NAME2 = "ALBEDO"
+/
+
+&plot_instructions
+ NOAH_NAME1 = "Z0"
+ NOAH_NAME2 = "Z0"
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SHDFAC"
+ NOAH_NAME2 = "SHDFAC"
+/
+
+&plot_instructions
+ NOAH_NAME1 = "EMISSI"
+ NOAH_NAME2 = "EMISSI"
+/
+
+&plot_instructions
+ NOAH_NAME1 = "T1"
+ NOAH_NAME2 = "T1"
+ VALD_NAME = "IRT"
+ SCATTER = .TRUE.
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level1"
+ NOAH_NAME2 = "STC:Level1"
+ VALD_NAME  = "T_02"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level1"
+ NOAH_NAME2 = "STC:Level1"
+ VALD_NAME  = "T_04"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level1"
+ NOAH_NAME2 = "STC:Level1"
+ VALD_NAME  = "T_08"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level1"
+ NOAH_NAME2 = "STC:Level1"
+ VALD_NAME  = "T_16"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level2"
+ NOAH_NAME2 = "STC:Level2"
+ VALD_NAME  = "T_08"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level2"
+ NOAH_NAME2 = "STC:Level2"
+ VALD_NAME  = "T_16"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level2"
+ NOAH_NAME2 = "STC:Level2"
+ VALD_NAME  = "T_32"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level3"
+ NOAH_NAME2 = "STC:Level3"
+ VALD_NAME  = "T_32"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level3"
+ NOAH_NAME2 = "STC:Level3"
+ VALD_NAME  = "T_64"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "STC:Level4"
+ NOAH_NAME2 = "STC:Level4"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SMC:Level1"
+ NOAH_NAME2 = "SMC:Level1"
+ vald_name  = "SM_05"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SMC:Level2"
+ NOAH_NAME2 = "SMC:Level2"
+ vald_name  = "SM_20"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SMC:Level3"
+ NOAH_NAME2 = "SMC:Level3"
+ vald_name  = "SM_60"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SMC:Level4"
+ NOAH_NAME2 = "SMC:Level4"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+
+&plot_instructions
+ NOAH_NAME1 = "SOLDN"
+ NOAH_NAME2 = "SOLDN"
+ VALD_NAME  = "Rg"
+ AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+
+&plot_instructions
+ NOAH_NAME1 = "LWDN"
+ NOAH_NAME2 = "LWDN"
+ VALD_NAME  = "LW_IN"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+
+&plot_instructions
+ NOAH_NAME1 = "Q1"
+ NOAH_NAME2 = "Q1"
+ ! VALD_NAME  = "Q"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TGL_URB:Level1"
+ NOAH_NAME2 = "TGL_URB:Level1"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TGL_URB:Level2"
+ NOAH_NAME2 = "TGL_URB:Level2"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TGL_URB:Level3"
+ NOAH_NAME2 = "TGL_URB:Level3"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TGL_URB:Level4"
+ NOAH_NAME2 = "TGL_URB:Level4"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TBL_URB:Level1"
+ NOAH_NAME2 = "TBL_URB:Level1"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TBL_URB:Level2"
+ NOAH_NAME2 = "TBL_URB:Level2"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TBL_URB:Level3"
+ NOAH_NAME2 = "TBL_URB:Level3"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TBL_URB:Level4"
+ NOAH_NAME2 = "TBL_URB:Level4"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TRL_URB:Level1"
+ NOAH_NAME2 = "TRL_URB:Level1"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TRL_URB:Level2"
+ NOAH_NAME2 = "TRL_URB:Level2"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TRL_URB:Level3"
+ NOAH_NAME2 = "TRL_URB:Level3"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TRL_URB:Level4"
+ NOAH_NAME2 = "TRL_URB:Level4"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TG_URB"
+ NOAH_NAME2 = "TG_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TB_URB"
+ NOAH_NAME2 = "TB_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TR_URB"
+ NOAH_NAME2 = "TR_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TS_URB"
+ NOAH_NAME2 = "TS_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "Q2_URB"
+ NOAH_NAME2 = "Q2_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "QS_URB"
+ NOAH_NAME2 = "QS_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "TH2_URB"
+ NOAH_NAME2 = "TH2_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "SH_URB"
+ NOAH_NAME2 = "SH_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "LH_URB"
+ NOAH_NAME2 = "LH_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CHS_URB"
+ NOAH_NAME2 = "CHS_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+
+&plot_instructions
+ NOAH_NAME1 = "CHS2_URB"
+ NOAH_NAME2 = "CHS2_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CMC_URB"
+ NOAH_NAME2 = "CMC_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CMR_URB"
+ NOAH_NAME2 = "CMR_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CHC_URB"
+ NOAH_NAME2 = "CHC_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+&plot_instructions
+ NOAH_NAME1 = "CHR_URB"
+ NOAH_NAME2 = "CHR_URB"
+ ! AVERAGE_DIURNAL_CYCLE = .TRUE.
+/
+
+!KWM&plot_instructions
+!KWM NOAH_NAME1 = "SNEQV"
+!KWM NOAH_NAME2 = "SNEQV"
+!KWM/
+!KWM
+!KWM&plot_instructions
+!KWM NOAH_NAME1 = "LAI"
+!KWM NOAH_NAME2 = "LAI"
+!KWM/
+!KWM
+!KWM&plot_instructions
+!KWM NOAH_NAME1 = "QFX"
+!KWM NOAH_NAME2 = "QFX"
+!KWM vald_name  = "LE"
+!KWM SCATTER    = .TRUE.
+!KWM/

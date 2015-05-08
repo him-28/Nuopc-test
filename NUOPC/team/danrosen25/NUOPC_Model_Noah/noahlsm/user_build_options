@@ -1,0 +1,17 @@
+#
+#  Options for Linux with gfortran
+#
+
+COMPILERF90	=	gfortran
+FREESOURCE	=	-ffree-form -ffree-line-length-none
+F90FLAGS	=       -g -fconvert=big-endian -O0 -ffpe-trap=invalid,zero,overflow,underflow
+CPPMACROS	=	-D__GFORTRAN__ -D_SIMPLE_DRIVER_
+CPP		=	cpp -P -traditional 
+LIBS		=
+NETCDFDIR	=	/home/dan15lw/netcdf_gfortran
+NETCDFINC	=	-I$(NETCDFDIR)/include
+NETCDFLIB	=	-L$(NETCDFDIR)/lib -lnetcdff -lnetcdf
+NCARG_ROOT      =       /home/dan15lw/bin/ncarg
+RM		= 	rm -f
+CC		=	cc
+

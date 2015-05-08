@@ -1,0 +1,63 @@
+README_urban:  Version 2010-05-18
+
+This file contains a bit of information about the Urban setup.
+See the main "README" file for more general information.
+
+Suggestions, comments, and corrections are welcome (mail to
+kmanning@ucar.edu).
+
+For the Urban 1-d code:
+
+Source code:
+
+    The main driver codes are "simple_driver.F" (for non-urban), and
+    "simple_driver_urban.F" (for urban).  I've tried to be very clear
+    in documenting the code and program flow in these routines.  The
+    Noah LSM code is in file "module_sf_noahlsm.F", the main interface
+    to this code is the call to subroutine SFLX in the drivers.  The
+    Urban module is in file "module_sf_urban.F", the main interface to
+    this code is the call to subroutine URBAN in the driver.  Other
+    source-code files handle utility codes and details of the I/O
+    procedures, and are not really intended for public consumption.
+    But feel free to hack away at those codes if you've got some
+    ideas.
+
+    A few changes to the standard module_sf_urban.F code have been
+    necessary.  These have been inserted with a CPP macro
+    "#ifdef _SIMPLE_DRIVER_".  The most significant modification is
+    to the iterative solution to wall and road temperatures.  I have
+    modified the iteration to check for convergence, and to try again 
+    if convergence is not happening.
+
+To run:
+
+    For the urban setup, run:
+            "urban_driver.exe bondville.urb"
+
+Input files:
+
+    The forcing data and initial data are combined in a single file.
+    I have two files set up in this distribution, one called
+    "bondville.dat" (set up for non-urban simulations), and one called
+    "bondville.urb" (set up for urban simulations). A namelist section
+    in these file describes site parameters and initial
+    conditions. The namelist is followed by records of forcing fields.
+    These two files are the same execpt for the presence of urban
+    options in "bondville.urb".
+
+    The urban example is completely artifical, provided simply for
+    testing purposes, as the data are from a non-urban environment.
+    If you have a real urban case, with real urban data to work
+    with (and real results to compare to), and you're able to share,
+    that would be great and I'd love to get that data into a later
+    version.
+
+    The data file has options to set for the particular (artificial)
+    case.  Key to the urban setup is the "USE_URBAN_MODULE" logical
+    flag, which tells the program to read the URBAN_NAMELIST section.
+    If there are other user options which should be set in this
+    URBAN_NAMELIST, please let me know.  Right now, we just set the
+    number of layers, the urban category, a height-level for urban
+    atmospheric  fields, and the LSOLAR  option.   I just made up some
+    numbers for this artificial example.
+

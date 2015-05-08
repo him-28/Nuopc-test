@@ -1,0 +1,503 @@
+2008-04-29
+    - Changed the units on Temperature and Precipitation in the default forcing files.
+      Temperature is now in K (rather than degrees C), and precipitation rate is now
+      in kg m{-2} s{-1} (rather than inches timestep{-1}).  This changes our default
+      forcing files "bondville.dat" and "bondville.urb"
+
+    - The time step for Noah LSM integration no longer needs to be the same as the 
+      time interval of the forcing data.  If the Noah LSM time step is different
+      from the time interval of the forcing data, the read routines will temporally
+      interpolate to the Noah LSM time step.  This changes the namelist in the 
+      forcing file:  New namelist options:  FORCING_TIMESTEP and NOAHLSM_TIMESTEP.
+      Removed namelist option DT.
+
+    - Graphics program updated to deal with datasets of differing time steps.
+
+    - The output units for DEW and DRIP are now in kg m{-2} s{-1}.  Previously,
+      DRIP was in m timestep{-1}, which made things confusing when comparing
+      runs using different timesteps.  DEW was in m s{-1}.
+
+    - If there's a read problem (e.g., maybe we've just hit the end of the forcing
+      data), the program now closes the output files before stopping.  This will 
+      at least let us get a usable NetCDF output file in case we run past the 
+      end of data.
+
+    - Graphics program updated to deal with datasets of differing time steps.
+
+    - Added units and long description of variables to the graphics output.
+
+2008-05-16
+
+    - For the Urban module:
+           Removed from the urban_param.tbl the parameters
+           SVF, RW, BETR, BETB, BETG, Z0HR, Z0HB, Z0HG.
+
+	   SVF is now computed in urban_param_init, depending
+           on HGT ("normalized height") and RW.
+
+           RW was just a trivial function of R.  The user 
+           sets R, no reason to make the user set RW as well.
+
+	   BETR, BETB, and BETG are now hard-coded to zero.   
+ 
+           Z0HR, Z0HB, and Z0HG are now hard-coded to 
+           one tenth of Z0R, Z0B, and Z0G, respectively.
+
+2008-05-19
+    
+    - Experimenting with a new urban_param.tbl, reorganized
+           Added BUILDING_WIDTH and ROAD_WIDTH
+
+2008-06-17
+
+    - Added forcing files for a location in France.  Data files
+      are Col_Porte_8889.dat, Col_Porte_9394.dat, Col_Porte_9495.dat.
+      These are adapted from files provied by Michael Barlage, which
+      were adapted from data provided by Guo-Yue Niu.
+
+2008-07-23
+
+    - module_sf_urban.F
+         Compute the normalized roof width (R), (formerly known as "building 
+         coverage ratio") from other parameters defining the morphology of 
+         the urban canyon.  Change comments to refer to "normalized roof width"
+         rather than "building coverage ratio".
+
+         Revise in-code comments to reflect the removal of certain terms
+         from the urban_param.tbl
+
+         Remove code to read the old urban_param.tbl.  That code had been
+         commented out.  Now we prefer the revised urban_param.tbl
+
+         Renamed our old urban_param.tbl to urban_param.oldtbl.  
+         Renamed our revised urban_param.revise to urban_param.tbl
+
+2008-08-11
+
+   - module_sf_urban.F, urban_param.tbl
+
+        Took CDS out of table, computed it within the table initialization code 
+        using an uncertain formulation subject to change
+
+        Revert to "high-intensity" and "low-intensity" residential verbiage.
+
+2008-08-20
+
+   - module_sf_urban.F, urban_param.tbl, simple_driver_urban.F
+
+        Added code to read Alberto's additional table variables.  Right now,
+        these are #ifdef'd in, to clearly mark them.  If they are approved,
+        I will take the #ifdef directives.
+
+2009-04-22
+
+   - Updating to version 3.1 (consistent with WRF release)
+
+      Noah LSM version 3.1 has a number of changes as compared to version 3.0.       
+      Changes include:                                                               
+                                                                                     
+      -------------------------------------------------------------------------------
+      Capability to use MODIS land-use dataset for vegetation categories.  This      
+      entailed many changes to make the land-use dataset flexible throughout WRF.    
+          * Added "NATURAL" category to VEGPARM.TBL, for the land-use category       
+            to use for the non-urban parts of urban points.  Previously hard-coded as
+            category 10 in the Noah driver.                                          
+          * String length for strings describing land-use data sets and soil-category
+            data sets has been increased from 4 characters to 256 characters.  This  
+            allows for more descriptive names for land-use and soil-category data    
+            sets.                                                                    
+          * The ISURBAN argument has been added to SFLX.  ISURBAN holds the index    
+            number for the land-use category corresponding to urban points.  All     
+            checks on the hard-coded USGS urban category 1 have been changed to      
+            test on the value of ISURBAN.  ISURBAN now gets passed around to several 
+            subroutines below SFLX.                                                  
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Snow albedo treatment following Livneh.  This is a major modification to       
+      subroutine ALCALC.                                                             
+         * New argument to SFLX:  SNOTIME1 holds the age of the snow on the ground,  
+           in seconds. (In-code documentation still needed for this.)                
+         * Albedo over snow now depends on the age of the snow on the ground.  Ground
+           covered with new, fresh snow may have a high albedo; as the snow ages, the
+           albedo is reduced.                                                        
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Option for 2d LAI map to be used in Noah ....                                  
+         * New argument to SFLX:  RDLAI2D                                            
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      File "urban_param.tbl" has been renamed to "URBPARM.TBL", to be consistent with
+      the rest of the tables.                                                        
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      BUGFIX:  In subroutine SRT, infiltration calculation takes into account the    
+      time step in setting INFMAX = MIN (INFMAX,PX/DT).  Older code did not have the 
+      "/DX" term.                                                                    
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Glacial Ice ....  Some fairly significant changes to the treatment, here.      
+         * The meaning of the ICE flag variable in SFLX has been changed.  Now,      
+           the settings are ICE=1 for a sea-ice point, and ICE=-1 for a glacial land 
+           point, and ICE=0 for a non-glacial land point.                            
+         * Glacial land points and sea-ice points have smil moisture set to 1.0.     
+           (Both total and liquid values.  Should liquid part be set to 0.0?)        
+         * At glacial land points and seaice points, snow density is set to 0.2      
+           for cold permanent ice or new dry snow.                                   
+         * snow-cover fraction is unlimited over glacial land points.                
+         * Albedo of sea-ice is hard-coded to 0.80; emissivity is hard-coded to      
+           0.98.  This is probably not good.  In reality, the Arctic and the         
+           Antarctic behave quite differently, and each has its own annual trend.    
+         * Thermal conductivity over sea ice or glacial land points is set to the    
+           snow conductivity value.                                                  
+         * Subroutine HRTICE is modified to manage subsurface temperature tendency   
+           for both sea ice and glacial land points.  Diffusivities and heat         
+           capacities are ajusted depending on whether its a glacial point or a      
+           sea-ice point.                                                            
+         * Call to SMFLX is skipped for sea-ice points or glacial land points.       
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Subroutine SNOPAC:  Potential evapotranspiration (ETP) depends on Richardson   
+      Number (RIBB) -- to handle stable regimes a little better.                     
+         * New argument to SFXL:  RIBB (In-code documentation still needed for this) 
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Background (i.e., snow-free) albedo, background emissivity, background         
+      roughness-length, and Leaf Area Index are computed in SFLX, by scaling between 
+      climatological minimum and maximum values based on land-use category (new      
+      VEGPARM.TBL), according to where an instantaneous green vegetation fraction    
+      falls between a climatological minimum and maximum for GVF.  Values for        
+      background emissivity (EMBRD), Leaf-area index (XLAI), background albedo (ALB),
+      and background roughness length (Z0BRD) are computed in SFLX just after the    
+      call to REDPRM.                                                                
+         * USEMONALB now has to be passed into SFLX.                                 
+         * New arrays defined:  LAIMINTBL, LAIMAXTBL;  Remove LAITBL.                
+         * New arrays defined:  ALBEDOMINTBL, ALBEDOMAXTBL; remove ALBTBL.           
+         * New arrays defined:  Z0MINTBL, Z0MAXTBL; remove Z0TBL                     
+         * New arrays defined:  EMISSMINTBL, EMISSMAXTBL                             
+         * Subroutine REDPRM now returns LAIMIN, LAIMAX, ALBEDOMIN, ALBEDOMAX,       
+           EMISSMIN, EMISSMAX, Z0MIN, Z0MAX, EMISSMIN, EMISSMAX.  Removed from REDPRM
+           are Z0BRD, XLAI, and ALB.                                                 
+         * The scaling is not applied for albedo if namelist option USEMONALB is set 
+           to .true.                                                                 
+         * The scaling is not applied for LAI if namelist option RDLAI2D is set to   
+           .true.                                                                    
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Subroutine SFLX:  If the surface is largely snow covered (more than 97%), use  
+      the snow diffusivity. (BPRC)                                                   
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Subroutine PENMAN:                                                             
+      Scale latent heat used between snow-covered (latent heat of sublimation) and   
+      snow-free (latent heat of vaporization) regions.  For glacial land or sea ice  
+      regions, use latent heat of vaporization if Skin temperature T1 is greater than
+      freezing                                                                       
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      BUGFIX:  The code to determine whether the soil-moisture tendency will be      
+      solved with the single-step or the two-step process had some wrong unit        
+      conversions which meant that the two-step process would be used only in        
+      extremely heavy rainfall situations.  New code corrects this.  Also adds the   
+      (FAC2 > FLIMIT) test.                                                          
+         * Subroutine FAC2MIT added, making FLIMIT dependent on hard-coded SMCMAX    
+           values.  If SOILPARM.TBL is changed, this will break FAC2MIT.             
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Limit the depth of the snow layer in computing soil heat flux (BPRC)           
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Over sea-ice points and glacial land points, limit the depth of the snow layer 
+      in computing soil heat flux (BPRC)                                             
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Test on some trace value of snow, instead of zero value, for computing snow    
+      density.  This may prevent some crazy values caused by a division by something 
+      near to zero. (BPRC) (SNEQV)                                                   
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Subroutine WDFCND:  Computation of FACTR1 modified, and the maximum value for  
+      FACTR1 is limited:  FACTR1 cannot exceed FACTR2.                               
+                --- What are FACTR1 and FACTR2?                                      
+                --- What's a good generic way do describe this change?               
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Runoff updated over non-glacial land points. (RUNOFF3,RUNOFF2 setting in SFLX?)
+      Over glacial land or sea ice, runoff goes directly to surface runoff RUNOFF1.  
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Adjustment in NOPAC of ETA setting if ETP <= 0.                                
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      The "LOCAL" variable (for REDPRM settings) no longer used.                     
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      FLX3 initialized to zero in the case of shallow snow which sublimates.         
+      -------------------------------------------------------------------------------
+      -------------------------------------------------------------------------------
+      Subroutine TRANSP:  Dimension for GX no longer hard-coded.                     
+      -------------------------------------------------------------------------------
+
+2009-04-23:
+
+   * Modify the namelists in the input files to reflect the changes to 3.1.  Also 
+     modifies the subroutine to read the namelists:
+  
+     - Change ICE_POINT namelist option to SEA_ICE_POINT (a little more specific)
+
+     - Add LANDUSE_DATASET option to the namelists
+
+     - Add URBAN_VEG_CATEGORY to the namelists
+
+     - Add GLACIER_VEG_CATEGORY to the namelists
+
+     - Add GREEN_VEGETATION_MIN to the namelists
+
+     - Add GREEN_VEGETATION_MAX to the namelists
+
+     - Add USEMONALB to the namelists
+
+     - Add RDLAI2D to the namelists
+
+     - Add LAI_MONTHLY to the namelists
+
+     - Remove EMISSIVITY from the namelists
+
+2010-05-19:  Changes to Version 3.2 from version 3.1:
+
+   * Update all code and tables to match the WRF Version 3.2 release:
+     This update includes all changes to the Noah code itself (see
+     "Noah Changes", below)
+
+     - Updated module_sf_noahlsm.F 
+     - Updated module_sf_urban.F
+     - Updated URBPARM.TBL
+     - Updated GENPARM.TBL
+
+   * A few changes to the WRF module_sf_urban.F code seem to be
+     necessary.  These have been inserted with the CPP macro
+     "#ifdef _SIMPLE_DRIVER_".  The most significant modification is
+     to the iterative solution to wall and road temperatures.  I have
+     modified the iteration to check for convergence, and to try again
+     with different settings if convergence is not happening.
+
+   * Allow the user to run the same year continually.  This is
+     controlled by the option "LOOP_FOR_A_WHILE" in the namelist
+     part of the input file.  For this option to work, the last record
+     in the data section of the input file must be exactly one year
+     later than the first data record, minus FORCING_TIMESTEP seconds.
+     The bondville.dat file, for example, starts at 1998-01-01 06:30
+     UTC and ends at 1999-01-01 06:00 UTC, and has a FORCING_TIMESTEP
+     of 1800 seconds (1/2 hour).
+
+   * Added a namelist option in the forcing data file to select
+     between an older implementation of the SFCDIF routine, and 
+     a newer implementation.  Namelist option SFCDIF_OPTION=0 selects
+     the old implementation.  SFCDIF_OPTION=1 selects the new
+     implementation.  This adds a new source-code file, for now called
+     "module_sfcdif_wrf.F"
+
+   * Added a namelist option to control the setting of the
+     Zilitinkivich coefficient CZIL.  Namelist setting IZ0TLND=0 will
+     use CZIL as set in GENPARM.TBL.  IZ0TLND=1 will calculate CZIL as
+     a function of roughness length, following Chen and Zhang 2009.
+
+   * New graphics code in subdirectory "graphics".  Marginally more
+     advanced than the old "graphics_compare.F" code.
+
+   * Changes to the build mechanism:
+
+     - Add a "user_build_options" file and ask the user to tune
+       settings there, rather than try to guess the settings 
+       within the Makefile from the user's environment.
+
+     - Use CPP to take the resolution of #ifdef out of the Fortran
+       compile step.  Some compilers don't seem to support it.
+
+     - Separate the graphics code into its own subdirectory.  This is
+       new graphics code, so I've removed the old "graphics_compare.F"
+
+   ------------------------------------------------------------------------------
+     Noah LSM Changes:  version 3.2 since version 3.1
+   ------------------------------------------------------------------------------
+
+   * Z0 for snow cover
+
+       - Roughness length Z0 over snow-covered surfaces has been modified
+         (subroutine SNOWZ0) to account for the accumulation of snow
+         burying the surface features which contribute to roughness.
+
+         An "effective" roughness length for the snow-covered surface is
+         computed, Z0EFF.  For deep snow, Z0EFF is set to 0.001 (deep snow
+         covering the roughness features of the surface).  For shallower
+         snow, Z0EFF is set to the snow-free roughness length, Z0BRD,
+         reduced by SNOWH/7.
+
+         To account for fractional snow cover, the final Z0 term is
+         computed as a weighted average between the snow-free Z0BRD value
+         and the effective snow albedo, Z0EFF.
+
+   * LVCOEF:
+
+       - The surface albedo in the presence of snowcover (subroutine
+         ALCALC) is computed following Livneh.  In version 3.2, this has
+         been implemented with a user-definable coefficient, LVCOEF, set
+         in file GENPARM.TBL.  LVCOEF should range between zero and one.
+
+         The Livneh scheme boosts the snow albedo toward 85%, then reduces
+         it according to the age of the snow.  LVCOEF controls how much
+         the albedo is boosted toward 85%.  A default value LVCOEF=0.5
+         will have the same results as in version 3.1, i.e., an average of
+         the input SNOALB (which tends to range from around 50% to around
+         75%) and 85%.  Values lower than 0.5 will tune this more toward
+         the incoming SNOALB (and ultimately lower albedos).  Values
+         greater than 0.5 will tune this more toward 85% (and ultimately
+         higher albedos).
+
+   * SMAV:
+
+       - SMAV: Soil moisture availability at each soil layer, computed as a
+         fraction between the wilting point SMCWLT (SMAV=0.0) and
+         saturation soil moisture SMCMAX (SMAV=1.0).  No effect on model
+         results.  Diagnostic field output in WRF as "SMCREL: Relative soil
+         moisture".
+
+   * FLX1:
+
+       - The FLX1 term needs to account for the exchange of heat required
+         to change the temperature of falling precipitation from air
+         temperature to skin temperature.  This exchange is considered in
+         computing fluxes and skin temperature, but for rain events, was
+         not included in the budget term FLX1.  So the energy budget would
+         show large residual values for rain events.  This correction has
+         no effect on the model integration, but will make the budget
+         calculations which use FLX1 more accurate.
+
+   * DTOT:
+
+       - Polar modification: over sea/land ice points, DTOT is limited so
+         as not to effectively shut off heat exchange between soil (i.e.,
+         ice) layers and the surface.  In SNOPAC, this limit was applied
+         regardless of surface type (ice or land).  In Version 3.2, this
+         has been corrected to apply only to sea/land ice points.  Could
+         have some effect on results in areas of deep snow.
+
+   * RC:
+
+       - Canopy Resistance, RC, normally set in the call to subroutine
+         CANRES, is set to zero if CANRES is not called because SHDFAC is
+         0.  This change should have no effect on model integration, but
+         since RC is an output variable, this change insures that the field
+         is initialized where there is no vegetation.  This was not an
+         issue for Noah as coupled to WRF, but was causing troubles in some
+         standalone applications of Noah LSM.
+
+------------------------------------------------------------------------------
+2011-04-25:  Changes to Version 3.3 from Version 3.2:
+------------------------------------------------------------------------------
+
+   * bondville.dat
+
+       - Set the level of the air temperature forcing data to 3 m, from
+         suggestions found in NCEP's documetation of the original data.
+
+   * module_sf_noahlsm.F
+
+       - Apply DF1 conductivity change only for permanent land ice, 
+         not for both land ice and sea ice.
+
+       - SHDFAC becomes INTENT (INOUT) in subroutine REDPRM, because
+         some compilers can be very disturbed if an INTENT(OUT) variable
+         is not necessarily set in the subroutine.
+
+   * simple_driver.F, simple_driver_urban.F
+
+       - Correct the order of arguments IZ0TLND and SFCDIF_OPTION in
+	 the call to subroutine OPEN_FORCING FILE.  These options were
+         inadvertently switched.  (Thanks to David Mocko of SAIC for
+         bringing this to our attention.)
+
+       - Output two terms of surface runoff and subsurface runoff,
+         rather than the three runoff1, runoff2, and runoff3 terms.
+
+   * module_sfcdif_wrf.F, module_sf_noahlsm.F
+
+       - Use different wind and temperature forcing levels in
+         computing surface exchange coefficients.
+
+   * Updated URBPARM.TBL for a generic city, consistent with WRF release.
+
+------------------------------------------------------------------------------
+2012-09-17:  Changes to Version 3.4 from Version 3.3:
+------------------------------------------------------------------------------
+
+   * simple_driver.F, simple_driver_urban.F, module_ascii_io.F,
+     bondville.dat
+
+       - Namelist variable LOOP_FOR_A_WHILE changed from logical to
+         integer, the meaning of which is the number of times to
+         repeat the year.
+
+   * simple_driver.F, simple_driver_urban.F, module_io.F,
+     module_ascii_io.F, module_netcdf_io.F, bondville.dat
+
+       - Output file naming for looping is handled in-code rather than
+         with system calls.
+
+   * simple_driver.F, module_io.F, module_io_ascii.F, bondville.dat
+
+      - New namelist variable OUTPUT_DIR as a directory to which
+        output is to be written.
+
+   ------------------------------------------------------------------------------
+     Noah LSM Changes:  version 3.4 since version 3.3
+   ------------------------------------------------------------------------------
+
+   * Removed sea-ice code from Noah LSM.  Not a physics change but a
+     code-reorganization move.  
+
+       - module_sf_noahlsm.F
+
+            + Removed code blocs that are active only for sea-ice
+              points; replaced the sea-ice and glacial ice HRTICE
+              routine with HRTICE_GLACIAL specific for glacial ice.
+
+------------------------------------------------------------------------------
+2012-09-18:  Changes to Version 3.4.1 from Version 3.4:
+------------------------------------------------------------------------------
+
+   * Added glacial capability consistent with the glacial changes
+     (code organization, no physics changes) to 3.4.1.
+
+   ------------------------------------------------------------------------------
+     Noah LSM Changes:  version 3.4.1 since version 3.4
+   ------------------------------------------------------------------------------
+
+   * Removed glacial-ice code from the Noah LSM SFLX routines.  Not a
+   * physics change but a further code-reorganization move.  Glacial
+     ice is now its own module called from the Noah Driver code at
+     glacial points.
+
+     - module_sf_noahdrv.F:
+
+          + At glacial points, skip the subroutine call to SFLX, and
+            call new subroutine SFLX_GLACIAL instead.
+
+     - module_sf_noahlsm.F
+
+          + Remove glacial-specific blocks of code.  Glacial-specific
+            code has been moved to new module
+            module_sf_noahlsm_glacial_only.F
+
+     - new source-code file module_sf_noahlsm_glacial_only.F contains
+       glacial-specific code that used to be in module_sf_noahlsm.F
+
+   * Rearrangement of some computations in the glacial code results
+     in some differences (in a glacial case) from earlier versions.
+     Expressions are algebraically equivalent, but because of the
+     imprecise nature of the floating-point arithmetic, we lose
+     bit-for-bit compatibility (though I have not seen any
+     meaningful differences).  If this is a concern, the code
+     sections in question (in module_sf_noahlsm_glacial_only.F) are
+     the computation of FNET in subroutine
+     PENMAN, and the computation of T14 in subroutine SNOPAC.
+
