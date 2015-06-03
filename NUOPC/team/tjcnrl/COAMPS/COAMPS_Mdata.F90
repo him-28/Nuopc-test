@@ -12,9 +12,7 @@ module COAMPS_Mdata
 
   use ESMF
   use NUOPC
-! use NUOPC_Model, parent_SetServices => SetServices
-  use NUOPC_Model, only: parent_SetServices => SetServices, &
-    label_DataInitialize, label_SetClock, label_Advance, label_Finalize
+  use NUOPC_Model, parent_SetServices => SetServices
   use COAMPS_Futil
   use COAMPS_Gutil
 

@@ -109,11 +109,7 @@ module FRONT_DRM
 
   use ESMF
   use NUOPC
-! use NUOPC_Driver, parent_SetServices => SetServices
-  use NUOPC_Driver, only: parent_SetServices => SetServices, &
-    label_SetModelServices, label_SetRunSequence, label_Finalize, &
-    NUOPC_DriverAddComp, NUOPC_DriverGetComp, &
-    NUOPC_DriverNewRunSequence, NUOPC_DriverAddRunElement
+  use NUOPC_Driver, parent_SetServices => SetServices
   use NESPC_Futil, only: missingValue
 
   use  FRONT_CON , only: cplSS  => SetServices

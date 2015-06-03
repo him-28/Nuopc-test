@@ -12,11 +12,7 @@ module COAMPS_Connector
 
   use ESMF
   use NUOPC
-! use NUOPC_Connector, parent_SetServices => SetServices
-  use NUOPC_Connector, only: parent_SetServices => SetServices, &
-    label_ComputeRouteHandle, label_ExecuteRouteHandle, &
-    label_ReleaseRouteHandle, label_Finalize, &
-    NUOPC_ConnectorGet, NUOPC_ConnectorSet
+  use NUOPC_Connector, parent_SetServices => SetServices
   use COAMPS_Futil
 
   implicit none
@@ -163,9 +159,7 @@ module COAMPS_Connector
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! determine verbosity
-    call ESMF_AttributeGet(ccomp, name='Verbosity', value=verbosity, &
-      defaultValue='low', convention='NUOPC', purpose='General', rc=rc)
-!   call NUOPC_CompAttributeGet(ccomp, name='Verbosity', value=verbosity, rc=rc)
+    call NUOPC_CompAttributeGet(ccomp, name='Verbosity', value=verbosity, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
     if (trim(verbosity)=='high') then
       is%wrap%verbose = .true.
@@ -281,7 +275,7 @@ module COAMPS_Connector
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! get size of couple list
-    call NUOPC_CompAttributeGet(ccomp, cplListSize=is%wrap%cplCount, rc=rc)
+    call NUOPC_CompAttributeGet(ccomp, name='CplList', itemCount=is%wrap%cplCount, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
     write(msgString,'(a,i0,a)') trim(cname)// &
       ': List of coupled fields (',is%wrap%cplCount,'):'
@@ -313,7 +307,7 @@ module COAMPS_Connector
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
       msg='Allocation of cplList() failed.', &
       CONTEXT, rcToReturn=rc)) return ! bail out
-    call NUOPC_CompAttributeGet(ccomp, cplList=cplList, rc=rc)
+    call NUOPC_CompAttributeGet(ccomp, name='CplList', valueList=cplList, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
     call ESMF_FieldBundleGet(srcFields, fieldNameList=is%wrap%srcNames, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
