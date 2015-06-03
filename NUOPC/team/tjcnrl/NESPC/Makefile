@@ -41,6 +41,9 @@ else
   TOP_CPPFLAGS := -DREAL4
 endif
 
+# for COAMPS_Gsrumd
+TOP_CPPFLAGS += -DENABLE_MPI
+
 # top-level module include path
 TOP_INCPATH := $(addprefix -I, $(MODDIR))
 

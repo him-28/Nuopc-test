@@ -12,7 +12,7 @@ module NESPC_Futil
 
   use ESMF
   use NUOPC
-  use NESPC_Gsrumd
+  use NESPC_GSRUMD
 
   implicit none
 
@@ -47,7 +47,7 @@ module NESPC_Futil
   public PrintTimers
 
   ! missing value (public)
-  real(ESMF_KIND_RX), parameter, public :: missingValue = 999999._ESMF_KIND_RX
+  real(ESMF_KIND_RX), parameter, public :: missingValue = real(999999,ESMF_KIND_RX)
 
   ! remap status values (public)
   integer, parameter, public :: REMAP_STATUS_NOT_SET     = 9
@@ -2037,6 +2037,8 @@ module NESPC_Futil
     integer, parameter :: localDE=0
     logical, parameter :: ijg=.true.
     integer, parameter :: iclo=iclo_none, ncb=10
+    real(8), parameter :: dcin=1d-1
+    real(8), parameter ::  eps=1d-5
     logical :: llg
     character(ESMF_MAXSTR) :: msgString
     character(ESMF_MAXSTR) :: fname, gname
@@ -2361,13 +2363,13 @@ module NESPC_Futil
           if (rmptyp.ne.'redist') then
             lon = lon_d(i,j)
             lat = lat_d(i,j)
-            ! findij will flag points as inside the grid (ingrid=t) that are outside the grid,
-            ! but within one grid cell width distance of the grid
-            ingrid = findij(gsu_s, lon, lat, ir, jr)
+            ! w3gfij will flag points as inside the grid (ingrid=t) that are outside the grid,
+            ! but within "dcin" grid cell width distance of the grid
+            ingrid = w3gfij(gsu_s, lon, lat, ir, jr, eps=eps, dcin=dcin)
             if (ingrid) then
               ! getrmp will flag points as inside the grid (ns>=0) that are outside the grid,
-              ! but within a small fraction of a grid cell width distance of the grid
-              call getrmp(lcomp,rmptyp,glb_s,gub_s,lmsk_s,ir,jr,ns,is,js,ijs,cs)
+              ! but within "dcin" grid cell width distance of the grid
+              call getrmp(lcomp,rmptyp,eps,dcin,glb_s,gub_s,lmsk_s,ir,jr,ns,is,js,ijs,cs)
             else
               ns = -1
             endif
@@ -2988,10 +2990,18 @@ module NESPC_Futil
 !BOPI
 ! !IROUTINE: getrmp - compute remap factors for a given point (ir,jr)
 ! !INTERFACE:
-  subroutine getrmp(lcmp,rtyp,lb,ub,mask,ir,jr,ns,is,js,ijs,cs)
+  subroutine getrmp(lcmp,rtyp,eps,dcin,lb,ub,mask,ir,jr,ns,is,js,ijs,cs)
 ! !ARGUMENTS:
     logical :: lcmp !true: compute coefficients
     character(6) :: rtyp !type of interpolation: 'redist', 'bilinr' or 'bicubc'
+    ! eps is a small non-zero tolerance for checking point coincidence
+    real(8) :: eps
+    ! dcin is the distance (in source grid intervals) that a point being
+    ! interpolated is allowed to lie outside the source grid for valid
+    ! interpolation.  The is to accomodate points that lie just outside the
+    ! source grid.  Note that points outside the source grid will be
+    ! extrapolated, and will not be very accurate if dcin is very large.
+    real(8) :: dcin
     integer :: lb(2),ub(2)
     logical :: mask(lb(1):ub(1),lb(2):ub(2))
     real(8) :: ir,jr
@@ -3011,18 +3021,12 @@ module NESPC_Futil
     real(8),pointer :: cz(:)
     integer :: i,j,k,ic(4),jc(4),mcs
     logical :: doblc
-    ! eps is the distance (in source grid intervals) that a point being
-    ! interpolated is allowed to lie outside the source grid for valid
-    ! interpolation.  The is to accomodate points that lie just outside the
-    ! source grid.  Note that points outside the source grid will be
-    ! extrapolated, and will not be very accurate if eps is very large.
-    real(4), parameter :: eps = 0.1
 
     ! if target point lies outside domain, then return with ns<0
-    if ( (real(ir,4).lt.real(lb(1),4)-eps).or. &
-         (real(ir,4).gt.real(ub(1),4)+eps).or. &
-         (real(jr,4).lt.real(lb(2),4)-eps).or. &
-         (real(jr,4).gt.real(ub(2),4)+eps) ) then
+    if ( (ir.lt.real(lb(1),8)-dcin).or. &
+         (ir.gt.real(ub(1),8)+dcin).or. &
+         (jr.lt.real(lb(2),8)-dcin).or. &
+         (jr.gt.real(ub(2),8)+dcin) ) then
       ns = -1
       return
     endif
@@ -3038,9 +3042,9 @@ module NESPC_Futil
     ! if target point is coincident with an unmasked source grid
     ! cell point, then set the coefficient to 1 and return
     do k=1,4
-      if (real(ic(k),4).eq.real(ir,4).and. &
-          real(jc(k),4).eq.real(jr,4).and. &
-          .not.mask(ic(k),jc(k))) exit
+      if ( abs(real(ic(k),8)-ir).le.eps .and. &
+           abs(real(jc(k),8)-jr).le.eps .and. &
+           .not.mask(ic(k),jc(k)) ) exit
     enddo
     if (k.le.4) then
       ns = 1
