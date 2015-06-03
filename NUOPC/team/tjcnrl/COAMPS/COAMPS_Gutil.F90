@@ -37,15 +37,16 @@ module COAMPS_Gutil
 
   ! COAMPS grid structure type (public)
   type, public :: CGrid
+    logical      :: ijg
     character(1) :: cfluid
     integer      :: nest
     integer      :: nproj
     integer      :: iref, jref
     integer      :: m, n, l
-    real(4)      :: alnnt, phnt1, phnt2
-    real(4)      :: rlon, rlat
-    real(4)      :: delx, dely
-    real(4)      :: rnest
+    real(8)      :: alnnt, phnt1, phnt2
+    real(8)      :: rlon, rlat
+    real(8)      :: delx, dely
+    real(8)      :: rnest
   end type
 
   ! Flat-file structure type (public)
@@ -62,7 +63,28 @@ module COAMPS_Gutil
   end type
 
   ! private data
-  character(ESMF_MAXSTR)         :: msgString
+  real(8), parameter :: pi   = 3.14159265358979323846d0
+  real(8), parameter :: pi2  = 2d0*pi
+  real(8), parameter :: pi4  = 4d0*pi
+  real(8), parameter :: pi3h = 3d0*pi/2d0
+  real(8), parameter :: pio2 = pi/2d0
+  real(8), parameter :: pio4 = pi/4d0
+  real(8), parameter :: d2r  = pi/180d0
+  real(8), parameter :: r2d  = 1d0/d2r
+  real(8), parameter :: d360 = 360d0
+  real(8), parameter :: d270 = 270d0
+  real(8), parameter :: d180 = 180d0
+  real(8), parameter :: d90  =  90d0
+  real(8), parameter :: zero = 0.0d0
+  real(8), parameter :: half = 0.5d0
+  real(8), parameter :: one  = 1.0d0
+  real(8), parameter :: two  = 2.0d0
+  real(8), parameter :: four = 4.0d0
+  real(8), parameter :: rearth = 4.d7/pi2
+  real(8), parameter :: d2m  = rearth*d2r
+  real(8), parameter :: m2d  = 1d0/d2m
+  real(8), parameter :: omega4 = 4d0*pi/86400d0
+  character(ESMF_MAXSTR) :: msgString
 
   ! module interfaces
   interface GridSetMask
@@ -77,6 +99,28 @@ module COAMPS_Gutil
   interface CGridCreate
     module procedure CGridCreate_Gridnl
     module procedure CGridCreate_Datahd
+    module procedure CGridCreate_Args_r4
+    module procedure CGridCreate_Args_r8
+  end interface
+  interface CGridCoord
+    module procedure CGridCoord_r4
+    module procedure CGridCoord_r8
+  end interface
+  interface CGridIJ2LL
+    module procedure CGridIJ2LL_array2_r4
+    module procedure CGridIJ2LL_array2_r8
+    module procedure CGridIJ2LL_array1_r4
+    module procedure CGridIJ2LL_array1_r8
+    module procedure CGridIJ2LL_point_r4
+    module procedure CGridIJ2LL_point_r8
+  end interface
+  interface CGridLL2IJ
+    module procedure CGridLL2IJ_array2_r4
+    module procedure CGridLL2IJ_array2_r8
+    module procedure CGridLL2IJ_array1_r4
+    module procedure CGridLL2IJ_array1_r8
+    module procedure CGridLL2IJ_point_r4
+    module procedure CGridLL2IJ_point_r8
   end interface
   interface FFileCreate
     module procedure FFileCreate_CGrid
@@ -283,7 +327,6 @@ module COAMPS_Gutil
 
     ! local variables
     integer, parameter             :: lde=0
-    real(4), parameter             :: zero=0., r180=180., r360=360.
     integer                        :: localrc, stat
     integer                        :: i, j, n
     integer                        :: lb(2), ub(2)
@@ -322,7 +365,7 @@ module COAMPS_Gutil
     do j=lb(2),ub(2)
       do i=lb(1),ub(1)
         lons(i,j) = lon(i,j)
-        if (lons(i,j).gt.r180) lons(i,j)=lons(i,j)-r360
+        if (lons(i,j).gt.d180) lons(i,j)=lons(i,j)-d360
         lats(i,j) = lat(i,j)
       enddo
     enddo
@@ -398,11 +441,16 @@ module COAMPS_Gutil
     logical               :: cover
 
     ! local variables
-    real(ESMF_KIND_RX)    :: eps = 0.1
     integer               :: localrc, stat
     integer               :: i, j, nb
     real(ESMF_KIND_RX)    :: bimin, bimax, bjmin, bjmax
     real(ESMF_KIND_RX), allocatable  :: blon(:),blat(:),bi(:),bj(:)
+    ! dcin is the distance (in source grid intervals) that a point being
+    ! interpolated is allowed to lie outside the source grid for valid
+    ! interpolation.  The is to accomodate points that lie just outside the
+    ! source grid.  Note that points outside the source grid will be
+    ! extrapolated, and will not be very accurate if dcin is very large.
+    real(8), parameter :: dcin = 1d-1
 
     if (present(rc)) rc = ESMF_SUCCESS
 !   write(*,'(a)') 'srcCgs:'
@@ -433,13 +481,13 @@ module COAMPS_Gutil
     enddo
 !   write(*,'(a,4e14.6)') 'bndy src i/j min/max: ', &
 !     minval(bi),maxval(bi),minval(bj),maxval(bj)
-    call CGridIJ2LL(dstCgs,nb,bi,bj,blon,blat,rc)
+    call CGridIJ2LL(dstCgs,bi,bj,blon,blat,rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 !   write(*,'(a,4e14.6)') 'bndy dst lon/lat min/max: ', &
 !     minval(blon),maxval(blon),minval(blat),maxval(blat)
 
     ! compute destination grid boundary points in source grid index space
-    call CGridLL2IJ(srcCgs,nb,blon,blat,bi,bj,rc)
+    call CGridLL2IJ(srcCgs,blon,blat,bi,bj,rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 !   write(*,'(a,4e14.6)') 'bndy dst i/j min/max: ', &
 !     minval(bi),maxval(bi),minval(bj),maxval(bj)
@@ -449,10 +497,10 @@ module COAMPS_Gutil
     bimax = maxval(bi)
     bjmin = minval(bj)
     bjmax = maxval(bj)
-    cover = bimin.ge.1-eps.and.bimin.le.srcCgs%m+eps.and. &
-            bimax.ge.1-eps.and.bimax.le.srcCgs%m+eps.and. &
-            bjmin.ge.1-eps.and.bjmin.le.srcCgs%n+eps.and. &
-            bjmax.ge.1-eps.and.bjmax.le.srcCgs%n+eps
+    cover = bimin.ge.1-dcin.and.bimin.le.srcCgs%m+dcin.and. &
+            bimax.ge.1-dcin.and.bimax.le.srcCgs%m+dcin.and. &
+            bjmin.ge.1-dcin.and.bjmin.le.srcCgs%n+dcin.and. &
+            bjmax.ge.1-dcin.and.bjmax.le.srcCgs%n+dcin
 
     ! clean up
     deallocate (blon, blat, bi, bj, stat=stat)
@@ -482,60 +530,54 @@ module COAMPS_Gutil
     if (present(rc)) rc = ESMF_SUCCESS
 
     ! create src grid data structure
-    srcCgs = CGridCreate(srcGridnl, srcFluid, srcNest, rc)
+    srcCgs = CGridCreate(srcGridnl, srcFluid, srcNest, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! create dst grid data structure
-    dstCgs = CGridCreate(dstGridnl, dstFluid, dstNest, rc)
+    dstCgs = CGridCreate(dstGridnl, dstFluid, dstNest, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
     ! check if destination grid is covered by source grid
-    cover = GridIsCovered(srcCgs, dstCgs, rc)
+    cover = GridIsCovered(srcCgs, dstCgs, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
 
   end function
 
   !-----------------------------------------------------------------------------
 
-  function CGridCreate_Gridnl(gnlFile, cfluid, nest, rc) result (cgs)
+  function CGridCreate_Gridnl(gnlFile, cfluid, nest, ijg, rc) result (cgs)
     character(*) :: gnlFile
     character(1) :: cfluid
     integer      :: nest
+    logical, optional :: ijg
     integer, optional :: rc
     type(CGrid)  :: cgs
 
     ! local variables
-    real(4), parameter :: zero = 0.0, d360 = 360.0
     integer :: iunit, stat
     logical :: lopened
     character(64) :: msg=' '
     integer :: nn, np, nrx0, nry0, nn0
-    real(4) :: delxy
-    real(8) :: onedeg,pi,radius
-!   grid namelist definition and default values (from gridnl.F)
+    real(8) :: delxy
+    ! grid namelist definition and default values (from gridnl.F)
     integer, parameter :: MAX_GRIDS=7
-    real(4),dimension(MAX_GRIDS) :: delx=81000., dely=81000.
+    real(8),dimension(MAX_GRIDS) :: delx=81000., dely=81000.
     integer,dimension(MAX_GRIDS) :: ii=1, iref=1, jj=1, jref=1
     logical,dimension(MAX_GRIDS) :: lnmove=.false.
     integer,dimension(MAX_GRIDS) :: m=61,n=61,npgrid=(/1,1,2,3,4,5,6/)
     integer :: kkl, kka=30, kko=1, kkom=1, kkosm=0, nnest=1, nproj=2
-    real(4) :: alnnt=240., phnt1=60., phnt2=30., rlat=42.5, rlon=16.5
-    real(4) :: rnest=3.
+    real(8) :: alnnt=240., phnt1=60., phnt2=30., rlat=42.5, rlon=16.5
+    real(8) :: rnest=3.
     namelist /gridnl/ m,n,kka,kko,kkom,kkosm,nproj,rlat,rlon,alnnt, &
       ii,iref,jj,jref,lnmove,nnest,npgrid,phnt1,phnt2,delx,dely,rnest
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-!...local constants
-    pi=4.d0*atan(1.d0)
-    radius=6371229.d0
-    onedeg=radius*2.d0*pi/360.d0
-
-!...find available file unit
+    ! find available file unit
     call ESMF_UtilIOUnitGet(iunit, rc=rc)
-    if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
+    if (rc.ne.ESMF_SUCCESS) return
 
-!...read gridnl
+    ! read gridnl
     open (unit=iunit, file=trim(gnlFile), form='formatted', action='read', &
       status='old', iostat=stat, iomsg=msg)
     if (stat.ne.0) then
@@ -568,11 +610,7 @@ module COAMPS_Gutil
       return ! bail out
     endif
 
-!...shift rlon and allnt
-    if (rlon.lt.zero) rlon = d360+rlon
-    if (alnnt.lt.zero) alnnt = d360+alnnt
-
-!...fill in values for all nests
+    ! fill in values for all nests
     do np = 1,nnest
       do nn = 2,nnest
         if (npgrid(nn).eq.np) then
@@ -584,13 +622,7 @@ module COAMPS_Gutil
       enddo
     enddo
 
-!...convert grid spacing from degree to km for spherical projection
-    if (nproj.eq.5) then
-      delx = delx*onedeg
-      dely = dely*onedeg
-    endif
-
-!...identify highest resolution nest
+    ! identify highest resolution nest
     nn0 = 1
     delxy = delx(nn0)*dely(nn0)
     do nn = 2,nnest
@@ -602,7 +634,12 @@ module COAMPS_Gutil
     nrx0 = delx(1)/delx(nn0)
     nry0 = dely(1)/dely(nn0)
 
-!...set nest independent grid parameters
+    ! set nest independent grid parameters
+    if (present(ijg)) then
+      cgs%ijg  = ijg
+    else
+      cgs%ijg  = .true.
+    endif
     cgs%cfluid = cfluid
     cgs%rnest  = rnest
     cgs%nest   = nest
@@ -621,7 +658,7 @@ module COAMPS_Gutil
       cgs%l = 1
     end select
 
-!...set nest dependent grid parameters
+    ! set nest dependent grid parameters
     if (nest.eq.0) then
       cgs%m    = nrx0*(m(1)-1) + 1
       cgs%n    = nry0*(n(1)-1) + 1
@@ -642,44 +679,38 @@ module COAMPS_Gutil
 
   !-----------------------------------------------------------------------------
 
-  function CGridCreate_Datahd(dir, cfluid, dtgTime, nest, rc) result (cgs)
+  function CGridCreate_Datahd(dir, cfluid, dtgTime, nest, ijg, rc) result (cgs)
     character(*)      :: dir
     character(1)      :: cfluid
     type(ESMF_Time)   :: dtgTime
     integer           :: nest
+    logical, optional :: ijg
     integer, optional :: rc
     type(CGrid)       :: cgs
 
     ! local variables
-    real(4), parameter :: zero = 0.0, d360 = 360.0
     integer            :: iunit, stat
     logical            :: lopened
     character(64)      :: msg=' '
     type(FFile)        :: ffs
     character(256)     :: dfn
     character(64)      :: ffn
-    real(ESMF_KIND_R4) :: datahd(2000)
+    real(4) :: datahd(2000)
     integer :: llen, nn, np, nrx0, nry0, nn0
-    real(4) :: delxy
-    real(8) :: onedeg,pi,radius
+    real(8) :: delxy
 !   grid namelist definition and default values (from gridnl.F)
     integer, parameter :: MAX_GRIDS=7
-    real(4),dimension(MAX_GRIDS) :: delx=81000., dely=81000.
+    real(8),dimension(MAX_GRIDS) :: delx=81000., dely=81000.
     integer,dimension(MAX_GRIDS) :: ii=1, iref=1, jj=1, jref=1
     logical,dimension(MAX_GRIDS) :: lnmove=.false.
     integer,dimension(MAX_GRIDS) :: m=61,n=61,npgrid=(/1,1,2,3,4,5,6/)
     integer :: kkl, kka=30, kko=1, kkom=1, kkosm=0, nnest=1, nproj=2
-    real(4) :: alnnt=240., phnt1=60., phnt2=30., rlat=42.5, rlon=16.5
-    real(4) :: rnest=3.
+    real(8) :: alnnt=240., phnt1=60., phnt2=30., rlat=42.5, rlon=16.5
+    real(8) :: rnest=3.
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-!...local constants
-    pi=4.d0*atan(1.d0)
-    radius=6371229.d0
-    onedeg=radius*2.d0*pi/360.d0
-
-!...set file name
+    ! set file name
     ffs%fldnam = 'datahd'
     ffs%lvltyp = 'surface'
     ffs%rlev   = (/0.0,0.0/)
@@ -698,12 +729,12 @@ module COAMPS_Gutil
     ffn = FFileName(ffs, rc=rc)
     dfn = trim(dir)//'/'//ffn
 
-!...get available io unit
+    ! find available file unit
     call ESMF_UtilIOUnitGet(iunit, rc=rc)
     if (ESMF_LogFoundError(rc, PASSTHRU, rcToReturn=rc)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-!...read datahd
+    ! read datahd
     inquire (iolength=llen) datahd
     open (unit=iunit, file=trim(dfn), form='unformatted', access='direct', &
       recl=llen, action='read', status='old', iostat=stat, iomsg=msg)
@@ -731,7 +762,7 @@ module COAMPS_Gutil
       return ! bail out
     endif
 
-!...extract data from datahd
+    ! extract data from datahd
     nnest = datahd(11)
       kkl = datahd( 2)
     nproj = datahd( 3)
@@ -758,17 +789,19 @@ module COAMPS_Gutil
       return ! bail out
     endif
 
-!...convert grid spacing from degree to km for spherical projection
-    if (nproj.eq.5) then
-      delx = delx*onedeg
-      dely = dely*onedeg
-    endif
+    ! fill in values for all nests
+    do np = 1,nnest
+      do nn = 2,nnest
+        if (npgrid(nn).eq.np) then
+          delx(nn) = delx(np)/rnest
+          dely(nn) = dely(np)/rnest
+          iref(nn) = (iref(np)-ii(nn))*int(rnest) + 1
+          jref(nn) = (jref(np)-jj(nn))*int(rnest) + 1
+        endif
+      enddo
+    enddo
 
-!...shift rlon and allnt
-    if (rlon.lt.zero) rlon = d360+rlon
-    if (alnnt.lt.zero) alnnt = d360+alnnt
-
-!...identify highest resolution nest
+    ! identify highest resolution nest
     nn0 = 1
     delxy = delx(nn0)*dely(nn0)
     do nn = 2,nnest
@@ -780,7 +813,12 @@ module COAMPS_Gutil
     nrx0 = delx(1)/delx(nn0)
     nry0 = dely(1)/dely(nn0)
 
-!...set nest independent grid parameters
+    ! set nest independent grid parameters
+    if (present(ijg)) then
+      cgs%ijg  = ijg
+    else
+      cgs%ijg  = .true.
+    endif
     cgs%cfluid = cfluid
     cgs%rnest  = rnest
     cgs%nest   = nest
@@ -790,9 +828,16 @@ module COAMPS_Gutil
     cgs%phnt2  = phnt2
     cgs%rlon   = rlon
     cgs%rlat   = rlat
-    cgs%l      = kkl
+    select case (cfluid)
+    case ('a')
+      cgs%l = kka
+    case ('o')
+      cgs%l = kko
+    case default
+      cgs%l = 1
+    end select
 
-!...set nest dependent grid parameters
+    ! set nest dependent grid parameters
     if (nest.eq.0) then
       cgs%m    = nrx0*(m(1)-1) + 1
       cgs%n    = nry0*(n(1)-1) + 1
@@ -813,167 +858,263 @@ module COAMPS_Gutil
 
   !-----------------------------------------------------------------------------
 
+  function CGridCreate_Args_r4(nproj, iref, jref, m, n, &
+           alnnt, phnt1, phnt2, rlon, rlat, delx, dely, ijg, rc) result (cgs)
+    integer      :: nproj
+    integer      :: iref, jref
+    integer      :: m, n
+    real(4)      :: alnnt, phnt1, phnt2
+    real(4)      :: rlon, rlat
+    real(4)      :: delx, dely
+    logical, optional :: ijg
+    integer, optional :: rc
+    type(CGrid)  :: cgs
+
+    ! local variables
+    ! none
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! set nest independent grid parameters
+    if (present(ijg)) then
+      cgs%ijg  = ijg
+    else
+      cgs%ijg  = .true.
+    endif
+    cgs%cfluid = 'w'
+    cgs%nproj  = nproj
+    cgs%nest   = 1
+    cgs%rnest  = 3.
+    cgs%iref   = iref
+    cgs%jref   = jref
+    cgs%m      = m
+    cgs%n      = n
+    cgs%l      = 1
+    cgs%alnnt  = alnnt
+    cgs%phnt1  = phnt1
+    cgs%phnt2  = phnt2
+    cgs%rlon   = rlon
+    cgs%rlat   = rlat
+    cgs%delx   = delx
+    cgs%dely   = dely
+
+  end function
+
+  !-----------------------------------------------------------------------------
+
+  function CGridCreate_Args_r8(nproj, iref, jref, m, n, &
+           alnnt, phnt1, phnt2, rlon, rlat, delx, dely, ijg, rc) result (cgs)
+    integer      :: nproj
+    integer      :: iref, jref
+    integer      :: m, n
+    real(8)      :: alnnt, phnt1, phnt2
+    real(8)      :: rlon, rlat
+    real(8)      :: delx, dely
+    logical, optional :: ijg
+    integer, optional :: rc
+    type(CGrid)  :: cgs
+
+    ! local variables
+    ! none
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! set nest independent grid parameters
+    if (present(ijg)) then
+      cgs%ijg  = ijg
+    else
+      cgs%ijg  = .true.
+    endif
+    cgs%cfluid = 'w'
+    cgs%nproj  = nproj
+    cgs%nest   = 1
+    cgs%rnest  = 3.
+    cgs%iref   = iref
+    cgs%jref   = jref
+    cgs%m      = m
+    cgs%n      = n
+    cgs%l      = 1
+    cgs%alnnt  = alnnt
+    cgs%phnt1  = phnt1
+    cgs%phnt2  = phnt2
+    cgs%rlon   = rlon
+    cgs%rlat   = rlat
+    cgs%delx   = delx
+    cgs%dely   = dely
+
+  end function
+
+  !-----------------------------------------------------------------------------
+
   subroutine CGridPrint(cgs)
     type(CGrid)  :: cgs
 
     ! local variables
     ! none
 
-    write(*,'(a,1a1)')    'CGridPrint:      cfluid: ',cgs%cfluid
-    write(*,'(a,1i1)')    'CGridPrint:        nest: ',cgs%nest
-    write(*,'(a,1i1)')    'CGridPrint:       nproj: ',cgs%nproj
-    write(*,'(a,2i5)')    'CGridPrint:   iref,jref: ',cgs%iref,cgs%jref
-    write(*,'(a,3i6)')    'CGridPrint:     m, n, l: ',cgs%m,cgs%n,cgs%l
-    write(*,'(a,1e14.6)') 'CGridPrint:       alnnt: ',cgs%alnnt
-    write(*,'(a,2e14.6)') 'CGridPrint: phnt1,phnt2: ',cgs%phnt1,cgs%phnt2
-    write(*,'(a,2e14.6)') 'CGridPrint:   rlon,rlat: ',cgs%rlon,cgs%rlat
-    write(*,'(a,2e14.6)') 'CGridPrint:   delx,dely: ',cgs%delx,cgs%dely
-    write(*,'(a,1e14.6)') 'CGridPrint:       rnest: ',cgs%rnest
+    write(*,'(a,1l1)')     'CGridPrint:         ijg: ',cgs%ijg
+    write(*,'(a,1a1)')     'CGridPrint:      cfluid: ',cgs%cfluid
+    write(*,'(a,1i1)')     'CGridPrint:        nest: ',cgs%nest
+    write(*,'(a,1i1)')     'CGridPrint:       nproj: ',cgs%nproj
+    write(*,'(a,2i5)')     'CGridPrint:   iref,jref: ',cgs%iref,cgs%jref
+    write(*,'(a,3i6)')     'CGridPrint:     m, n, l: ',cgs%m,cgs%n,cgs%l
+    write(*,'(a,1e24.16)') 'CGridPrint:       alnnt: ',cgs%alnnt
+    write(*,'(a,2e24.16)') 'CGridPrint: phnt1,phnt2: ',cgs%phnt1,cgs%phnt2
+    write(*,'(a,2e24.16)') 'CGridPrint:   rlon,rlat: ',cgs%rlon,cgs%rlat
+    write(*,'(a,2e24.16)') 'CGridPrint:   delx,dely: ',cgs%delx,cgs%dely
+    write(*,'(a,1e24.16)') 'CGridPrint:       rnest: ',cgs%rnest
 
   end subroutine
 
   !-----------------------------------------------------------------------------
 
-  subroutine CGridCoord(cgs,imin,imax,jmin,jmax,grdlon,grdlat,grdrot,rc)
+  subroutine CGridCoord_r4(cgs,lb1,ub1,lb2,ub2,grdlon,grdlat,dx,dy,grdrot,rc)
     !***********************************************************************
     ! Adapted from coampslib/grid.F & grdij.F
+    ! Single precision interface
     !***********************************************************************
-    type(CGrid)        :: cgs
-    integer            :: imin,imax,jmin,jmax
-    real(ESMF_KIND_RX) :: grdlon (imin:imax,jmin:jmax)
-    real(ESMF_KIND_RX) :: grdlat (imin:imax,jmin:jmax)
-    real(ESMF_KIND_RX), optional :: grdrot (imin:imax,jmin:jmax)
-    integer, optional  :: rc
+    type(CGrid)      :: cgs
+    integer          :: lb1, ub1, lb2, ub2
+    real(4)          :: grdlon (lb1:ub1,lb2:ub2) ! longitude
+    real(4)          :: grdlat (lb1:ub1,lb2:ub2) ! latitude
+    real(4),optional :: dx     (lb1:ub1,lb2:ub2) ! grid cell width in x-direction
+    real(4),optional :: dy     (lb1:ub1,lb2:ub2) ! grid cell width in y-direction
+    real(4),optional :: grdrot (lb1:ub1,lb2:ub2) ! grid cell rotation angle
+    integer,optional :: rc
 
     ! local variables
     integer :: i,j,ihem
-    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,d2r,deg,gcon
-    real(8) :: ogcon,omega4,onedeg,pi,pi2,pi4,r2d,radius,rih,rr,x,xih,xx,y,yih,yy
-    real(8) :: grdi   (imin:imax,jmin:jmax)
-    real(8) :: grdj   (imin:imax,jmin:jmax)
-    real(8) :: distx  (imin:imax,jmin:jmax)
-    real(8) :: disty  (imin:imax,jmin:jmax)
-    real(8) :: xpos   (imin:imax,jmin:jmax)
-    real(8) :: ypos   (imin:imax,jmin:jmax)
+    integer :: imin,imax,jmin,jmax
+    real(8) :: glon,glat,grot
+    real(8) :: angle,cn1,cn2,cn3,cn4,cn5,cn6,cnx,cny,con1,con2,deg,dlon,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy,grdi,grdj,distx,disty,hx,hy
 
     ! local grid reference
-    integer :: igrid
+    integer :: nproj
     real(8) :: reflat,reflon
     integer :: iref,jref
     real(8) :: stdlt1,stdlt2,stdlon
     real(8) :: delx,dely
-    igrid = cgs%nproj
+    nproj  = cgs%nproj
     reflat = cgs%rlat
     reflon = cgs%rlon
-    iref = cgs%iref
-    jref = cgs%jref
+    iref   = cgs%iref
+    jref   = cgs%jref
     stdlt1 = cgs%phnt1
     stdlt2 = cgs%phnt2
     stdlon = cgs%alnnt
-    delx = cgs%delx
-    dely = cgs%dely
+    delx   = cgs%delx
+    dely   = cgs%dely
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    ! make sure igrid is an acceptable value
-    if (igrid.lt.1.or.igrid.gt.5) then
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
       print 800
-      print 805,igrid
+      print 805,nproj
       print 800
-      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-      msg='CGridCoord: unsupported igrid')
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridCoord: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
       return ! bail out
     endif
 
-    ! local constants
-    pi=4.d0*atan(1.d0)
-    pi2=pi/2.d0
-    pi4=pi/4.d0
-    d2r=pi/180.d0
-    r2d=180.d0/pi
-    radius=6371229.d0
-    omega4=4.d0*pi/86400.d0
-    onedeg=radius*2.d0*pi/360.d0
-
-    ! Set grdij
-    do j = jmin, jmax
-      do i = imin, imax
-        grdi(i,j)=real(i,8)
-        grdj(i,j)=real(j,8)
-      enddo
-    enddo
-
-    ! Set grdrot to 0.0
-    if (present(grdrot)) then
-    do j = jmin, jmax
-      do i = imin, imax
-        grdrot(i,j)=0.0
-      enddo
-    enddo
+    ! array bounds
+    if (cgs%ijg) then
+      imin = lb1
+      imax = ub1
+      jmin = lb2
+      jmax = ub2
+    else
+      imin = lb2
+      imax = ub2
+      jmin = lb1
+      jmax = ub1
     endif
 
-    ! compute distances on grid
-    do j = jmin, jmax   
-      do i = imin, imax
-        distx(i,j)=(grdi(i,j)-real(iref,8))*delx
-        disty(i,j)=(grdj(i,j)-real(jref,8))*dely
-       enddo
-    enddo
+    ! Set grdrot to zero
+    if (present(grdrot)) grdrot(:,:) = zero
 
     !
     !***********************************************************************
-    !          mercator projection (igrid=1)
+    !          mercator projection (nproj=1)
     !***********************************************************************
     !
-    if (igrid.eq.1) then
+    if (nproj.eq.1) then
 
-      gcon=0.d0
+      gcon=zero
       deg=abs(stdlt1)*d2r
       con1=cos(deg)
-      con2=radius*con1
-      deg=reflat*0.5d0*d2r
-      rih=con2*log(tan(pi4+deg))
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
       do j = jmin, jmax
         do i = imin, imax
-          xpos(i,j)=1.d0
-          ypos(i,j)=1.d0
-          rr=rih+(grdj(i,j)-jref)*dely
-          grdlat(i,j)=(2.d0*atan(exp(rr/con2))-pi2)*r2d
-          grdlon(i,j)=reflon+(grdi(i,j)-iref)*r2d*delx/con2
-          if (grdlon(i,j).gt.360.d0) grdlon(i,j)=grdlon(i,j)-360.d0
-          if (grdlon(i,j).lt.  0.d0) grdlon(i,j)=grdlon(i,j)+360.d0
-        enddo
+          grdi=real(i,8)
+          grdj=real(j,8)
+          rr=rih+(grdj-jref)*dely
+          glat=(two*atan(exp(rr/con2))-pio2)*r2d
+          glon=reflon+(grdi-iref)*r2d*delx/con2
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
+      enddo
       enddo
 
-      return
-    !
-    !***********************************************************************
-    !          lambert conformal (igrid=2) or
-    !          polar stereographic (igrid=3)
-    !***********************************************************************
-    !
-    elseif (igrid.eq.2.or.igrid.eq.3) then
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+      do j = jmin, jmax
+        do i = imin, imax
+          if (cgs%ijg) then
+            deg=grdlat(i,j)*d2r
+            hx=cos(deg)/con1
+            hy=hx
+            dx(i,j)=delx*hx
+            dy(i,j)=dely*hy
+          else
+            deg=grdlat(j,i)*d2r
+            hx=cos(deg)/con1
+            hy=hx
+            dx(j,i)=delx*hx
+            dy(j,i)=dely*hy
+          endif
+        enddo
+      enddo
+      endif
 
-      if (igrid.eq.2) then
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
         if (stdlt1.eq.stdlt2) then
           gcon=sin(abs(stdlt1)*d2r)
         else
-          gcon=(log(sin((90.d0-abs(stdlt1))*d2r)) &
-               -log(sin((90.d0-abs(stdlt2))*d2r))) &
-              /(log(tan((90.d0-abs(stdlt1))*0.5d0*d2r)) &
-               -log(tan((90.d0-abs(stdlt2))*0.5d0*d2r)))
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
         endif
       else
-        gcon=1.d0
+        gcon=one
       endif
-      ogcon=1.d0/gcon
+      ogcon=one/gcon
       ihem=nint(abs(stdlt1)/stdlt1)
-      deg=(90.d0-abs(stdlt1))*d2r
+      deg=(d90-abs(stdlt1))*d2r
       cn1=sin(deg)
-      cn2=radius*cn1*ogcon
-      deg=deg*0.5d0
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
       cn3=tan(deg)
-      deg=(90.d0-abs(reflat))*0.5d0*d2r
+      deg=(d90-abs(reflat))*half*d2r
       cn4=tan(deg)
       rih=cn2*(cn4/cn3)**gcon
       deg=(reflon-stdlon)*d2r*gcon
@@ -982,27 +1123,35 @@ module COAMPS_Gutil
 
       do j = jmin, jmax
         do i = imin, imax
-          x=xih+distx(i,j)
-          y=yih+disty(i,j)
-          xpos(i,j)=x*ihem
-          ypos(i,j)=y*ihem
+          grdi=real(i,8)
+          grdj=real(j,8)
+          distx=(grdi-real(iref,8))*delx
+          disty=(grdj-real(jref,8))*dely
+          x=xih+distx
+          y=yih+disty
           rr=sqrt(x*x+y*y)
-          grdlat(i,j)=r2d*(pi2-2.d0*atan(cn3*(rr/cn2)**ogcon))*ihem
+          glat=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
           xx= x
           yy=-y*ihem
-          if (yy.eq.0.d0) then
-            if (xx.le.0.d0) then
-              angle=-90.d0
-            elseif (xx.gt.0.d0) then
-              angle=90.d0
+          if (yy.eq.zero) then
+            if (xx.le.zero) then
+              angle=-d90
+            elseif (xx.gt.zero) then
+              angle= d90
             endif
           else
             angle=atan2(xx,yy)*r2d
           endif
-          grdlon(i,j)=stdlon+angle*ogcon
-          deg=grdlat(i,j)*d2r
-          if (grdlon(i,j).gt.360.d0) grdlon(i,j)=grdlon(i,j)-360.d0
-          if (grdlon(i,j).lt.  0.d0) grdlon(i,j)=grdlon(i,j)+360.d0
+          glon=stdlon+angle*ogcon
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
         enddo
       enddo
 
@@ -1010,81 +1159,148 @@ module COAMPS_Gutil
       if (present(grdrot)) then
       do j = jmin, jmax
         do i = imin, imax
-          grdrot(i,j)=(stdlon-grdlon(i,j))*gcon
-          ! account for crossing greenwich meridian
-          !  case 1: standard longitude is east of Meridian, (between 0 and 90E)
-          !          and the grid longitude is west of Meridian (between 90W and Meridian)
-          if (stdlon .ge. 0.d0 .and. stdlon .le. 90.d0 .and. &
-            grdlon(i,j) .ge. 270.d0 .and. grdlon(i,j) .lt. 360.d0) &
-          then
-            grdrot(i,j)=(stdlon+360.d0-grdlon(i,j))*gcon
+          if (cgs%ijg) then
+            dlon=stdlon-grdlon(i,j)
+          else
+            dlon=stdlon-grdlon(j,i)
           endif
-          !  case 2: standard longitude is west of Meridian, (between 90W and Meridian)
-          !          and the grid longitude is east of Meridian (between 0 and 90E)
-          if (stdlon .ge. 270.d0 .and. stdlon .lt. 360.d0 .and. &
-            grdlon(i,j) .ge. 0.d0 .and. grdlon(i,j) .le. 90.d0) &
-          then
-            grdrot(i,j)=(stdlon-grdlon(i,j)-360.d0)*gcon
-          endif            
+          if (abs(dlon).gt.d180) dlon=dlon-sign(d360,dlon)
+          grot=dlon*gcon
+          if (cgs%ijg) then
+            grdrot(i,j) = grot
+          else
+            grdrot(j,i) = grot
+          endif
         enddo
       enddo
       endif
 
-      return
-    !
-    !***********************************************************************
-    !          analytic grid (igrid=4)
-    !***********************************************************************
-    !
-    elseif (igrid.eq.4) then
-
-      gcon=2.d0
-      cnx=delx/onedeg
-      cny=dely/onedeg
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
       do j = jmin, jmax
         do i = imin, imax
-          xpos(i,j)=1.d0
-          ypos(i,j)=1.d0
-          grdlat(i,j)=(grdj(i,j)-jref)*cny+reflat
-          grdlon(i,j)=(grdi(i,j)-iref)*cnx+reflon
-          if (grdlon(i,j).gt.360.d0) grdlon(i,j)=grdlon(i,j)-360.d0
-          if (grdlon(i,j).lt.  0.d0) grdlon(i,j)=grdlon(i,j)+360.d0
+          if (cgs%ijg) then
+            glat = grdlat(i,j)
+          else
+            glat = grdlat(j,i)
+          endif
+          deg = (d90-glat*real(ihem,8))*d2r
+          cn5=sin(deg)
+          deg=deg*half
+          cn6=tan(deg)
+          if (nproj .eq. 2) then
+            hx=cn5/cn1*(cn6/cn3)**(-gcon)
+          else
+            hx=(one+sin(abs(glat)*d2r))/(one+sin(abs(stdlt1)*d2r))
+          endif
+          hy=hx
+          if (cgs%ijg) then
+            dx(i,j)=delx*hx
+            dy(i,j)=dely*hy
+          else
+            dx(j,i)=delx*hx
+            dy(j,i)=dely*hy
+          endif
+        enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      gcon=two
+      cnx=delx*m2d
+      cny=dely*m2d
+      do j = jmin, jmax
+        do i = imin, imax
+          grdi=real(i,8)
+          grdj=real(j,8)
+          glat=(grdj-jref)*cny+reflat
+          glon=(grdi-iref)*cnx+reflon
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
         enddo
       enddo
 
-      return
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+        dx=delx
+        dy=dely
+      endif
+
     !
     !***********************************************************************
-    !          spherical grid (igrid=5)
+    !          spherical grid (nproj=5) (delx/dely in degrees)
     !***********************************************************************
     !
-    elseif (igrid.eq.5) then
+    elseif (nproj.eq.5) then
 
       gcon=3.d0
-      cnx=delx/onedeg
-      cny=dely/onedeg
+      cnx=delx
+      cny=dely
       do j = jmin, jmax
         do i = imin, imax
-          xpos(i,j)=1.d0
-          ypos(i,j)=1.d0
-          grdlat(i,j)=(grdj(i,j)-jref)*cny+reflat
-          grdlon(i,j)=(grdi(i,j)-iref)*cnx+reflon
-          if (grdlon(i,j).gt.360.d0) grdlon(i,j)=grdlon(i,j)-360.d0
-          if (grdlon(i,j).lt.  0.d0) grdlon(i,j)=grdlon(i,j)+360.d0
+          grdi=real(i,8)
+          grdj=real(j,8)
+          glat=(grdj-jref)*cny+reflat
+          glon=(grdi-iref)*cnx+reflon
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
         enddo
       enddo
 
-      return
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+      cnx=delx*d2m
+      cny=dely*d2m
+      do j = jmin, jmax
+        do i = imin, imax
+          if (cgs%ijg) then
+            deg=grdlat(i,j)*d2r
+            hx=cos(deg)
+            if (hx.lt.zero) hx=zero
+            hy=one
+            dx(i,j)=cnx*hx
+            dy(i,j)=cny*hy
+          else
+            deg=grdlat(j,i)*d2r
+            hx=cos(deg)
+            if (hx.lt.zero) hx=zero
+            hy=one
+            dx(j,i)=cnx*hx
+            dy(j,i)=cny*hy
+          endif
+        enddo
+      enddo
+      endif
 
     endif
-!
-!********************************************************************
-!          format statements
-!********************************************************************
-!
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
 800 format(/,' ',72('-'),/)
 805 format(/,' ERROR from subroutine CGridCoord:',/ &
-            ,'   igrid must be one of the following values:',// &
+            ,'   nproj must be one of the following values:',// &
             ,'            1: mercator projection',/ &
             ,'            2: lambert conformal projection',/ &
             ,'            3: polar steographic projection',/ &
@@ -1096,184 +1312,1030 @@ module COAMPS_Gutil
 
   !-----------------------------------------------------------------------------
 
-  subroutine CGridIJ2LL(cgs,npts,grdi,grdj,grdlon,grdlat,rc)
+  subroutine CGridCoord_r8(cgs,lb1,ub1,lb2,ub2,grdlon,grdlat,dx,dy,grdrot,rc)
     !***********************************************************************
-    ! Adapted from coampslib/ij2ll.F
+    ! Adapted from coampslib/grid.F & grdij.F
+    ! Double precision interface
     !***********************************************************************
-    type(CGrid)        :: cgs
-    integer            :: npts
-    real(ESMF_KIND_RX) :: grdi   (npts)
-    real(ESMF_KIND_RX) :: grdj   (npts)
-    real(ESMF_KIND_RX) :: grdlon (npts)
-    real(ESMF_KIND_RX) :: grdlat (npts)
-    integer, optional  :: rc
+    type(CGrid)      :: cgs
+    integer          :: lb1, ub1, lb2, ub2
+    real(8)          :: grdlon (lb1:ub1,lb2:ub2) ! longitude
+    real(8)          :: grdlat (lb1:ub1,lb2:ub2) ! latitude
+    real(8),optional :: dx     (lb1:ub1,lb2:ub2) ! grid cell width in x-direction
+    real(8),optional :: dy     (lb1:ub1,lb2:ub2) ! grid cell width in y-direction
+    real(8),optional :: grdrot (lb1:ub1,lb2:ub2) ! grid cell rotation angle
+    integer,optional :: rc
 
     ! local variables
     integer :: i,j,ihem
-    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,d2r,deg,gcon
-    real(8) :: ogcon,omega4,onedeg,pi,pi2,pi4,r2d,radius,rih,rr,x,xih,xx,y,yih,yy
+    integer :: imin,imax,jmin,jmax
+    real(8) :: glon,glat,grot
+    real(8) :: angle,cn1,cn2,cn3,cn4,cn5,cn6,cnx,cny,con1,con2,deg,dlon,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy,grdi,grdj,distx,disty,hx,hy
 
     ! local grid reference
-    integer :: igrid
+    integer :: nproj
     real(8) :: reflat,reflon
     integer :: iref,jref
     real(8) :: stdlt1,stdlt2,stdlon
     real(8) :: delx,dely
-    igrid = cgs%nproj
+    nproj  = cgs%nproj
     reflat = cgs%rlat
     reflon = cgs%rlon
-    iref = cgs%iref
-    jref = cgs%jref
+    iref   = cgs%iref
+    jref   = cgs%jref
     stdlt1 = cgs%phnt1
     stdlt2 = cgs%phnt2
     stdlon = cgs%alnnt
-    delx = cgs%delx
-    dely = cgs%dely
+    delx   = cgs%delx
+    dely   = cgs%dely
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    ! make sure igrid is an acceptable value
-    if (igrid.lt.1.or.igrid.gt.5) then
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
       print 800
-      print 805,igrid
+      print 805,nproj
       print 800
-      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-      msg='CGridIJ2LL: unsupported igrid')
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridCoord: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
       return ! bail out
     endif
 
-    ! local constants
-    pi=4.d0*atan(1.d0)
-    pi2=pi/2.d0
-    pi4=pi/4.d0
-    d2r=pi/180.d0
-    r2d=180.d0/pi
-    radius=6371229.d0
-    omega4=4.d0*pi/86400.d0
-    onedeg=radius*2.d0*pi/360.d0
+    ! array bounds
+    if (cgs%ijg) then
+      imin = lb1
+      imax = ub1
+      jmin = lb2
+      jmax = ub2
+    else
+      imin = lb2
+      imax = ub2
+      jmin = lb1
+      jmax = ub1
+    endif
+
+    ! Set grdrot to zero
+    if (present(grdrot)) grdrot(:,:) = zero
 
     !
     !***********************************************************************
-    !          mercator projection (igrid=1)
+    !          mercator projection (nproj=1)
     !***********************************************************************
     !
-    if (igrid.eq.1) then
+    if (nproj.eq.1) then
 
+      gcon=zero
       deg=abs(stdlt1)*d2r
       con1=cos(deg)
-      con2=radius*con1
-      deg=reflat*0.5d0*d2r
-      rih=con2*log(tan(pi4+deg))
-      do i = 1, npts
-        rr=rih+(grdj(i)-jref)*dely
-        grdlat(i)=(2.d0*atan(exp(rr/con2))-pi2)*r2d
-        grdlon(i)=reflon+(grdi(i)-iref)*r2d*delx/con2
-        if (grdlon(i).gt.360.d0) grdlon(i)=grdlon(i)-360.d0
-        if (grdlon(i).lt.  0.d0) grdlon(i)=grdlon(i)+360.d0
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      do j = jmin, jmax
+        do i = imin, imax
+          grdi=real(i,8)
+          grdj=real(j,8)
+          rr=rih+(grdj-jref)*dely
+          glat=(two*atan(exp(rr/con2))-pio2)*r2d
+          glon=reflon+(grdi-iref)*r2d*delx/con2
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
+        enddo
       enddo
 
-      return
-    !
-    !***********************************************************************
-    !          lambert conformal (igrid=2) or
-    !          polar stereographic (igrid=3)
-    !***********************************************************************
-    !
-    elseif (igrid.eq.2.or.igrid.eq.3) then
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+      do j = jmin, jmax
+        do i = imin, imax
+          if (cgs%ijg) then
+            deg=grdlat(i,j)*d2r
+            hx=cos(deg)/con1
+            hy=hx
+            dx(i,j)=delx*hx
+            dy(i,j)=dely*hy
+          else
+            deg=grdlat(j,i)*d2r
+            hx=cos(deg)/con1
+            hy=hx
+            dx(j,i)=delx*hx
+            dy(j,i)=dely*hy
+          endif
+        enddo
+      enddo
+      endif
 
-      if (igrid.eq.2) then
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
         if (stdlt1.eq.stdlt2) then
           gcon=sin(abs(stdlt1)*d2r)
         else
-          gcon=(log(sin((90.d0-abs(stdlt1))*d2r)) &
-               -log(sin((90.d0-abs(stdlt2))*d2r))) &
-              /(log(tan((90.d0-abs(stdlt1))*0.5d0*d2r)) &
-               -log(tan((90.d0-abs(stdlt2))*0.5d0*d2r)))
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
         endif
       else
-        gcon=1.d0
+        gcon=one
       endif
-      ogcon=1.d0/gcon
+      ogcon=one/gcon
       ihem=nint(abs(stdlt1)/stdlt1)
-      deg=(90.d0-abs(stdlt1))*d2r
+      deg=(d90-abs(stdlt1))*d2r
       cn1=sin(deg)
-      cn2=radius*cn1*ogcon
-      deg=deg*0.5d0
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
       cn3=tan(deg)
-      deg=(90.d0-abs(reflat))*0.5d0*d2r
+      deg=(d90-abs(reflat))*half*d2r
       cn4=tan(deg)
       rih=cn2*(cn4/cn3)**gcon
       deg=(reflon-stdlon)*d2r*gcon
       xih= rih*sin(deg)
       yih=-rih*cos(deg)*ihem
 
-      do i = 1, npts
+      do j = jmin, jmax
+        do i = imin, imax
+          grdi=real(i,8)
+          grdj=real(j,8)
+          distx=(grdi-real(iref,8))*delx
+          disty=(grdj-real(jref,8))*dely
+          x=xih+distx
+          y=yih+disty
+          rr=sqrt(x*x+y*y)
+          glat=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+          xx= x
+          yy=-y*ihem
+          if (yy.eq.zero) then
+            if (xx.le.zero) then
+              angle=-d90
+            elseif (xx.gt.zero) then
+              angle= d90
+            endif
+          else
+            angle=atan2(xx,yy)*r2d
+          endif
+          glon=stdlon+angle*ogcon
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
+        enddo
+      enddo
+
+      ! Calculate angle between grid north and true north at every grid point.
+      if (present(grdrot)) then
+      do j = jmin, jmax
+        do i = imin, imax
+          if (cgs%ijg) then
+            dlon=stdlon-grdlon(i,j)
+          else
+            dlon=stdlon-grdlon(j,i)
+          endif
+          if (abs(dlon).gt.d180) dlon=dlon-sign(d360,dlon)
+          grot=dlon*gcon
+          if (cgs%ijg) then
+            grdrot(i,j) = grot
+          else
+            grdrot(j,i) = grot
+          endif
+        enddo
+      enddo
+      endif
+
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+      do j = jmin, jmax
+        do i = imin, imax
+          if (cgs%ijg) then
+            glat = grdlat(i,j)
+          else
+            glat = grdlat(j,i)
+          endif
+          deg = (d90-glat*real(ihem,8))*d2r
+          cn5=sin(deg)
+          deg=deg*half
+          cn6=tan(deg)
+          if (nproj .eq. 2) then
+            hx=cn5/cn1*(cn6/cn3)**(-gcon)
+          else
+            hx=(one+sin(abs(glat)*d2r))/(one+sin(abs(stdlt1)*d2r))
+          endif
+          hy=hx
+          if (cgs%ijg) then
+            dx(i,j)=delx*hx
+            dy(i,j)=dely*hy
+          else
+            dx(j,i)=delx*hx
+            dy(j,i)=dely*hy
+          endif
+        enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      gcon=two
+      cnx=delx*m2d
+      cny=dely*m2d
+      do j = jmin, jmax
+        do i = imin, imax
+          grdi=real(i,8)
+          grdj=real(j,8)
+          glat=(grdj-jref)*cny+reflat
+          glon=(grdi-iref)*cnx+reflon
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
+        enddo
+      enddo
+
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+        dx=delx
+        dy=dely
+      endif
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      gcon=3.d0
+      cnx=delx
+      cny=dely
+      do j = jmin, jmax
+        do i = imin, imax
+          grdi=real(i,8)
+          grdj=real(j,8)
+          glat=(grdj-jref)*cny+reflat
+          glon=(grdi-iref)*cnx+reflon
+          if (glon.gt.d360) glon=glon-d360
+          if (glon.lt.zero) glon=glon+d360
+          if (cgs%ijg) then
+            grdlon(i,j) = glon
+            grdlat(i,j) = glat
+          else
+            grdlon(j,i) = glon
+            grdlat(j,i) = glat
+          endif
+        enddo
+      enddo
+
+      ! Calculate dx & dy
+      if (present(dx).and.present(dy)) then
+      cnx=delx*d2m
+      cny=dely*d2m
+      do j = jmin, jmax
+        do i = imin, imax
+          if (cgs%ijg) then
+            deg=grdlat(i,j)*d2r
+            hx=cos(deg)
+            if (hx.lt.zero) hx=zero
+            hy=one
+            dx(i,j)=cnx*hx
+            dy(i,j)=cny*hy
+          else
+            deg=grdlat(j,i)*d2r
+            hx=cos(deg)
+            if (hx.lt.zero) hx=zero
+            hy=one
+            dx(j,i)=cnx*hx
+            dy(j,i)=cny*hy
+          endif
+        enddo
+      enddo
+      endif
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridCoord:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridIJ2LL_array2_r4(cgs,grdi,grdj,grdlon,grdlat,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ij2ll.F
+    ! Single precision 2d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(4)          :: grdi   (:,:)
+    real(4)          :: grdj   (:,:)
+    real(4)          :: grdlon (:,:)
+    real(4)          :: grdlat (:,:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridIJ2LL: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    if (cgs%ijg) then
+      lb1 = lbound(grdi,1)
+      ub1 = ubound(grdi,1)
+      lb2 = lbound(grdi,2)
+      ub2 = ubound(grdi,2)
+    else
+      lb1 = lbound(grdi,2)
+      ub1 = ubound(grdi,2)
+      lb2 = lbound(grdi,1)
+      ub2 = ubound(grdi,1)
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        rr=rih+(grdj(i,j)-jref)*dely
+        grdlat(i,j)=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon(i,j)=reflon+(grdi(i,j)-iref)*r2d*delx/con2
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        rr=rih+(grdj(j,i)-jref)*dely
+        grdlat(j,i)=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon(j,i)=reflon+(grdi(j,i)-iref)*r2d*delx/con2
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        x=xih+(grdi(i,j)-iref)*delx
+        y=yih+(grdj(i,j)-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat(i,j)=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon(i,j)=stdlon+angle*ogcon
+        deg=grdlat(i,j)*d2r
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        x=xih+(grdi(j,i)-iref)*delx
+        y=yih+(grdj(j,i)-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat(j,i)=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon(j,i)=stdlon+angle*ogcon
+        deg=grdlat(j,i)*d2r
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdlat(i,j)=(grdj(i,j)-jref)*cny+reflat
+        grdlon(i,j)=(grdi(i,j)-iref)*cnx+reflon
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdlat(j,i)=(grdj(j,i)-jref)*cny+reflat
+        grdlon(j,i)=(grdi(j,i)-iref)*cnx+reflon
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdlat(i,j)=(grdj(i,j)-jref)*cny+reflat
+        grdlon(i,j)=(grdi(i,j)-iref)*cnx+reflon
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdlat(j,i)=(grdj(j,i)-jref)*cny+reflat
+        grdlon(j,i)=(grdi(j,i)-iref)*cnx+reflon
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridIJ2LL:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridIJ2LL_array2_r8(cgs,grdi,grdj,grdlon,grdlat,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ij2ll.F
+    ! Double precision 2d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(8)          :: grdi   (:,:)
+    real(8)          :: grdj   (:,:)
+    real(8)          :: grdlon (:,:)
+    real(8)          :: grdlat (:,:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridIJ2LL: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    if (cgs%ijg) then
+      lb1 = lbound(grdi,1)
+      ub1 = ubound(grdi,1)
+      lb2 = lbound(grdi,2)
+      ub2 = ubound(grdi,2)
+    else
+      lb1 = lbound(grdi,2)
+      ub1 = ubound(grdi,2)
+      lb2 = lbound(grdi,1)
+      ub2 = ubound(grdi,1)
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        rr=rih+(grdj(i,j)-jref)*dely
+        grdlat(i,j)=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon(i,j)=reflon+(grdi(i,j)-iref)*r2d*delx/con2
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        rr=rih+(grdj(j,i)-jref)*dely
+        grdlat(j,i)=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon(j,i)=reflon+(grdi(j,i)-iref)*r2d*delx/con2
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        x=xih+(grdi(i,j)-iref)*delx
+        y=yih+(grdj(i,j)-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat(i,j)=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon(i,j)=stdlon+angle*ogcon
+        deg=grdlat(i,j)*d2r
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        x=xih+(grdi(j,i)-iref)*delx
+        y=yih+(grdj(j,i)-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat(j,i)=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon(j,i)=stdlon+angle*ogcon
+        deg=grdlat(j,i)*d2r
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdlat(i,j)=(grdj(i,j)-jref)*cny+reflat
+        grdlon(i,j)=(grdi(i,j)-iref)*cnx+reflon
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdlat(j,i)=(grdj(j,i)-jref)*cny+reflat
+        grdlon(j,i)=(grdi(j,i)-iref)*cnx+reflon
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdlat(i,j)=(grdj(i,j)-jref)*cny+reflat
+        grdlon(i,j)=(grdi(i,j)-iref)*cnx+reflon
+        if (grdlon(i,j).gt.d360) grdlon(i,j)=grdlon(i,j)-d360
+        if (grdlon(i,j).lt.zero) grdlon(i,j)=grdlon(i,j)+d360
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdlat(j,i)=(grdj(j,i)-jref)*cny+reflat
+        grdlon(j,i)=(grdi(j,i)-iref)*cnx+reflon
+        if (grdlon(j,i).gt.d360) grdlon(j,i)=grdlon(j,i)-d360
+        if (grdlon(j,i).lt.zero) grdlon(j,i)=grdlon(j,i)+d360
+      enddo
+      enddo
+      endif
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridIJ2LL:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridIJ2LL_array1_r4(cgs,grdi,grdj,grdlon,grdlat,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ij2ll.F
+    ! Single precision 1d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(4)          :: grdi   (:)
+    real(4)          :: grdj   (:)
+    real(4)          :: grdlon (:)
+    real(4)          :: grdlat (:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridIJ2LL: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    lb1 = lbound(grdi,1)
+    ub1 = ubound(grdi,1)
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      do i = lb1, ub1
+        rr=rih+(grdj(i)-jref)*dely
+        grdlat(i)=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon(i)=reflon+(grdi(i)-iref)*r2d*delx/con2
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
+      enddo
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      do i = lb1, ub1
         x=xih+(grdi(i)-iref)*delx
         y=yih+(grdj(i)-jref)*dely
         rr=sqrt(x*x+y*y)
-        grdlat(i)=r2d*(pi2-2.d0*atan(cn3*(rr/cn2)**ogcon))*ihem
+        grdlat(i)=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
         xx= x
         yy=-y*ihem
-        if (yy.eq.0.d0) then
-          if (xx.le.0.d0) then
-            angle=-90.d0
-          elseif (xx.gt.0.d0) then
-            angle=90.d0
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
           endif
         else
           angle=atan2(xx,yy)*r2d
         endif
         grdlon(i)=stdlon+angle*ogcon
         deg=grdlat(i)*d2r
-        if (grdlon(i).gt.360.d0) grdlon(i)=grdlon(i)-360.d0
-        if (grdlon(i).lt.  0.d0) grdlon(i)=grdlon(i)+360.d0
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
       enddo
 
-      return
     !
     !***********************************************************************
-    !          analytic grid (igrid=4)
+    !          analytic grid (nproj=4) (delx/dely in meters)
     !***********************************************************************
     !
-    elseif (igrid.eq.4) then
+    elseif (nproj.eq.4) then
 
-      cnx=delx/onedeg
-      cny=dely/onedeg
-      do i = 1, npts
+      cnx=delx*m2d
+      cny=dely*m2d
+      do i = lb1, ub1
         grdlat(i)=(grdj(i)-jref)*cny+reflat
         grdlon(i)=(grdi(i)-iref)*cnx+reflon
-        if (grdlon(i).gt.360.d0) grdlon(i)=grdlon(i)-360.d0
-        if (grdlon(i).lt.  0.d0) grdlon(i)=grdlon(i)+360.d0
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
       enddo
 
-      return
     !
     !***********************************************************************
-    !          spherical grid (igrid=5)
+    !          spherical grid (nproj=5) (delx/dely in degrees)
     !***********************************************************************
     !
-    elseif (igrid.eq.5) then
+    elseif (nproj.eq.5) then
 
-      cnx=delx/onedeg
-      cny=dely/onedeg
-      do i = 1, npts
+      cnx=delx
+      cny=dely
+      do i = lb1, ub1
         grdlat(i)=(grdj(i)-jref)*cny+reflat
         grdlon(i)=(grdi(i)-iref)*cnx+reflon
-        if (grdlon(i).gt.360.d0) grdlon(i)=grdlon(i)-360.d0
-        if (grdlon(i).lt.  0.d0) grdlon(i)=grdlon(i)+360.d0
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
       enddo
-
-      return
 
     endif
-!
-!********************************************************************
-!          format statements
-!********************************************************************
-!
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
 800 format(/,' ',72('-'),/)
 805 format(/,' ERROR from subroutine CGridIJ2LL:',/ &
-            ,'   igrid must be one of the following values:',// &
+            ,'   nproj must be one of the following values:',// &
             ,'            1: mercator projection',/ &
             ,'            2: lambert conformal projection',/ &
             ,'            3: polar steographic projection',/ &
@@ -1285,129 +2347,1118 @@ module COAMPS_Gutil
 
   !-----------------------------------------------------------------------------
 
-  subroutine CGridLL2IJ(cgs,npts,grdlon,grdlat,grdi,grdj,rc)
+  subroutine CGridIJ2LL_array1_r8(cgs,grdi,grdj,grdlon,grdlat,rc)
     !***********************************************************************
-    ! Adapted from coampslib/ll2ij.F
+    ! Adapted from coampslib/ij2ll.F
+    ! Double precision 1d array interface
     !***********************************************************************
-    type(CGrid)        :: cgs
-    integer            :: npts
-    real(ESMF_KIND_RX) :: grdlon (npts)
-    real(ESMF_KIND_RX) :: grdlat (npts)
-    real(ESMF_KIND_RX) :: grdi   (npts)
-    real(ESMF_KIND_RX) :: grdj   (npts)
-    integer, optional  :: rc
+    type(CGrid)      :: cgs
+    real(8)          :: grdi   (:)
+    real(8)          :: grdj   (:)
+    real(8)          :: grdlon (:)
+    real(8)          :: grdlat (:)
+    integer,optional :: rc
 
     ! local variables
     integer :: i,j,ihem
-    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,d2r,deg,gcon
-    real(8) :: ogcon,omega4,onedeg,pi,pi2,pi4,r2d,radius,rih,rrih,x,xih,y,yih
-    real(8) :: check,alnfix,alon
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy
 
     ! local grid reference
-    integer :: igrid
+    integer :: nproj
     real(8) :: reflat,reflon
     integer :: iref,jref
     real(8) :: stdlt1,stdlt2,stdlon
     real(8) :: delx,dely
-    igrid = cgs%nproj
+    nproj  = cgs%nproj
     reflat = cgs%rlat
     reflon = cgs%rlon
-    iref = cgs%iref
-    jref = cgs%jref
+    iref   = cgs%iref
+    jref   = cgs%jref
     stdlt1 = cgs%phnt1
     stdlt2 = cgs%phnt2
     stdlon = cgs%alnnt
-    delx = cgs%delx
-    dely = cgs%dely
+    delx   = cgs%delx
+    dely   = cgs%dely
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    ! make sure igrid is an acceptable value
-    if (igrid.lt.1.or.igrid.gt.5) then
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
       print 800
-      print 805,igrid
+      print 805,nproj
       print 800
-      call ESMF_LogSetError(ESMF_FAILURE, rcToReturn=rc, &
-      msg='CGridLL2IJ: unsupported igrid')
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridIJ2LL: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
       return ! bail out
     endif
 
-    ! local constants
-    pi=4.d0*atan(1.d0)
-    pi2=pi/2.d0
-    pi4=pi/4.d0
-    d2r=pi/180.d0
-    r2d=180.d0/pi
-    radius=6371229.d0
-    omega4=4.d0*pi/86400.d0
-    onedeg=radius*2.d0*pi/360.d0
+    ! array bounds
+    lb1 = lbound(grdi,1)
+    ub1 = ubound(grdi,1)
 
     !
     !***********************************************************************
-    !          mercator projection (igrid=1)
+    !          mercator projection (nproj=1)
     !***********************************************************************
     !
-    if (igrid.eq.1) then
+    if (nproj.eq.1) then
 
       deg=abs(stdlt1)*d2r
       con1=cos(deg)
-      con2=radius*con1
-      deg=reflat*0.5d0*d2r
-      rih=con2*log(tan(pi4+deg))
-      do i = 1, npts
-        alon=grdlon(i)+180.d0-reflon
-        if (alon.lt.  0.d0) alon=alon+360.d0
-        if (alon.gt.360.d0) alon=alon-360.d0
-        grdi(i)=iref+(alon-180.d0)*con2/(r2d*delx)
-        deg=grdlat(i)*d2r+pi2
-        deg=deg*0.5d0
-        grdj(i)=jref+(con2*log(tan(deg))-rih)/dely
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      do i = lb1, ub1
+        rr=rih+(grdj(i)-jref)*dely
+        grdlat(i)=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon(i)=reflon+(grdi(i)-iref)*r2d*delx/con2
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
       enddo
 
-      return
     !
     !***********************************************************************
-    !          lambert conformal (igrid=2) or
-    !          polar stereographic (igrid=3)
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
     !***********************************************************************
     !
-    elseif (igrid.eq.2.or.igrid.eq.3) then
+    elseif (nproj.eq.2.or.nproj.eq.3) then
 
-      if (igrid.eq.2) then
+      if (nproj.eq.2) then
         if (stdlt1.eq.stdlt2) then
           gcon=sin(abs(stdlt1)*d2r)
         else
-          gcon=(log(sin((90.d0-abs(stdlt1))*d2r)) &
-               -log(sin((90.d0-abs(stdlt2))*d2r))) &
-              /(log(tan((90.d0-abs(stdlt1))*0.5d0*d2r)) &
-               -log(tan((90.d0-abs(stdlt2))*0.5d0*d2r)))
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
         endif
       else
-        gcon=1.d0
+        gcon=one
       endif
-      ogcon=1.d0/gcon
+      ogcon=one/gcon
       ihem=nint(abs(stdlt1)/stdlt1)
-      deg=(90.d0-abs(stdlt1))*d2r
+      deg=(d90-abs(stdlt1))*d2r
       cn1=sin(deg)
-      cn2=radius*cn1*ogcon
-      deg=deg*0.5d0
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
       cn3=tan(deg)
-      deg=(90.d0-abs(reflat))*0.5d0*d2r
+      deg=(d90-abs(reflat))*half*d2r
       cn4=tan(deg)
       rih=cn2*(cn4/cn3)**gcon
       deg=(reflon-stdlon)*d2r*gcon
       xih= rih*sin(deg)
       yih=-rih*cos(deg)*ihem
 
-      do i = 1, npts
-        deg=(90.d0-grdlat(i)*ihem)*0.5d0*d2r
+      do i = lb1, ub1
+        x=xih+(grdi(i)-iref)*delx
+        y=yih+(grdj(i)-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat(i)=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon(i)=stdlon+angle*ogcon
+        deg=grdlat(i)*d2r
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
+      enddo
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+      do i = lb1, ub1
+        grdlat(i)=(grdj(i)-jref)*cny+reflat
+        grdlon(i)=(grdi(i)-iref)*cnx+reflon
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
+      enddo
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+      do i = lb1, ub1
+        grdlat(i)=(grdj(i)-jref)*cny+reflat
+        grdlon(i)=(grdi(i)-iref)*cnx+reflon
+        if (grdlon(i).gt.d360) grdlon(i)=grdlon(i)-d360
+        if (grdlon(i).lt.zero) grdlon(i)=grdlon(i)+d360
+      enddo
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridIJ2LL:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridIJ2LL_point_r4(cgs,grdi,grdj,grdlon,grdlat,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ij2ll.F
+    ! Single precision point interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(4)          :: grdi
+    real(4)          :: grdj
+    real(4)          :: grdlon
+    real(4)          :: grdlat
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridIJ2LL: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+        rr=rih+(grdj-jref)*dely
+        grdlat=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon=reflon+(grdi-iref)*r2d*delx/con2
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+        x=xih+(grdi-iref)*delx
+        y=yih+(grdj-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon=stdlon+angle*ogcon
+        deg=grdlat*d2r
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+        grdlat=(grdj-jref)*cny+reflat
+        grdlon=(grdi-iref)*cnx+reflon
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+        grdlat=(grdj-jref)*cny+reflat
+        grdlon=(grdi-iref)*cnx+reflon
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridIJ2LL:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridIJ2LL_point_r8(cgs,grdi,grdj,grdlon,grdlat,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ij2ll.F
+    ! Double precision point interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(8)          :: grdi
+    real(8)          :: grdj
+    real(8)          :: grdlon
+    real(8)          :: grdlat
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rr,x,xih,xx,y,yih,yy
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridIJ2LL: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+        rr=rih+(grdj-jref)*dely
+        grdlat=(two*atan(exp(rr/con2))-pio2)*r2d
+        grdlon=reflon+(grdi-iref)*r2d*delx/con2
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+        x=xih+(grdi-iref)*delx
+        y=yih+(grdj-jref)*dely
+        rr=sqrt(x*x+y*y)
+        grdlat=r2d*(pio2-two*atan(cn3*(rr/cn2)**ogcon))*ihem
+        xx= x
+        yy=-y*ihem
+        if (yy.eq.zero) then
+          if (xx.le.zero) then
+            angle=-d90
+          elseif (xx.gt.zero) then
+            angle=d90
+          endif
+        else
+          angle=atan2(xx,yy)*r2d
+        endif
+        grdlon=stdlon+angle*ogcon
+        deg=grdlat*d2r
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+        grdlat=(grdj-jref)*cny+reflat
+        grdlon=(grdi-iref)*cnx+reflon
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+        grdlat=(grdj-jref)*cny+reflat
+        grdlon=(grdi-iref)*cnx+reflon
+        if (grdlon.gt.d360) grdlon=grdlon-d360
+        if (grdlon.lt.zero) grdlon=grdlon+d360
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridIJ2LL:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridLL2IJ_array2_r4(cgs,grdlon,grdlat,grdi,grdj,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ll2ij.F
+    ! Single precision 2d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(4)          :: grdlon (:,:)
+    real(4)          :: grdlat (:,:)
+    real(4)          :: grdi   (:,:)
+    real(4)          :: grdj   (:,:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rrih,x,xih,y,yih
+    real(8) :: check,alnfix,alon
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridLL2IJ: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    if (cgs%ijg) then
+      lb1 = lbound(grdlon,1)
+      ub1 = ubound(grdlon,1)
+      lb2 = lbound(grdlon,2)
+      ub2 = ubound(grdlon,2)
+    else
+      lb1 = lbound(grdlon,2)
+      ub1 = ubound(grdlon,2)
+      lb2 = lbound(grdlon,1)
+      ub2 = ubound(grdlon,1)
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        alon=grdlon(i,j)+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi(i,j)=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat(i,j)*d2r+pio2
+        deg=deg*half
+        grdj(i,j)=jref+(con2*log(tan(deg))-rih)/dely
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        alon=grdlon(j,i)+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi(j,i)=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat(j,i)*d2r+pio2
+        deg=deg*half
+        grdj(j,i)=jref+(con2*log(tan(deg))-rih)/dely
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        deg=(d90-grdlat(i,j)*ihem)*half*d2r
         cn4=tan(deg)
         rrih=cn2*(cn4/cn3)**gcon
-        check=180.d0-stdlon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon(i,j)+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi(i,j)=iref+(x-xih)/delx
+        grdj(i,j)=jref+(y-yih)/dely
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        deg=(d90-grdlat(j,i)*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon(j,i)+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi(j,i)=iref+(x-xih)/delx
+        grdj(j,i)=jref+(y-yih)/dely
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdi(i,j)=iref+(grdlon(i,j)-reflon)/cnx
+        grdj(i,j)=jref+(grdlat(i,j)-reflat)/cny
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdi(j,i)=iref+(grdlon(j,i)-reflon)/cnx
+        grdj(j,i)=jref+(grdlat(j,i)-reflat)/cny
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdi(i,j)=iref+(grdlon(i,j)-reflon)/cnx
+        grdj(i,j)=jref+(grdlat(i,j)-reflat)/cny
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdi(j,i)=iref+(grdlon(j,i)-reflon)/cnx
+        grdj(j,i)=jref+(grdlat(j,i)-reflat)/cny
+      enddo
+      enddo
+      endif
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridLL2IJ:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridLL2IJ_array2_r8(cgs,grdlon,grdlat,grdi,grdj,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ll2ij.F
+    ! Double precision 2d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(8)          :: grdlon (:,:)
+    real(8)          :: grdlat (:,:)
+    real(8)          :: grdi   (:,:)
+    real(8)          :: grdj   (:,:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rrih,x,xih,y,yih
+    real(8) :: check,alnfix,alon
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridLL2IJ: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    if (cgs%ijg) then
+      lb1 = lbound(grdlon,1)
+      ub1 = ubound(grdlon,1)
+      lb2 = lbound(grdlon,2)
+      ub2 = ubound(grdlon,2)
+    else
+      lb1 = lbound(grdlon,2)
+      ub1 = ubound(grdlon,2)
+      lb2 = lbound(grdlon,1)
+      ub2 = ubound(grdlon,1)
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        alon=grdlon(i,j)+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi(i,j)=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat(i,j)*d2r+pio2
+        deg=deg*half
+        grdj(i,j)=jref+(con2*log(tan(deg))-rih)/dely
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        alon=grdlon(j,i)+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi(j,i)=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat(j,i)*d2r+pio2
+        deg=deg*half
+        grdj(j,i)=jref+(con2*log(tan(deg))-rih)/dely
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        deg=(d90-grdlat(i,j)*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon(i,j)+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi(i,j)=iref+(x-xih)/delx
+        grdj(i,j)=jref+(y-yih)/dely
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        deg=(d90-grdlat(j,i)*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon(j,i)+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi(j,i)=iref+(x-xih)/delx
+        grdj(j,i)=jref+(y-yih)/dely
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdi(i,j)=iref+(grdlon(i,j)-reflon)/cnx
+        grdj(i,j)=jref+(grdlat(i,j)-reflat)/cny
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdi(j,i)=iref+(grdlon(j,i)-reflon)/cnx
+        grdj(j,i)=jref+(grdlat(j,i)-reflat)/cny
+      enddo
+      enddo
+      endif
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+      if (cgs%ijg) then
+      do j = lb2, ub2
+      do i = lb1, ub1
+        grdi(i,j)=iref+(grdlon(i,j)-reflon)/cnx
+        grdj(i,j)=jref+(grdlat(i,j)-reflat)/cny
+      enddo
+      enddo
+      else
+      do i = lb2, ub2
+      do j = lb1, ub1
+        grdi(j,i)=iref+(grdlon(j,i)-reflon)/cnx
+        grdj(j,i)=jref+(grdlat(j,i)-reflat)/cny
+      enddo
+      enddo
+      endif
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridLL2IJ:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridLL2IJ_array1_r4(cgs,grdlon,grdlat,grdi,grdj,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ll2ij.F
+    ! Single precision 1d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(4)          :: grdlon (:)
+    real(4)          :: grdlat (:)
+    real(4)          :: grdi   (:)
+    real(4)          :: grdj   (:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rrih,x,xih,y,yih
+    real(8) :: check,alnfix,alon
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridLL2IJ: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    lb1 = lbound(grdlon,1)
+    ub1 = ubound(grdlon,1)
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      do i = lb1, ub1
+        alon=grdlon(i)+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi(i)=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat(i)*d2r+pio2
+        deg=deg*half
+        grdj(i)=jref+(con2*log(tan(deg))-rih)/dely
+      enddo
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      do i = lb1, ub1
+        deg=(d90-grdlat(i)*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
         alnfix=stdlon+check
         alon=grdlon(i)+check
-        if (alon.lt.  0.d0) alon=alon+360.d0
-        if (alon.gt.360.d0) alon=alon-360.d0
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
         deg=(alon-alnfix)*gcon*d2r
         x= rrih*sin(deg)
         y=-rrih*cos(deg)*ihem
@@ -1415,47 +3466,535 @@ module COAMPS_Gutil
         grdj(i)=jref+(y-yih)/dely
       enddo
 
-      return
     !
     !***********************************************************************
-    !          analytic grid (igrid=4)
+    !          analytic grid (nproj=4) (delx/dely in meters)
     !***********************************************************************
     !
-    elseif (igrid.eq.4) then
+    elseif (nproj.eq.4) then
 
-      cnx=delx/onedeg
-      cny=dely/onedeg
-      do i = 1, npts
+      cnx=delx*m2d
+      cny=dely*m2d
+      do i = lb1, ub1
         grdi(i)=iref+(grdlon(i)-reflon)/cnx
         grdj(i)=jref+(grdlat(i)-reflat)/cny
       enddo
 
-      return
     !
     !***********************************************************************
-    !          spherical grid (igrid=5)
+    !          spherical grid (nproj=5) (delx/dely in degrees)
     !***********************************************************************
     !
-    elseif (igrid.eq.5) then
+    elseif (nproj.eq.5) then
 
-      cnx=delx/onedeg
-      cny=dely/onedeg
-      do i = 1, npts
+      cnx=delx
+      cny=dely
+      do i = lb1, ub1
         grdi(i)=iref+(grdlon(i)-reflon)/cnx
         grdj(i)=jref+(grdlat(i)-reflat)/cny
       enddo
-
-      return
 
     endif
-!
-!********************************************************************
-!          format statements
-!********************************************************************
-!
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
 800 format(/,' ',72('-'),/)
 805 format(/,' ERROR from subroutine CGridLL2IJ:',/ &
-            ,'   igrid must be one of the following values:',// &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridLL2IJ_array1_r8(cgs,grdlon,grdlat,grdi,grdj,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ll2ij.F
+    ! Double precision 1d array interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(8)          :: grdlon (:)
+    real(8)          :: grdlat (:)
+    real(8)          :: grdi   (:)
+    real(8)          :: grdj   (:)
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rrih,x,xih,y,yih
+    real(8) :: check,alnfix,alon
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridLL2IJ: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    ! array bounds
+    lb1 = lbound(grdlon,1)
+    ub1 = ubound(grdlon,1)
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+      do i = lb1, ub1
+        alon=grdlon(i)+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi(i)=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat(i)*d2r+pio2
+        deg=deg*half
+        grdj(i)=jref+(con2*log(tan(deg))-rih)/dely
+      enddo
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+      do i = lb1, ub1
+        deg=(d90-grdlat(i)*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon(i)+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi(i)=iref+(x-xih)/delx
+        grdj(i)=jref+(y-yih)/dely
+      enddo
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+      do i = lb1, ub1
+        grdi(i)=iref+(grdlon(i)-reflon)/cnx
+        grdj(i)=jref+(grdlat(i)-reflat)/cny
+      enddo
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+      do i = lb1, ub1
+        grdi(i)=iref+(grdlon(i)-reflon)/cnx
+        grdj(i)=jref+(grdlat(i)-reflat)/cny
+      enddo
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridLL2IJ:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridLL2IJ_point_r4(cgs,grdlon,grdlat,grdi,grdj,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ll2ij.F
+    ! Single precision point interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(4)          :: grdlon
+    real(4)          :: grdlat
+    real(4)          :: grdi
+    real(4)          :: grdj
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rrih,x,xih,y,yih
+    real(8) :: check,alnfix,alon
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridLL2IJ: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+        alon=grdlon+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat*d2r+pio2
+        deg=deg*half
+        grdj=jref+(con2*log(tan(deg))-rih)/dely
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+        deg=(d90-grdlat*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi=iref+(x-xih)/delx
+        grdj=jref+(y-yih)/dely
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+        grdi=iref+(grdlon-reflon)/cnx
+        grdj=jref+(grdlat-reflat)/cny
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+        grdi=iref+(grdlon-reflon)/cnx
+        grdj=jref+(grdlat-reflat)/cny
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridLL2IJ:',/ &
+            ,'   nproj must be one of the following values:',// &
+            ,'            1: mercator projection',/ &
+            ,'            2: lambert conformal projection',/ &
+            ,'            3: polar steographic projection',/ &
+            ,'            4: cartesian coordinates',/ &
+            ,'            5: spherical projection',// &
+            ,' Your entry was:',i6,', Correct and try again',/)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine CGridLL2IJ_point_r8(cgs,grdlon,grdlat,grdi,grdj,rc)
+    !***********************************************************************
+    ! Adapted from coampslib/ll2ij.F
+    ! Double precision point interface
+    !***********************************************************************
+    type(CGrid)      :: cgs
+    real(8)          :: grdlon
+    real(8)          :: grdlat
+    real(8)          :: grdi
+    real(8)          :: grdj
+    integer,optional :: rc
+
+    ! local variables
+    integer :: i,j,ihem
+    integer :: lb1,ub1,lb2,ub2
+    real(8) :: angle,cn1,cn2,cn3,cn4,cnx,cny,con1,con2,deg,gcon
+    real(8) :: ogcon,rih,rrih,x,xih,y,yih
+    real(8) :: check,alnfix,alon
+
+    ! local grid reference
+    integer :: nproj
+    real(8) :: reflat,reflon
+    integer :: iref,jref
+    real(8) :: stdlt1,stdlt2,stdlon
+    real(8) :: delx,dely
+    nproj  = cgs%nproj
+    reflat = cgs%rlat
+    reflon = cgs%rlon
+    iref   = cgs%iref
+    jref   = cgs%jref
+    stdlt1 = cgs%phnt1
+    stdlt2 = cgs%phnt2
+    stdlon = cgs%alnnt
+    delx   = cgs%delx
+    dely   = cgs%dely
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! make sure nproj is an acceptable value
+    if (nproj.lt.1.or.nproj.gt.5) then
+      print 800
+      print 805,nproj
+      print 800
+      call ESMF_LogSetError(ESMF_FAILURE, msg='CGridLL2IJ: unsupported nproj', &
+        CONTEXT, rcToReturn=rc)
+      return ! bail out
+    endif
+
+    !
+    !***********************************************************************
+    !          mercator projection (nproj=1)
+    !***********************************************************************
+    !
+    if (nproj.eq.1) then
+
+      deg=abs(stdlt1)*d2r
+      con1=cos(deg)
+      con2=rearth*con1
+      deg=reflat*half*d2r
+      rih=con2*log(tan(pio4+deg))
+        alon=grdlon+d180-reflon
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        grdi=iref+(alon-d180)*con2/(r2d*delx)
+        deg=grdlat*d2r+pio2
+        deg=deg*half
+        grdj=jref+(con2*log(tan(deg))-rih)/dely
+
+    !
+    !***********************************************************************
+    !          lambert conformal (nproj=2) or
+    !          polar stereographic (nproj=3)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.2.or.nproj.eq.3) then
+
+      if (nproj.eq.2) then
+        if (stdlt1.eq.stdlt2) then
+          gcon=sin(abs(stdlt1)*d2r)
+        else
+          gcon=(log(sin((d90-abs(stdlt1))*d2r)) &
+               -log(sin((d90-abs(stdlt2))*d2r))) &
+              /(log(tan((d90-abs(stdlt1))*half*d2r)) &
+               -log(tan((d90-abs(stdlt2))*half*d2r)))
+        endif
+      else
+        gcon=one
+      endif
+      ogcon=one/gcon
+      ihem=nint(abs(stdlt1)/stdlt1)
+      deg=(d90-abs(stdlt1))*d2r
+      cn1=sin(deg)
+      cn2=rearth*cn1*ogcon
+      deg=deg*half
+      cn3=tan(deg)
+      deg=(d90-abs(reflat))*half*d2r
+      cn4=tan(deg)
+      rih=cn2*(cn4/cn3)**gcon
+      deg=(reflon-stdlon)*d2r*gcon
+      xih= rih*sin(deg)
+      yih=-rih*cos(deg)*ihem
+
+        deg=(d90-grdlat*ihem)*half*d2r
+        cn4=tan(deg)
+        rrih=cn2*(cn4/cn3)**gcon
+        check=d180-stdlon
+        alnfix=stdlon+check
+        alon=grdlon+check
+        if (alon.lt.zero) alon=alon+d360
+        if (alon.gt.d360) alon=alon-d360
+        deg=(alon-alnfix)*gcon*d2r
+        x= rrih*sin(deg)
+        y=-rrih*cos(deg)*ihem
+        grdi=iref+(x-xih)/delx
+        grdj=jref+(y-yih)/dely
+
+    !
+    !***********************************************************************
+    !          analytic grid (nproj=4) (delx/dely in meters)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.4) then
+
+      cnx=delx*m2d
+      cny=dely*m2d
+        grdi=iref+(grdlon-reflon)/cnx
+        grdj=jref+(grdlat-reflat)/cny
+
+    !
+    !***********************************************************************
+    !          spherical grid (nproj=5) (delx/dely in degrees)
+    !***********************************************************************
+    !
+    elseif (nproj.eq.5) then
+
+      cnx=delx
+      cny=dely
+        grdi=iref+(grdlon-reflon)/cnx
+        grdj=jref+(grdlat-reflat)/cny
+
+    endif
+    !
+    !********************************************************************
+    !          format statements
+    !********************************************************************
+    !
+800 format(/,' ',72('-'),/)
+805 format(/,' ERROR from subroutine CGridLL2IJ:',/ &
+            ,'   nproj must be one of the following values:',// &
             ,'            1: mercator projection',/ &
             ,'            2: lambert conformal projection',/ &
             ,'            3: polar steographic projection',/ &

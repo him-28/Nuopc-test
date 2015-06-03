@@ -45,6 +45,9 @@ else
   TOP_CPPFLAGS := -DREAL4
 endif
 
+# for COAMPS_Gsrumd
+TOP_CPPFLAGS += -DENABLE_MPI
+
 # top-level module include path
 TOP_INCPATH := $(addprefix -I, $(MODDIR))
 
@@ -76,11 +79,9 @@ DEP_LINK_OBJS :=
 # BKM Settings
 #-------------------------------------------------------------------------------
 ifeq (coamps_bkm,$(MAKECMDGOALS))
-  DEP_CMPL_OBJS += $(OBJDIR)/COAMPS_Futil.o
   DEP_CMPL_OBJS += $(OBJDIR)/COAMPS_Gutil.o
   DEP_LINK_OBJS += $(OBJDIR)/COAMPS_BKM_App.o
   DEP_LINK_OBJS += $(DEP_CMPL_OBJS)
-  DEP_LINK_OBJS += $(OBJDIR)/COAMPS_Gsrumd.o
   DEP_LINK_OBJS += $(OBJDIR)/COAMPS_Gdem.o
 endif
 #-------------------------------------------------------------------------------

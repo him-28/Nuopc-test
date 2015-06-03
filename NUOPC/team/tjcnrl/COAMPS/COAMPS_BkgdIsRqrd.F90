@@ -11,7 +11,6 @@
 program BkgdIsRqrd
 
   use ESMF
-  use COAMPS_Futil
   use COAMPS_Gutil
 
   implicit none

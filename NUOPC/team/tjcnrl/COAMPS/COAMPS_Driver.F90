@@ -357,6 +357,18 @@ module FRONT_DRM
     modType(:,:) = 'none'
     modTndx(:) = 0
 
+    ! *** report name of processor ***
+
+    call MPI_Get_Processor_Name(msgString, k, lrc)
+    if (lrc.ne.0) then
+      write(msgString,'(a)') 'Error in MPI_Get_Processor_Name'
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_ERROR)
+      rc = ESMF_FAILURE
+      return
+    endif
+    call ESMF_LogWrite(trim(cname)//': Processor Name: '//trim(msgString), ESMF_LOGMSG_INFO)
+
+
     ! *** report compiled modules, set model count, model index mapping, and model names ***
 
     ! CON component

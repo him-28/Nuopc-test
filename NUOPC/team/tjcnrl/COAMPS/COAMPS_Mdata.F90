@@ -1479,7 +1479,7 @@ module COAMPS_Mdata
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
           ! compute tendency
           call FieldAdd(is%wrap%ftend(i), is%wrap%ftend(i), is%wrap%field(i), &
-            src1Fac=1._ESMF_KIND_RX, src2Fac=-1._ESMF_KIND_RX, rc=rc)
+            src1Fac=real(1,ESMF_KIND_RX), src2Fac=real(-1,ESMF_KIND_RX), rc=rc)
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
         case (modTypeHindcast)
           nextTime = startTime + is%wrap%timeStep
@@ -1506,7 +1506,7 @@ module COAMPS_Mdata
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
           ! compute tendency
           call FieldAdd(is%wrap%ftend(i), is%wrap%ftend(i), is%wrap%field(i), &
-            src1Fac=1._ESMF_KIND_RX, src2Fac=-1._ESMF_KIND_RX, rc=rc)
+            src1Fac=real(1,ESMF_KIND_RX), src2Fac=real(-1,ESMF_KIND_RX), rc=rc)
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
         endselect
       enddo
@@ -1520,7 +1520,7 @@ module COAMPS_Mdata
       if (.not.is%wrap%isActive(i)) cycle
       ! compute new forecast field
       call FieldAdd(is%wrap%field(i), is%wrap%field(i), is%wrap%ftend(i), &
-        src1Fac=1._ESMF_KIND_RX, src2Fac=is%wrap%dtRatio, rc=rc)
+        src1Fac=real(1,ESMF_KIND_RX), src2Fac=is%wrap%dtRatio, rc=rc)
       if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
     enddo
 
@@ -1555,7 +1555,7 @@ module COAMPS_Mdata
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
           ! compute tendency
           call FieldAdd(is%wrap%ftend(i), is%wrap%ftend(i), is%wrap%field(i), &
-            src1Fac=1._ESMF_KIND_RX, src2Fac=-1._ESMF_KIND_RX, rc=rc)
+            src1Fac=real(1,ESMF_KIND_RX), src2Fac=real(-1,ESMF_KIND_RX), rc=rc)
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
         case (modTypeHindcast)
           nextTime = currTime + is%wrap%timeStep
@@ -1576,7 +1576,7 @@ module COAMPS_Mdata
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
           ! compute tendency
           call FieldAdd(is%wrap%ftend(i), is%wrap%ftend(i), is%wrap%field(i), &
-            src1Fac=1._ESMF_KIND_RX, src2Fac=-1._ESMF_KIND_RX, rc=rc)
+            src1Fac=real(1,ESMF_KIND_RX), src2Fac=real(-1,ESMF_KIND_RX), rc=rc)
           if (ESMF_LogFoundError(rc, PASSTHRU)) return ! bail out
         endselect
       enddo
