@@ -91,17 +91,6 @@
 !             (x1,y1)              (x2,y2)
 !
 !
-!     There are two types of index space closure supported for lat/lon grids.
-!
-!       1) Simple closure: Grid is periodic in the i-index and wraps
-!          at i=NX+1. In other words, (NX+1,j) => (1,j).
-!
-!       2) Tripole grid closure: Grid is periodic in the i-index and
-!          and wraps at i=NX+1 and has closure at j=NY+1. In other words,
-!          (NX+1,j<=NY) => (1,j) and (i,NY+1) => (NX-MOD(i-1,NX),NY).
-!          The tripole grid closure requires that NX be even.
-!
-!
 !     A simple interpolation example:
 !
 !          -----------------------------------------------------------
