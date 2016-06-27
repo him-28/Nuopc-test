@@ -3,7 +3,7 @@
 import sys
 import getopt
 import json
-#import pprint
+import pprint
 
 # The comps dictionary maintains the current state.
 # This is the basic structure:
@@ -13,9 +13,10 @@ import json
 #            "IMP" : {"IPDv01p1":"1", ...},
 #            "RPM" : {"RunPhase1":"1", ...},
 #            "FPM" : {"FinalizePhase1":"1",...},
-#            "Fields" : { "sea_surface_temp" : {},
+#            "ImportState" : { "sea_surface_temp" : {},
 #                         "uwind" : {}
 #                       },
+#	     "ExportState" : { "field_name" : {}, ...}    
 #            "RunSequence" : [0, "IPDv01p1", "IPDv01p2", ...]  # sequence of phases
 #            
 #           },
@@ -34,7 +35,8 @@ def populateComponent(jComp):
         comp = comps[compName]
         comp["kind"] = jComp.get("Kind$NUOPC$Component")
         comp["RunSequence"] = []
-        comp["Fields"] = {}
+        comp["ImportFields"] = {}
+	comp["ExportFields"] = {}
 
         if "InitializePhaseMap$NUOPC$Component" in jComp:
             comp["IPM"] = {}
@@ -85,28 +87,44 @@ def handlePhase(jEvent, level):
     else:
         phaseStr = " ".join(str(x) for x in phaseLabels)
         
+    timestamp = ""
+    if (jEvent["currTime"] != ""):
+	    timestamp = "["+jEvent["currTime"]+"]"
+   
     if jEvent["name"] == "start_phase":
-        print ("    "*level) + jEvent["compName"] + " (" + jEvent["method"] + " " + phaseStr + ")"
+	print ("    "*level) + "=>" + jEvent["compName"] + " (" + jEvent["method"] + " " + phaseStr + ")\t" + timestamp
         comps[jEvent["compName"]]["RunSequence"].append(phaseStr)
     else:
+	print ("    "*level) + "<=" + jEvent["compName"] + " (" + jEvent["method"] + " " + phaseStr + ")\t" + timestamp
         pass
 
-def handleState(jState):
+def handleState(jState, level):
+    
     compName = jState.get("Namespace$NUOPC$Instance")
     stateIntent = jState.get("intent$NUOPC$Instance")
+    if "IMPORT" in stateIntent:
+        stateIntent = "Import"
+    elif "EXPORT" in stateIntent:
+ 	stateIntent = "Export"
+    else:
+	stateIntent = "Unknown"
+
     fieldList = jState.get("linkList", [])
+       
     if compName is not None and comps.get(compName):
-        compFields = comps[compName]["Fields"]
+        compFields = comps[compName][stateIntent + "Fields"]
         for fld in fieldList:
             fieldName = fld["field"].get("StandardName$CF$Extended")
             if fieldName is not None:
                 if compFields.get(fieldName) is None:
                     compFields[fieldName] = {}
-            if stateIntent is not None:
-                compFields[fieldName]["Intent"] = stateIntent
+            #if stateIntent is not None:
+            #    compFields[fieldName]["Intent"] = stateIntent
             isConnected = fld["field"].get("Connected$NUOPC$Instance")
             if isConnected is not None:
                 compFields[fieldName]["Connected"] = isConnected
+   
+    	print ("    "*level)  + " => " + stateIntent + ": " + str(len(compFields)) + " fields: " + str(compFields.keys())
 
 def main(argv):
 #    try:
@@ -151,23 +169,35 @@ def main(argv):
                         handlePhase(jEvent, level)
                 elif "state" in jLine:
                     jState = jLine["state"]
-                    handleState(jState)
+                    handleState(jState, level)
                     
     #print component info
+    row_format ="  {0: <45}{1: <5}"
+	
     for c in comps:
         if comps[c].get("kind"):
             print ""
             print ""
             print "Component:  " + c + " (" + str(comps[c].get("kind")) + ")"
-            print "***************************************************"
+            print "*"*55
             print ""
-            print "Fields:"
-            print "-------"
-            for f in comps[c].get("Fields", []):
-                print f + ": Connected=" + comps[c]["Fields"][f].get("Connected")              
+            print "  Import Fields:"
+            print "  --------------"
+	    print row_format.format("Standard Name", "Connected")
+            print "  " + ("="*55)
+            for f in comps[c].get("ImportFields", []):
+              	print row_format.format(f, comps[c]["ImportFields"][f].get("Connected")) 
+	    print ""
+	    print "  Export Fields:"
+            print "  --------------"
+            print row_format.format("Standard Name", "Connected")
+	    print "  " + ("="*55)
+            for f in comps[c].get("ExportFields", []):
+              	print row_format.format(f, comps[c]["ExportFields"][f].get("Connected"))               
+          
 
-#    pp = pprint.PrettyPrinter(indent=4)
-#    pp.pprint(comps)
+    #pp = pprint.PrettyPrinter(indent=4)
+    #pp.pprint(comps)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
