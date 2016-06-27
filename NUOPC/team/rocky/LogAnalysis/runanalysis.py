@@ -66,6 +66,10 @@ def populateComponent(jComp):
 
 def lookupPhaseLabels(compName, method, phase):
     retList = []
+    
+    if not comp.get(compName):
+	return retList
+
     if method == "init":
         phaseMap = comps[compName]["IPM"]
     elif method == "run":
