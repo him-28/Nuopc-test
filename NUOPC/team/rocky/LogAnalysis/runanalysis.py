@@ -37,6 +37,7 @@ def populateComponent(jComp):
         comp["RunSequence"] = []
         comp["ImportFields"] = {}
 	comp["ExportFields"] = {}
+        comp["UnknownFields"] = {}
 
         if "InitializePhaseMap$NUOPC$Component" in jComp:
             comp["IPM"] = {}
@@ -67,17 +68,16 @@ def populateComponent(jComp):
 def lookupPhaseLabels(compName, method, phase):
     retList = []
     
-    if not comp.get(compName):
+    if not comps.get(compName):
 	return retList
 
+    phaseMap = {}
     if method == "init":
-        phaseMap = comps[compName]["IPM"]
+        phaseMap = comps[compName].get("IPM",{})
     elif method == "run":
-        phaseMap = comps[compName]["RPM"]
+        phaseMap = comps[compName].get("RPM",{})
     elif method == "final":
-        phaseMap = comps[compName]["FPM"]
-    else:
-        phaseMap = {}
+        phaseMap = comps[compName].get("FPM",{})
 
     for (k,v) in phaseMap.items():
         if v == phase:
@@ -92,7 +92,7 @@ def handlePhase(jEvent, level):
         phaseStr = " ".join(str(x) for x in phaseLabels)
         
     timestamp = ""
-    if (jEvent["currTime"] != ""):
+    if jEvent.get("currTime", "") != "":
 	    timestamp = "["+jEvent["currTime"]+"]"
    
     if jEvent["name"] == "start_phase":
@@ -118,6 +118,9 @@ def handleState(jState, level):
     if compName is not None and comps.get(compName):
         compFields = comps[compName][stateIntent + "Fields"]
         for fld in fieldList:
+            if fld.get("field") is None:
+                #TODO: deal with nested state
+                continue
             fieldName = fld["field"].get("StandardName$CF$Extended")
             if fieldName is not None:
                 if compFields.get(fieldName) is None:
@@ -128,7 +131,7 @@ def handleState(jState, level):
             if isConnected is not None:
                 compFields[fieldName]["Connected"] = isConnected
    
-    	print ("    "*level)  + " => " + stateIntent + ": " + str(len(compFields)) + " fields: " + str(compFields.keys())
+    	print ("    "*level)  + " => " + stateIntent + ": " + str(len(compFields)) + " fields: " # + str(compFields.keys())
 
 def main(argv):
 #    try:
