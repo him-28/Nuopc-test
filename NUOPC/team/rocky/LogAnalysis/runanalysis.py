@@ -13,10 +13,13 @@ import pprint
 #            "IMP" : {"IPDv01p1":"1", ...},
 #            "RPM" : {"RunPhase1":"1", ...},
 #            "FPM" : {"FinalizePhase1":"1",...},
-#            "ImportState" : { "sea_surface_temp" : {},
-#                         "uwind" : {}
+#            "States" : [
+#                       { "namespace":"ATM", "intent":"Import",
+#                         "Fields":[{"standardName":"sst", "connected":"true"}, {}, ...]
 #                       },
-#	     "ExportState" : { "field_name" : {}, ...}    
+#	                { "namespace":"ATM", "intent":"Export",
+#                         "States":[ {...}, {...} ]  #nested states 
+#                       }]
 #            "RunSequence" : [0, "IPDv01p1", "IPDv01p2", ...]  # sequence of phases
 #            
 #           },
@@ -35,10 +38,12 @@ def populateComponent(jComp):
         comp = comps[compName]
         comp["kind"] = jComp.get("Kind$NUOPC$Component")
         comp["RunSequence"] = []
-        comp["ImportFields"] = {}
-	comp["ExportFields"] = {}
-        comp["UnknownFields"] = {}
+        #comp["ImportFields"] = {}
+	#comp["ExportFields"] = {}
+        #comp["UnknownFields"] = {}
 
+        comp["States"] = []
+        
         if "InitializePhaseMap$NUOPC$Component" in jComp:
             comp["IPM"] = {}
             for kv in jComp["InitializePhaseMap$NUOPC$Component"]:
@@ -102,36 +107,58 @@ def handlePhase(jEvent, level):
 	print ("    "*level) + "<=" + jEvent["compName"] + " (" + jEvent["method"] + " " + phaseStr + ")\t" + timestamp
         pass
 
-def handleState(jState, level):
-    
-    compName = jState.get("Namespace$NUOPC$Instance")
-    stateIntent = jState.get("intent$NUOPC$Instance")
-    if "IMPORT" in stateIntent:
-        stateIntent = "Import"
-    elif "EXPORT" in stateIntent:
- 	stateIntent = "Export"
+def handleState(jState, level, stateList):
+    namespace = jState.get("Namespace$NUOPC$Instance")
+    intent = jState.get("intent$NUOPC$Instance", "")
+    if "IMPORT" in intent:
+        intent = "Import"
+    elif "EXPORT" in intent:
+ 	intent = "Export"
     else:
-	stateIntent = "Unknown"
+	intent = "Unknown"
+        
+    # see if already in list
+    try:
+        stateDict = next(s for s in stateList if s.get("namespace")==namespace and s.get("intent")==intent)
+    except StopIteration:
+        stateDict = {}
+        stateDict["namespace"] = namespace
+        stateDict["intent"] = intent
+        stateList.append(stateDict)
 
-    fieldList = jState.get("linkList", [])
-       
-    if compName is not None and comps.get(compName):
-        compFields = comps[compName][stateIntent + "Fields"]
-        for fld in fieldList:
-            if fld.get("field") is None:
-                #TODO: deal with nested state
-                continue
-            fieldName = fld["field"].get("StandardName$CF$Extended")
-            if fieldName is not None:
-                if compFields.get(fieldName) is None:
-                    compFields[fieldName] = {}
-            #if stateIntent is not None:
-            #    compFields[fieldName]["Intent"] = stateIntent
-            isConnected = fld["field"].get("Connected$NUOPC$Instance")
-            if isConnected is not None:
-                compFields[fieldName]["Connected"] = isConnected
+    # handle linked
+    linkList = jState.get("linkList", [])
+    if len(linkList) > 0:
+        if "field" in linkList[0].keys():
+            fieldList = stateDict.setdefault("Fields", [])
+            handleFieldList(linkList, level, fieldList)
+        if "state" in linkList[0].keys():
+            stateList = stateDict.setdefault("States", [])
+            handleStateList(linkList, level, stateList)
    
-    	print ("    "*level)  + " => " + stateIntent + ": " + str(len(compFields)) + " fields: " # + str(compFields.keys())
+    #print ("    "*level)  + " => " + stateIntent + ": " + str(len(compFields)) + " fields: " # + str(compFields.keys())    
+
+def handleStateList(jStateList, level, stateList):
+    for s in jStateList:
+        handleState(s["state"], level, stateList)
+
+def handleFieldList(jFieldList, level, fieldList):
+    for f in jFieldList:
+        fieldDict = f["field"]
+        standardName = fieldDict.get("StandardName$CF$Extended")
+        connected = fieldDict.get("Connected$NUOPC$Instance")
+        units = fieldDict.get("Units$CF$General")
+
+        # see if already in list
+        try:
+            fieldItem = next(i for i in fieldList if i.get("standardName")==standardName)
+        except StopIteration:
+            fieldItem = {}
+            fieldItem["standardName"] = standardName
+            fieldList.append(fieldItem)
+
+        fieldItem["connected"] = connected
+        fieldItem["units"] = units
 
 def main(argv):
 #    try:
@@ -150,7 +177,7 @@ def main(argv):
 #            outputfile = arg
     
     logfile = argv[1]
-    print "Log file: " + logfile
+    print "Reading log file: " + logfile
 
     #first pass, get component info
     with open(logfile) as f:
@@ -176,35 +203,62 @@ def main(argv):
                         handlePhase(jEvent, level)
                 elif "state" in jLine:
                     jState = jLine["state"]
-                    handleState(jState, level)
-                    
-    #print component info
-    row_format ="  {0: <45}{1: <5}"
+                    namespace = jState.get("Namespace$NUOPC$Instance")
+                    if namespace is not None:
+                        compDict = comps.get(namespace)
+                        if compDict is not None:
+                            stateList = compDict["States"]
+                            handleState(jState, level, stateList)
+                        else:
+                            #print "Warning: No component record for state: " + namespace
+                            pass
+                    else:
+                        #print "Warning:  State has no namespace"
+                        pass
+    
 	
     for c in comps:
         if comps[c].get("kind"):
             print ""
             print ""
             print "Component:  " + c + " (" + str(comps[c].get("kind")) + ")"
-            print "*"*55
+            print "*"*77
             print ""
             print "  Import Fields:"
-            print "  --------------"
-	    print row_format.format("Standard Name", "Connected")
-            print "  " + ("="*55)
-            for f in comps[c].get("ImportFields", []):
-              	print row_format.format(f, comps[c]["ImportFields"][f].get("Connected")) 
-	    print ""
+            print "  " + ("-"*75)
+            printState(next((s for s in comps[c]["States"] if s["intent"]=="Import"), None))
+            print ""
 	    print "  Export Fields:"
-            print "  --------------"
-            print row_format.format("Standard Name", "Connected")
-	    print "  " + ("="*55)
-            for f in comps[c].get("ExportFields", []):
-              	print row_format.format(f, comps[c]["ExportFields"][f].get("Connected"))               
+            print "  " + ("-"*75)
+            printState(next((s for s in comps[c]["States"] if s["intent"]=="Export"), None))
+
+            #for f in comps[c].get("ExportFields", []):
+            #  	print row_format.format(f, comps[c]["ExportFields"][f].get("Connected"))               
           
 
     #pp = pprint.PrettyPrinter(indent=4)
     #pp.pprint(comps)
+
+def printState(stateDict):
+    if stateDict is None:
+        return
+
+    #print component info
+    fmt ="  {0: <10}{1: <42}{2: <13} {3: <5}"
+    print fmt.format("Namespace", "Standard Name", "Units", "Connected")
+    print "  " + ("="*75)    
+    for r in flattenState(stateDict):
+        print fmt.format(r[0], r[1], r[2], r[3])
+
+def flattenState(stateDict):
+    retList = []
+    if len(stateDict.get("Fields", [])) > 0:
+        for f in stateDict["Fields"]:
+            retList.append((stateDict.get("namespace"), f["standardName"], f.get("units"), f["connected"]))
+    elif len(stateDict.get("States", [])) > 0:
+        for s in stateDict["States"]:
+            retList.extend(flattenState(s))
+    return retList
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
