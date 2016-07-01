@@ -178,15 +178,22 @@ def main(argv):
     
     logfile = argv[1]
     print "Reading log file: " + logfile
+   
+    errorCount = 0
+    warningCount = 0
 
     #first pass, get component info
     with open(logfile) as f:
         for line in f:
-            if (line[20:24] == "JSON"):
+            if line[20:24] == "JSON":
                 jLine = json.loads(line[42:])
                 if "comp" in jLine:
                     populateComponent(jLine["comp"])
-                
+            elif line[20:24] == "WARN":
+                warningCount += 1
+            elif line[20:24] == "ERRO":
+                errorCount += 1
+
     #second pass, read events
     with open(logfile) as f:
         level = 0
@@ -216,7 +223,12 @@ def main(argv):
                         #print "Warning:  State has no namespace"
                         pass
     
-	
+
+    print ""
+    print "*"*77
+    print "COMPONENT INFO"
+    print "*"*77
+
     for c in comps:
         if comps[c].get("kind"):
             print ""
@@ -231,10 +243,14 @@ def main(argv):
 	    print "  Export Fields:"
             print "  " + ("-"*75)
             printState(next((s for s in comps[c]["States"] if s["intent"]=="Export"), None))
-
-            #for f in comps[c].get("ExportFields", []):
-            #  	print row_format.format(f, comps[c]["ExportFields"][f].get("Connected"))               
-          
+            
+    print ""
+    print "*"*77
+    print "SUMMARY"
+    print "*"*77
+    print "Total Errors: " + str(errorCount)
+    print "Total Warnings: " + str(warningCount)
+    print ""
 
     #pp = pprint.PrettyPrinter(indent=4)
     #pp.pprint(comps)
