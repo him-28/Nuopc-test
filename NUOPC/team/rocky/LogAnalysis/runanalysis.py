@@ -46,8 +46,12 @@ def populateComponent(jComp):
         
         if "InitializePhaseMap$NUOPC$Component" in jComp:
             comp["IPM"] = {}
-            for kv in jComp["InitializePhaseMap$NUOPC$Component"]:
-                kvl = kv.split("=")
+            if type(jComp["InitializePhaseMap$NUOPC$Component"]) is list:
+                for kv in jComp["InitializePhaseMap$NUOPC$Component"]:
+                    kvl = kv.split("=")
+                    comp["IPM"][kvl[0]] = kvl[1]
+            else:
+                kvl = jComp["InitializePhaseMap$NUOPC$Component"].split("=")
                 comp["IPM"][kvl[0]] = kvl[1]
 
         if "RunPhaseMap$NUOPC$Component" in jComp:
@@ -186,8 +190,14 @@ def main(argv):
     with open(logfile) as f:
         for line in f:
             if line[20:24] == "JSON":
-                jLine = json.loads(line[42:])
-                if "comp" in jLine:
+		try:	                
+		    jLine = json.loads(line[42:])
+		except:
+		    print "Failed to parse JSON:"
+		    print line[42:]
+		    print ""
+		    sys.exit(2)             
+		if "comp" in jLine:
                     populateComponent(jLine["comp"])
             elif line[20:24] == "WARN":
                 warningCount += 1
