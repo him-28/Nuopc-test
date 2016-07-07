@@ -164,6 +164,14 @@ def handleFieldList(jFieldList, level, fieldList):
         fieldItem["connected"] = connected
         fieldItem["units"] = units
 
+def printBanner(text):
+    print ""
+    print "*"*77
+    print text
+    print "*"*77
+    print ""
+
+
 def main(argv):
 #    try:
 #        opts, args = getopt.getopt(argv[1:],"hi:o:",["ifile=","ofile="])
@@ -204,6 +212,13 @@ def main(argv):
             elif line[20:24] == "ERRO":
                 errorCount += 1
 
+    # print summary info
+    printBanner("SUMMARY")
+    print "Total Errors: " + str(errorCount)
+    print "Total Warnings: " + str(warningCount)
+
+    printBanner("RUN SEQUENCE")
+
     #second pass, read events
     with open(logfile) as f:
         level = 0
@@ -234,10 +249,7 @@ def main(argv):
                         pass
     
 
-    print ""
-    print "*"*77
-    print "COMPONENT INFO"
-    print "*"*77
+    printBanner("COMPONENT INFO")
 
     for c in comps:
         if comps[c].get("kind"):
@@ -254,14 +266,6 @@ def main(argv):
             print "  " + ("-"*75)
             printState(next((s for s in comps[c]["States"] if s["intent"]=="Export"), None))
             
-    print ""
-    print "*"*77
-    print "SUMMARY"
-    print "*"*77
-    print "Total Errors: " + str(errorCount)
-    print "Total Warnings: " + str(warningCount)
-    print ""
-
     #pp = pprint.PrettyPrinter(indent=4)
     #pp.pprint(comps)
 
@@ -274,7 +278,10 @@ def printState(stateDict):
     print fmt.format("Namespace", "Standard Name", "Units", "Connected")
     print "  " + ("="*75)    
     for r in flattenState(stateDict):
-        print fmt.format(r[0], r[1], r[2], r[3])
+        units = r[2]
+        if "unknown" in units:
+            units = "unknown"
+        print fmt.format(r[0], r[1], units, r[3])
 
 def flattenState(stateDict):
     retList = []
