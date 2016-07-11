@@ -54,6 +54,17 @@ def populateComponent(jComp):
                 kvl = jComp["InitializePhaseMap$NUOPC$Component"].split("=")
                 comp["IPM"][kvl[0]] = kvl[1]
 
+        # only for Drivers
+        if "InternalInitializePhaseMap$NUOPC$Driver" in jComp:
+            comp["IIPM"] = {}
+            if type(jComp["InternalInitializePhaseMap$NUOPC$Driver"]) is list:
+                for kv in jComp["InternalInitializePhaseMap$NUOPC$Driver"]:
+                    kvl = kv.split("=")
+                    comp["IIPM"][kvl[0]] = kvl[1]
+            else:
+                kvl = jComp["InternalInitializePhaseMap$NUOPC$Driver"].split("=")
+                comp["IIPM"][kvl[0]] = kvl[1]
+
         if "RunPhaseMap$NUOPC$Component" in jComp:
             comp["RPM"] = {}
             if type(jComp["RunPhaseMap$NUOPC$Component"]) is list:
@@ -82,7 +93,10 @@ def lookupPhaseLabels(compName, method, phase):
 
     phaseMap = {}
     if method == "init":
+        # combine dictionaries into one
         phaseMap = comps[compName].get("IPM",{})
+        phaseMapInternal = comps[compName].get("IIPM",{})
+        phaseMap = dict(phaseMap.items() + phaseMapInternal.items())
     elif method == "run":
         phaseMap = comps[compName].get("RPM",{})
     elif method == "final":
@@ -265,9 +279,10 @@ def main(argv):
 	    print "  Export Fields:"
             print "  " + ("-"*75)
             printState(next((s for s in comps[c]["States"] if s["intent"]=="Export"), None))
-            
-    #pp = pprint.PrettyPrinter(indent=4)
-    #pp.pprint(comps)
+    
+#    printBanner("INTERNAL STATE")
+#    pp = pprint.PrettyPrinter(indent=4)
+#    pp.pprint(comps)
 
 def printState(stateDict):
     if stateDict is None:
