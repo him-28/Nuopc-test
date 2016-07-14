@@ -208,15 +208,20 @@ def main(argv):
     errorCount = 0
     warningCount = 0
 
+    #determine where in each line JSON starts
+    #differs due to PET0, PET00, PET000, etc.
+    idx = logfile.find(".")
+    jsonstart = 42+idx-5
+    
     #first pass, get component info
     with open(logfile) as f:
         for line in f:
             if line[20:24] == "JSON":
 		try:	                
-		    jLine = json.loads(line[42:])
+		    jLine = json.loads(line[jsonstart:])
 		except:
 		    print "Failed to parse JSON:"
-		    print line[42:]
+		    print line[jsonstart:]
 		    print ""
 		    sys.exit(2)             
 		if "comp" in jLine:
@@ -238,7 +243,7 @@ def main(argv):
         level = 0
         for line in f:
             if (line[20:24] == "JSON"):
-                jLine = json.loads(line[42:])
+                jLine = json.loads(line[jsonstart:])
                 if "event" in jLine:
                     jEvent = jLine["event"]
                     if jEvent["name"] == "start_phase":
