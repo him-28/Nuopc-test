@@ -43,17 +43,25 @@ module NUOPC_NestedConnector
     label_Finalize = "Connector_Finalize"
 
   type type_InternalStateStruct
-    type(ESMF_FieldBundle)              :: srcFields
-    type(ESMF_FieldBundle)              :: dstFields
-    type(ESMF_Field), pointer           :: srcFieldList(:)
-    type(ESMF_Field), pointer           :: dstFieldList(:)
-    integer                             :: srcFieldCount
-    integer                             :: dstFieldCount    
-    integer                             :: srcNestCount
-    integer                             :: dstNestCount
-    type(ESMF_RouteHandle)              :: rh
-    type(ESMF_State)                    :: state
-    type(ESMF_TermOrder_Flag), pointer  :: termOrders(:)
+    type(ESMF_FieldBundle)                 :: srcFields
+    type(ESMF_FieldBundle)                 :: dstFields
+    type(ESMF_FieldBundle),pointer         :: srcFieldsN2N(:,:)
+    type(ESMF_FieldBundle),pointer         :: dstFieldsN2N(:,:)
+    type(ESMF_Field), pointer              :: srcFieldList(:)
+    type(ESMF_Field), pointer              :: dstFieldList(:)
+    integer                                :: srcFieldCount
+    integer                                :: dstFieldCount    
+    integer                                :: srcNestCount
+    integer                                :: dstNestCount
+    type(ESMF_RouteHandle)                 :: rh
+    type(ESMF_RouteHandle),pointer         :: rhN2N(:,:)
+    type(ESMF_State)                       :: state
+    type(ESMF_TermOrder_Flag), pointer     :: termOrders(:)
+    type(type_TermOrder_Flag_List),pointer :: termOrdersN2N(:,:)
+  end type
+
+  type type_TermOrder_Flag_List
+    type(ESMF_TermOrder_Flag), pointer  :: item(:)
   end type
 
   type type_InternalState
@@ -778,9 +786,6 @@ print *, "current bondLevel=", bondLevel
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     
-    ! clean starting condition for pointer member inside internal state
-    nullify(is%wrap%termOrders)
-
     ! re-reconcile the States because they may have changed
     ! (previous proxy objects are dropped before fresh reconcile)
 #ifdef RECONCILE_MEMORY_DEBUG_on
@@ -1748,6 +1753,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     character(ESMF_MAXSTR), pointer :: cplList(:), chopStringList(:)
     character(ESMF_MAXSTR)          :: cplName
     integer                         :: cplListSize, i
+    integer                         :: cplListN2Nsize
+    character(ESMF_MAXSTR), pointer :: cplListN2N(:)
     integer                         :: bondLevel, bondLevelMax
     character(ESMF_MAXSTR), pointer :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: exportNamespaceList(:)
@@ -1767,6 +1774,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     integer                         :: verbosity
     character(len=64)               :: label
     integer                         :: fromNest, toNest
+    integer                         :: srcNestIndex, dstNestIndex
 
     rc = ESMF_SUCCESS
 
@@ -1807,7 +1815,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     if (cplListSize>0) then
-      allocate(cplList(cplListSize), stat=stat)
+      allocate(cplList(cplListSize), &
+        stat=stat)
       if (ESMF_LogFoundAllocError(statusToCheck=stat, &
         msg="Allocation of internal cplList() failed.", &
         line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
@@ -1827,14 +1836,60 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       fieldList=exportFieldList, namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out    
+  
+    ! prepare N2N lists
+    is%wrap%srcNestCount = getStateNestCount(importState,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+    is%wrap%dstNestCount = getStateNestCount(exportState,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out 
+
+    nullify(is%wrap%rhN2N)
+    allocate(is%wrap%rhN2N(0:is%wrap%srcNestCount, &
+      0:is%wrap%dstNestCount),stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of rhN2N memory failed.", &
+      line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+      return  ! bail out
    
+    nullify(is%wrap%termOrdersN2N)
+    allocate(is%wrap%termOrdersN2N(0:is%wrap%srcNestCount, &
+      0:is%wrap%dstNestCount),stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of term ordersN2N memory failed.", &
+      line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+      return  ! bail out
+    ! clean starting condition for pointer member inside internal state
+
     ! prepare FieldBundles to store src and dst Fields
-    is%wrap%srcFields = ESMF_FieldBundleCreate(rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    is%wrap%dstFields = ESMF_FieldBundleCreate(rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+    nullify(is%wrap%srcFieldsN2N)
+    nullify(is%wrap%dstFieldsN2N)
+    allocate( &
+      is%wrap%srcFieldsN2N(0:is%wrap%srcNestCount,0:is%wrap%dstNestCount), &
+      is%wrap%dstFieldsN2N(0:is%wrap%srcNestCount,0:is%wrap%dstNestCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of Field Bundle N2N memory failed.", &
+      line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+      return  ! bail out
+
+    do srcNestIndex=0,is%wrap%srcNestCount
+    do dstNestIndex=0,is%wrap%dstNestCount
+      is%wrap%srcFieldsN2N(srcNestIndex,dstNestIndex) = &
+        ESMF_FieldBundleCreate(rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex) = &
+        ESMF_FieldBundleCreate(rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      nullify(is%wrap%termOrdersN2N(srcNestIndex,dstNestIndex)%item)
+    enddo
+    enddo
+
+    is%wrap%srcFields = is%wrap%srcFieldsN2N(0,0)
+    is%wrap%dstFields = is%wrap%dstFieldsN2N(0,0)
       
     ! prepare chopStringList
     nullify(chopStringList)
@@ -1920,15 +1975,19 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         eField=exportFieldList(eMatch)
        
         ! add the import and export Fields to FieldBundles
-        call ESMF_FieldBundleAdd(is%wrap%srcFields, (/iField/), &
-          multiflag=.true., rc=rc)
+        call ESMF_FieldBundleAdd(is%wrap%srcFieldsN2N( &
+          getNamespaceNest(importNamespaceList(iMatch)), &
+          getNamespaceNest(exportNamespaceList(eMatch))), &
+          (/iField/), multiflag=.true., rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-        call ESMF_FieldBundleAdd(is%wrap%dstFields, (/eField/), &
-          multiflag=.true., rc=rc)
+        call ESMF_FieldBundleAdd(is%wrap%dstFieldsN2N( &
+          getNamespaceNest(importNamespaceList(iMatch)), &
+          getNamespaceNest(exportNamespaceList(eMatch))), &
+          (/eField/), multiflag=.true., rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-          
+ 
         ! set the connected Attribute on import Field
         call NUOPC_SetAttribute(iField, name="Connected", value="true", &
           rc=rc)
@@ -1960,11 +2019,55 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       call InternalStateLog(cplcomp,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      call FieldBundleCplStore(is%wrap%srcFields, is%wrap%dstFields, &
-        cplList=cplList, rh=is%wrap%rh, termOrders=is%wrap%termOrders, &
-        name=name, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      do srcNestIndex=0,is%wrap%srcNestCount
+      do dstNestIndex=0,is%wrap%dstNestCount
+        nullify(cplListN2N)
+        cplListN2Nsize = 0
+
+        do i=1,cplListSize    
+          call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out 
+          if (fromNest == srcNestIndex .AND. toNest == dstNestIndex) then
+            cplListN2Nsize = cplListN2Nsize + 1
+          endif  
+        enddo
+
+        allocate(cplListN2N(cplListN2NSize), &
+          stat=stat)
+        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+          msg="Allocation of internal cplList() failed.", &
+          line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+          return  ! bail out
+
+        cplListN2Nsize = 0
+        do i=1,cplListSize
+          call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+          if (fromNest == srcNestIndex .AND. toNest == dstNestIndex) then
+            cplListN2Nsize = cplListN2Nsize + 1
+            cplListN2N(cplListN2Nsize) = cplList(i)
+          endif
+        enddo
+
+        call FieldBundleCplStore( &
+          is%wrap%srcFieldsN2N(srcNestIndex,dstNestIndex), &
+          is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex), &
+          cplList=cplListN2N, &
+          rh=is%wrap%rhN2N(srcNestIndex,dstNestIndex), &
+          termOrders=is%wrap%termOrdersN2N(srcNestIndex,dstNestIndex)%item, &
+          name=name, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
+        deallocate(cplListN2N)
+
+      enddo
+      enddo
+      is%wrap%rh = is%wrap%rhN2N(0,0)
+      is%wrap%termOrders = is%wrap%termOrdersN2N(0,0)%item
+
       if (btest(verbosity,2)) then
         call ESMF_LogWrite(trim(name)//&
           ": called default label_ComputeRouteHandle", &
@@ -2087,6 +2190,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     integer                   :: verbosity
     integer                   :: profiling
     character(ESMF_MAXSTR)    :: name
+    integer                   :: srcNestIndex, dstNestIndex
 
     real(ESMF_KIND_R8)        :: timeBase, time0, time
 
@@ -2192,10 +2296,18 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (.not.existflag) then
       ! if not specialized -> use default method to:
       ! execute the regrid operation
-      call ESMF_FieldBundleRegrid(is%wrap%srcFields, is%wrap%dstFields, &
-        routehandle=is%wrap%rh, termorderflag=is%wrap%termOrders, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      do srcNestIndex=0,is%wrap%srcNestCount
+      do dstNestIndex=0,is%wrap%dstNestCount
+        call ESMF_FieldBundleRegrid( &
+          is%wrap%srcFieldsN2N(srcNestIndex,dstNestIndex), &
+          is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex), &
+          routehandle=is%wrap%rhN2N(srcNestIndex,dstNestIndex), &
+          termorderflag=is%wrap%termOrdersN2N(srcNestIndex,dstNestIndex)%item, &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      enddo
+      enddo
       if (btest(verbosity,2)) then
         call ESMF_LogWrite(trim(name)//&
           ": called default label_ExecuteRouteHandle", &
@@ -3108,14 +3220,14 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     integer(ESMF_KIND_I4), pointer  :: dstMaskValues(:)
     integer                         :: srcTermProcessing, pipelineDepth
     logical                         :: dumpWeightsFlag
-    character(ESMF_MAXSTR)          :: logMsg   
- 
+
     ! consistency check counts
     if (associated(cplList)) then
       count = size(cplList)
     else
       count = 0
     endif
+
     call ESMF_FieldBundleGet(srcFB, fieldCount=i, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -3134,7 +3246,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)
       return  ! bail out
     endif
-    
+
     ! consistency check the incoming "termOrders" argument
     if (associated(termOrders)) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
@@ -3148,7 +3260,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       msg="Allocation of termOrders.", &
       line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
       return  ! bail out
-    
+
     ! access the fields in the add order
     allocate(srcFields(count), dstFields(count), stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
@@ -3163,7 +3275,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    
+
     ! prepare Routehandle
     rh = ESMF_RouteHandleCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3171,14 +3283,14 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     call ESMF_RouteHandlePrepXXE(rh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    
+
     ! prepare auxiliary variables
     rraShift = 0              ! reset
     vectorLengthShift = 0     ! reset
-    
+
     ! loop over all fields
     do i=1, count
-    
+
       ! prepare pointer variables
       nullify(chopStringList)   ! reset
       nullify(chopSubString)    ! reset
@@ -3192,13 +3304,13 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       tempString = ESMF_UtilStringLowerCase(cplList(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      
+
       ! chop the cplList entry
       call chopString(tempString, chopChar=":", chopStringList=chopStringList, &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      
+
       ! determine "srcMaskValues"
       allocate(srcMaskValues(0))  ! default
       do j=2, size(chopStringList)
@@ -3223,7 +3335,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "dstMaskValues"
       allocate(dstMaskValues(0))  ! default
       do j=2, size(chopStringList)
@@ -3248,7 +3360,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "redistflag" and "regridmethod"
       redistflag = .false. ! default to regridding
       regridmethod = ESMF_REGRIDMETHOD_BILINEAR ! default
@@ -3283,7 +3395,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "polemethod" and "regridPoleNPnts"
       polemethod = ESMF_POLEMETHOD_NONE ! default
       regridPoleNPnts = 1 ! default
@@ -3317,7 +3429,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "unmappedaction"
       unmappedaction = ESMF_UNMAPPEDACTION_IGNORE ! default
       do j=2, size(chopStringList)
@@ -3343,7 +3455,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "srcTermProcessing"
       srcTermProcessing = -1  ! default -> force auto-tuning
       do j=2, size(chopStringList)
@@ -3359,7 +3471,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "pipelineDepth"
       pipelineDepth = -1  ! default -> force auto-tuning
       do j=2, size(chopStringList)
@@ -3375,7 +3487,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! determine "dumpWeightsFlag"
       dumpWeightsFlag = .false. ! default
       do j=2, size(chopStringList)
@@ -3420,7 +3532,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       else
-       ! regrid store call
+        ! regrid store call
         call ESMF_FieldRegridStore(srcField=srcFields(i), &
           dstField=dstFields(i), &
           srcMaskValues=srcMaskValues, dstMaskValues=dstMaskValues, &
@@ -3434,13 +3546,13 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       endif
-      
+
       ! append rhh to rh and clear rhh
       call ESMF_RouteHandleAppendClear(rh, appendRoutehandle=rhh, &
         rraShift=rraShift, vectorLengthShift=vectorLengthShift, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      
+
       ! adjust rraShift and vectorLengthShift
       call ESMF_FieldGet(srcFields(i), localDeCount=localDeCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3451,7 +3563,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       rraShift = rraShift + localDeCount
       vectorLengthShift = vectorLengthShift + 1
-      
+
       ! weight dumping
       if (dumpWeightsFlag .and. .not.redistflag) then
         call NUOPC_Write(factorList=factorList, &
@@ -3460,7 +3572,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       endif
-      
+
       ! determine "termOrders" list which will be used by Run() method
       termOrders(i) = ESMF_TERMORDER_FREE ! default
       do j=2, size(chopStringList)
@@ -3488,16 +3600,16 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           exit ! skip the rest of the loop after first hit
         endif
       enddo
-      
+
       ! local garbage collection
       if (associated(factorIndexList)) deallocate(factorIndexList)
       if (associated(factorList)) deallocate(factorList)
       if (associated(chopStringList)) deallocate(chopStringList)
       if (associated(srcMaskValues)) deallocate(srcMaskValues)
       if (associated(dstMaskValues)) deallocate(dstMaskValues)
-      
+
     enddo
-    
+
     ! garbage collection
     deallocate(srcFields, dstFields)
 
@@ -3505,8 +3617,6 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (present(rc)) rc = ESMF_SUCCESS
 
   end subroutine
-
-  !-----------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
   !-----------------------------------------------------------------------------
