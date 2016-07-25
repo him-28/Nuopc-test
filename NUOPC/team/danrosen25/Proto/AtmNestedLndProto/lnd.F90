@@ -55,16 +55,24 @@ module LND
     verbosity = 255, &
     nnests = 3, &
     nfields = 3
+!  integer,parameter,dimension(nnests) :: &
+!    iCount = (/ 180,319,484 /), &
+!    jCount = (/ 150,313,376 /)
   integer,parameter,dimension(nnests) :: &
-    iCount = (/ 180,319,484 /), &
-    jCount = (/ 150,313,376 /)
+    iCount = (/ 100,100,100 /), &
+    jCount = (/ 10 ,10 ,10  /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
     dt = (/ 10.D0, 30.D0, 60.D0 /)
+!  real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
+!    minLat = (/ 13.90549, 22.54604, 26.77635 /), &
+!    minLon = (/ 240.9351, 256.2747, 264.4102 /), &
+!    maxLat = (/ 54.25622, 50.20378, 45.15566 /), &
+!    maxLon = (/ 313.4248, 297.7253, 289.7091 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-    minLat = (/ 13.90549, 22.54604, 26.77635 /), &
-    minLon = (/ 240.9351, 256.2747, 264.4102 /), &
-    maxLat = (/ 54.25622, 50.20378, 45.15566 /), &
-    maxLon = (/ 313.4248, 297.7253, 289.7091 /)
+    iMinCornerCoord = (/ 10._ESMF_KIND_R8,10._ESMF_KIND_R8,10._ESMF_KIND_R8 /), &
+    iMaxCornerCoord = (/ 100._ESMF_KIND_R8,100._ESMF_KIND_R8,100._ESMF_KIND_R8 /), &
+    jMinCornerCoord = (/ 20._ESMF_KIND_R8,20._ESMF_KIND_R8,20._ESMF_KIND_R8 /), &
+    jMaxCornerCoord = (/ 200._ESMF_KIND_R8,200._ESMF_KIND_R8,200._ESMF_KIND_R8 /)
   type(FieldDesc),parameter,dimension(nfields) :: fields = &
     (/ FieldDesc( &
          "air_pressure_at_sea_level", &
@@ -363,6 +371,7 @@ module LND
     type(ESMF_Field)        :: field
     integer                 :: nIndex, fIndex
     logical                 :: impConn, expConn
+    character(ESMF_MAXSTR)  :: logMsg
     
     rc = ESMF_SUCCESS
 
@@ -383,10 +392,11 @@ module LND
  
     ! create a grid object for each nest
     do nIndex = 1, is%wrap%nnests
+
       is%wrap%grids(nIndex) = ESMF_GridCreateNoPeriDimUfrm( &
         maxIndex=(/iCount(nIndex),jCount(nIndex)/), &
-        minCornerCoord=(/minLon(nIndex), minLat(nIndex)/), &
-        maxCornerCoord=(/maxLon(nIndex), maxLat(nIndex)/), &
+        minCornerCoord=(/iMinCornerCoord(nIndex), jMinCornerCoord(nIndex)/), &
+        maxCornerCoord=(/iMaxCornerCoord(nIndex), jMaxCornerCoord(nIndex)/), &
         coordSys=ESMF_COORDSYS_CART, &
         staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
         rc=rc)
@@ -400,13 +410,14 @@ module LND
     do fIndex = 1, is%wrap%nfields
       if (is%wrap%fields(fIndex)%import) then
         impConn = NUOPC_IsConnected(is%wrap%NStateImp(nIndex), &
-          fieldName=is%wrap%fields(fIndex)%stdname)
+          fieldName=is%wrap%fields(fIndex)%shortname)
       else
         impConn = .FALSE.
       endif
+
       if (is%wrap%fields(fIndex)%export) then
         expConn = NUOPC_IsConnected(is%wrap%NStateExp(nIndex), &
-          fieldName=is%wrap%fields(fIndex)%stdname)
+          fieldName=is%wrap%fields(fIndex)%shortname)
       else
         expConn = .FALSE.
       endif
@@ -421,27 +432,47 @@ module LND
       endif
 
       if (impConn) then
-        
         call NUOPC_Realize(is%wrap%NStateImp(nIndex), field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      else
+        write (logMsg, "(A,I0,A,A)") &
+          "Field realized in import state(nest=",nIndex,"): ", &
+          trim(is%wrap%fields(fIndex)%shortname)
+        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
+          line=__LINE__,file=__FILE__,rc=rc)
+      elseif(is%wrap%fields(fIndex)%import) then
         call ESMF_StateRemove(is%wrap%NStateImp(nIndex), &
-          (/trim(is%wrap%fields(fIndex)%stdname)/), &
+          (/trim(is%wrap%fields(fIndex)%shortname)/), &
           relaxedflag=.true.,rc=rc)
+        write (logMsg, "(A,I0,A,A)") &
+          "Field removed from import state(nest=",nIndex,"): ", &
+          trim(is%wrap%fields(fIndex)%shortname)
+        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
+          line=__LINE__,file=__FILE__,rc=rc)
       endif
+
       if (expConn) then
         call NUOPC_Realize(is%wrap%NStateExp(nIndex), field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      else
+        write (logMsg, "(A,I0,A,A)") &
+          "Field realized in export state(nest=",nIndex,"): ", &
+          trim(is%wrap%fields(fIndex)%shortname)
+        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
+          line=__LINE__,file=__FILE__,rc=rc)
+      elseif(is%wrap%fields(fIndex)%export) then
         call ESMF_StateRemove(is%wrap%NStateExp(nIndex), &
-          (/trim(is%wrap%fields(fIndex)%stdname)/), &
+          (/trim(is%wrap%fields(fIndex)%shortname)/), &
           relaxedflag=.true.,rc=rc)
+        write (logMsg, "(A,I0,A,A)") &
+          "Field removed from export state(nest=",nIndex,"): ", &
+          trim(is%wrap%fields(fIndex)%shortname)
+        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
+          line=__LINE__,file=__FILE__,rc=rc)
       endif
     enddo
     enddo

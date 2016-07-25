@@ -26,7 +26,7 @@ module load esmf/7.0.0_debug gribapi/1.12.3  jasper/1.900.1
 export np=$PBS_NP
 # Enable Fortran RTL core dumps for severe run time failures
 export decfort_dump_flag=y
-export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+#export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
 
 # set resource usage limits
 ulimit -c unlimited #coredumpsize
