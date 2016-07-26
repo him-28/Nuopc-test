@@ -128,7 +128,7 @@ module ESM
 #endif
       
     ! set the model clock
-    call ESMF_TimeIntervalSet(timeStep, m=15, rc=rc) ! 15 minute steps
+    call ESMF_TimeIntervalSet(timeStep, m=10, rc=rc) ! 15 minute steps
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

@@ -681,9 +681,6 @@ print *, "current bondLevel=", bondLevel
     if (associated(exportFieldList)) deallocate(exportFieldList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
 
-    call CplListLog(cplcomp,"InitializeP1b",rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
   end subroutine
   
   !-----------------------------------------------------------------------------

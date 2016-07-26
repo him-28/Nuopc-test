@@ -59,8 +59,8 @@ module LND
 !    iCount = (/ 180,319,484 /), &
 !    jCount = (/ 150,313,376 /)
   integer,parameter,dimension(nnests) :: &
-    iCount = (/ 100,100,100 /), &
-    jCount = (/ 10 ,10 ,10  /)
+    iCount = (/ 5,8,10 /), &
+    jCount = (/ 5,8,10 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
     dt = (/ 10.D0, 30.D0, 60.D0 /)
 !  real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
@@ -69,10 +69,10 @@ module LND
 !    maxLat = (/ 54.25622, 50.20378, 45.15566 /), &
 !    maxLon = (/ 313.4248, 297.7253, 289.7091 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-    iMinCornerCoord = (/ 10._ESMF_KIND_R8,10._ESMF_KIND_R8,10._ESMF_KIND_R8 /), &
-    iMaxCornerCoord = (/ 100._ESMF_KIND_R8,100._ESMF_KIND_R8,100._ESMF_KIND_R8 /), &
-    jMinCornerCoord = (/ 20._ESMF_KIND_R8,20._ESMF_KIND_R8,20._ESMF_KIND_R8 /), &
-    jMaxCornerCoord = (/ 200._ESMF_KIND_R8,200._ESMF_KIND_R8,200._ESMF_KIND_R8 /)
+    iMinCornerCoord = (/ 10._ESMF_KIND_R8,30._ESMF_KIND_R8,50._ESMF_KIND_R8 /), &
+    iMaxCornerCoord = (/ 100._ESMF_KIND_R8,80._ESMF_KIND_R8,60._ESMF_KIND_R8 /), &
+    jMinCornerCoord = (/ 20._ESMF_KIND_R8,80._ESMF_KIND_R8,100._ESMF_KIND_R8 /), &
+    jMaxCornerCoord = (/ 200._ESMF_KIND_R8,140._ESMF_KIND_R8,120._ESMF_KIND_R8 /)
   type(FieldDesc),parameter,dimension(nfields) :: fields = &
     (/ FieldDesc( &
          "air_pressure_at_sea_level", &
@@ -107,8 +107,6 @@ module LND
     integer               :: stat
 
     rc = ESMF_SUCCESS       
-
-    call ESMF_LogWrite("Entering SetServices",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
  
     ! -> allocate memory for this internal state and set it in the Component
     allocate(is%wrap, stat=stat)
@@ -215,8 +213,6 @@ module LND
       file=__FILE__)) &
       return  ! bail outend subroutine
 
-    call ESMF_LogWrite("Exiting SetServices",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -229,8 +225,6 @@ module LND
 
     rc = ESMF_SUCCESS
 
-    call ESMF_LogWrite("Entering ModelInitializeP0",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
     ! switch to IPDv00 by filtering all other phaseMap entries
     call NUOPC_CompFilterPhaseMap(model, ESMF_METHOD_INITIALIZE, &
       acceptStringList=(/"IPDv03p"/), rc=rc)
@@ -238,8 +232,6 @@ module LND
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    call ESMF_LogWrite("Exiting ModelInitializeP0",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
   end subroutine
 
@@ -258,8 +250,6 @@ module LND
     character(len=3)     :: nStr
 
     rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering ModelInitializeP1",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
     ! -> get internal state from Component
     nullify(is%wrap)
@@ -365,8 +355,6 @@ module LND
     enddo
     enddo
 
-    call ESMF_LogWrite("Exiting ModelInitializeP1",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -386,8 +374,6 @@ module LND
     character(ESMF_MAXSTR)  :: logMsg
     
     rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering ModelInitializeP3",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
     ! -> get internal state from Component
     nullify(is%wrap)
@@ -491,8 +477,6 @@ module LND
     enddo
     enddo
 
-    call ESMF_LogWrite("Exiting ModelInitializeP3",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -515,8 +499,6 @@ module LND
     character(len=3)                       :: nStr
 
     rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering ModelDataInitialize",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
     ! query the component for its name
     call ESMF_GridCompGet(model, name=modelName,rc=rc)
@@ -608,15 +590,7 @@ module LND
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-
-      ! update timestamp on export Fields
-      call NUOPC_UpdateTimestamp(is%wrap%NStateExp(nIndex), &
-        is%wrap%clocks(nIndex), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-      
+     
       ! output export init data
       call NUOPC_Write(is%wrap%NStateExp(nIndex), &
         fileNamePrefix=trim(modelName)//"_export_init_"//trim(nStr)//"_", &
@@ -637,8 +611,6 @@ module LND
         return  ! bail out
     endif
 
-    call ESMF_LogWrite("Exiting ModelDataInitialize",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -656,8 +628,6 @@ module LND
     type(ESMF_TimeInterval)       :: stabilityTimeStep
 
     rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering ModelSetClock",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
     ! query the component for its name
     call ESMF_GridCompGet(model, name=modelName,rc=rc)
@@ -701,13 +671,13 @@ module LND
 
     do nIndex = 1, is%wrap%nnests
       call ESMF_TimeIntervalSet(is%wrap%timesteps(nIndex), &
-        s_r8=dt(nIndex), rc=rc)
+        m_r8=dt(nIndex), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
       call ESMF_TimeIntervalSet(is%wrap%elapsedtimes(nIndex), &
-        s_r8=0._ESMF_KIND_R8, rc=rc)
+        m_r8=0._ESMF_KIND_R8, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -732,57 +702,6 @@ module LND
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_LogWrite("Exiting ModelSetClock",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
-  end subroutine
-
-  !-----------------------------------------------------------------------------
-
-  subroutine ModelSetRunClock(model,rc)
-    type(ESMF_GridComp)  :: model
-    integer, intent(out) :: rc
-
-    ! local variables
-    type(InternalState)       :: is
-    type(ESMF_Clock)          :: driverClock
-
-    rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering ModelSetRunClock",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
-    ! query Component for its internal state
-    nullify(is%wrap)
-    call ESMF_GridCompGetInternalState(model, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! set component clock to inner nest's clock
-    call ESMF_GridCompSet(model, &
-      clock=is%wrap%clocks(is%wrap%nnests), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! query component for driver clock
-    call NUOPC_ModelGet(model, driverClock=driverClock, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! check and set the model clock against the driver clock
-    call NUOPC_CompCheckSetClock(model, driverClock, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, &
-      msg="NUOPC INCOMPATIBILITY DETECTED: between model and driver clocks", &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_LogWrite("Exiting ModelSetRunClock",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -804,8 +723,6 @@ module LND
 
     rc = ESMF_SUCCESS
     
-    call ESMF_LogWrite("Entering ModelAdvance",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
     ! -> get internal state from Component
     nullify(is%wrap)
     call ESMF_GridCompGetInternalState(model, is, rc)
@@ -908,8 +825,6 @@ module LND
         return  ! bail out
     enddo
 
-    call ESMF_LogWrite("Exiting ModelAdvance",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -929,8 +844,6 @@ module LND
     integer                                :: stat
 
     rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering StateAdvance",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
     ! advance export fields
     call ESMF_StateGet(state, &
@@ -979,8 +892,6 @@ module LND
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_LogWrite("Exiting StateAdvance",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -995,8 +906,6 @@ module LND
     integer              :: nIndex
 
     rc = ESMF_SUCCESS
-
-    call ESMF_LogWrite("Entering ModelFinalize",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
     ! -> get internal state from Component
     nullify(is%wrap)
@@ -1051,8 +960,6 @@ module LND
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    call ESMF_LogWrite("Exiting ModelFinalize",ESMF_LOGMSG_INFO,line=__LINE__,file=__FILE__)
 
   end subroutine
 
