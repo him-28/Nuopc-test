@@ -1764,6 +1764,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     type(ESMF_Field),       pointer :: exportFieldList(:)
     integer                         :: iMatch, eMatch
     type(ESMF_Field)                :: iField, eField
+    type(ESMF_Field)                :: srcField, dstField
     integer                         :: stat
     type(type_InternalState)        :: is
     logical                         :: foundFlag
@@ -1775,6 +1776,9 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     character(len=64)               :: label
     integer                         :: fromNest, toNest
     integer                         :: srcNestIndex, dstNestIndex
+    integer                         :: srcFieldCount, dstFieldCount
+    type(ESMF_Field),       pointer :: srcFieldList(:)
+    type(ESMF_Field),       pointer :: dstFieldList(:)
 
     rc = ESMF_SUCCESS
 
@@ -2084,27 +2088,86 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       endif    
     endif
-    
+
+    is%wrap%srcFieldCount = 0
+    is%wrap%dstFieldCount = 0
+
     ! populate remaining internal state members
-    call ESMF_FieldBundleGet(is%wrap%srcFields, &
-      fieldCount=is%wrap%srcFieldCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    allocate(is%wrap%srcFieldList(is%wrap%srcFieldCount))
-    call ESMF_FieldBundleGet(is%wrap%srcFields, &
-      fieldList=is%wrap%srcFieldList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    call ESMF_FieldBundleGet(is%wrap%dstFields, &
-      fieldCount=is%wrap%dstFieldCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    allocate(is%wrap%dstFieldList(is%wrap%dstFieldCount))
-    call ESMF_FieldBundleGet(is%wrap%dstFields, &
-      fieldList=is%wrap%dstFieldList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+    do srcNestIndex=0,is%wrap%srcNestCount
+    do dstNestIndex=0,is%wrap%dstNestCount
+      call ESMF_FieldBundleGet( &
+        is%wrap%srcFieldsN2N(srcNestIndex,dstNestIndex), &
+        fieldCount=srcFieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      is%wrap%srcFieldCount = is%wrap%srcFieldCount + srcFieldCount
+      call ESMF_FieldBundleGet( &
+        is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex), &
+        fieldCount=dstFieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      is%wrap%dstFieldCount = is%wrap%dstFieldCount + dstFieldCount
+    enddo
+    enddo
+
+    allocate( &
+      is%wrap%srcFieldList(is%wrap%srcFieldCount), &
+      is%wrap%dstFieldList(is%wrap%dstFieldCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of internal field lists failed.", &
+      line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+      return  ! bail out
+
+    is%wrap%srcFieldCount = 0
+    is%wrap%dstFieldCount = 0
+
+    do srcNestIndex=0,is%wrap%srcNestCount
+    do dstNestIndex=0,is%wrap%dstNestCount
+      call ESMF_FieldBundleGet( &
+        is%wrap%srcFieldsN2N(srcNestIndex,dstNestIndex), &
+        fieldCount=srcFieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      call ESMF_FieldBundleGet( &
+        is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex), &
+        fieldCount=dstFieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
+      allocate(srcFieldList(srcFieldCount), &
+        dstFieldList(dstFieldCount),stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of N2N field lists failed.", &
+        line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+        return  ! bail out
+
+      call ESMF_FieldBundleGet( &
+        is%wrap%srcFieldsN2N(srcNestIndex,dstNestIndex), &
+        fieldList=srcFieldList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+      call ESMF_FieldBundleGet( &
+        is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex), &
+        fieldList=dstFieldList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
+      do i=1,srcFieldCount
+        is%wrap%srcFieldCount = is%wrap%srcFieldCount + 1
+        is%wrap%srcFieldList(is%wrap%srcFieldCount) = srcFieldList(i)
+      enddo  
+
+      do i=1,dstFieldCount
+        is%wrap%dstFieldCount = is%wrap%dstFieldCount + 1
+        is%wrap%dstFieldList(is%wrap%dstFieldCount) = dstFieldList(i)
+      enddo
     
+      deallocate(srcFieldList,dstFieldList)
+
+    enddo
+    enddo
+
     ! clean-up
     if (associated(cplList)) deallocate(cplList)
     if (associated(importStandardNameList)) deallocate(importStandardNameList)

@@ -54,7 +54,7 @@ esm.o: NUOPC_NestedConnector.o atm.o lnd.o
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
-	rm -f PET*.ESMF_LogFile err out core
+	rm -f PET*.ESMF_LogFile err out core *.nc
 clean:
 	rm -f esmApp *.o *.mod
 distclean: dust clean
