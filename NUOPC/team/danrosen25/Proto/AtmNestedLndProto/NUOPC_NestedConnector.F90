@@ -2363,6 +2363,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           is%wrap%dstFieldsN2N(srcNestIndex,dstNestIndex), &
           routehandle=is%wrap%rhN2N(srcNestIndex,dstNestIndex), &
           termorderflag=is%wrap%termOrdersN2N(srcNestIndex,dstNestIndex)%item, &
+          zeroregion=ESMF_REGION_SELECT, &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out

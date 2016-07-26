@@ -55,19 +55,11 @@ module LND
     verbosity = 255, &
     nnests = 3, &
     nfields = 3
-!  integer,parameter,dimension(nnests) :: &
-!    iCount = (/ 180,319,484 /), &
-!    jCount = (/ 150,313,376 /)
   integer,parameter,dimension(nnests) :: &
     iCount = (/ 5,8,10 /), &
     jCount = (/ 5,8,10 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-    dt = (/ 10.D0, 30.D0, 60.D0 /)
-!  real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-!    minLat = (/ 13.90549, 22.54604, 26.77635 /), &
-!    minLon = (/ 240.9351, 256.2747, 264.4102 /), &
-!    maxLat = (/ 54.25622, 50.20378, 45.15566 /), &
-!    maxLon = (/ 313.4248, 297.7253, 289.7091 /)
+    dt = (/ 10.D0, 20.D0, 30.D0 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
     iMinCornerCoord = (/ 10._ESMF_KIND_R8,30._ESMF_KIND_R8,50._ESMF_KIND_R8 /), &
     iMaxCornerCoord = (/ 100._ESMF_KIND_R8,80._ESMF_KIND_R8,60._ESMF_KIND_R8 /), &
