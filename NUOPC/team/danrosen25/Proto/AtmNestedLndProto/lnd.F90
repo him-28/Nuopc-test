@@ -56,15 +56,15 @@ module LND
     nnests = 3, &
     nfields = 3
   integer,parameter,dimension(nnests) :: &
-    iCount = (/ 5,8,10 /), &
-    jCount = (/ 5,8,10 /)
+    iCount = (/ 10,10,10 /), &
+    jCount = (/ 10,10,10 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-    dt = (/ 10.D0, 20.D0, 30.D0 /)
+    dt = (/ 30.D0, 20.D0, 10.D0 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-    iMinCornerCoord = (/ 10._ESMF_KIND_R8,30._ESMF_KIND_R8,50._ESMF_KIND_R8 /), &
+    iMinCornerCoord = (/ 0._ESMF_KIND_R8,30._ESMF_KIND_R8,50._ESMF_KIND_R8 /), &
     iMaxCornerCoord = (/ 100._ESMF_KIND_R8,80._ESMF_KIND_R8,60._ESMF_KIND_R8 /), &
-    jMinCornerCoord = (/ 20._ESMF_KIND_R8,80._ESMF_KIND_R8,100._ESMF_KIND_R8 /), &
-    jMaxCornerCoord = (/ 200._ESMF_KIND_R8,140._ESMF_KIND_R8,120._ESMF_KIND_R8 /)
+    jMinCornerCoord = (/ 0._ESMF_KIND_R8,50._ESMF_KIND_R8,100._ESMF_KIND_R8 /), &
+    jMaxCornerCoord = (/ 200._ESMF_KIND_R8,150._ESMF_KIND_R8,120._ESMF_KIND_R8 /)
   type(FieldDesc),parameter,dimension(nfields) :: fields = &
     (/ FieldDesc( &
          "air_pressure_at_sea_level", &
@@ -566,7 +566,7 @@ module LND
             file=__FILE__)) &
             return  ! bail out
           ! initialize the entire array
-          dataPtrR8D2 = nIndex * 10._ESMF_KIND_R8
+          dataPtrR8D2 = (is%wrap%nnests - nIndex + 1) * 10._ESMF_KIND_R8
          call NUOPC_SetAttribute(field, &
             name="Updated", value="true", rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -873,7 +873,7 @@ module LND
           file=__FILE__)) &
           return  ! bail out
         ! update the entire array
-        dataPtrR8D2 = dataPtrR8D2 + 1
+        dataPtrR8D2 = dataPtrR8D2 + 5._ESMF_KIND_R8
       endif
     enddo
 
