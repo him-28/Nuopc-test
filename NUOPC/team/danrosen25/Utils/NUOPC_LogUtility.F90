@@ -190,7 +190,7 @@ module NUOPC_LogUtility
     enddo
 
     deallocate(itemNameList,itemTypeList,stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of item name and type list memory failed.", &
       line=__LINE__, file=FILENAME)) &
       return  ! bail out
@@ -275,7 +275,7 @@ module NUOPC_LogUtility
     enddo
 
     deallocate(minIndexPTile, maxIndexPTile,stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of index array memory failed.", &
       line=__LINE__, file=FILENAME)) &
       return  ! bail out
@@ -603,7 +603,7 @@ module NUOPC_LogUtility
     ! clean-up
     if (cplListSize>0) then
       deallocate(cplList,stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
         msg="Deallocation of internal CplList memory failed.", &
         line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
         return  ! bail out
