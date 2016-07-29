@@ -167,7 +167,8 @@ module NUOPC_LogUtility
       line=__LINE__, file=FILENAME)) &
       return  ! bail out
 
-    call ESMF_StateGet(state, itemNameList=itemNameList, rc=rc)
+    call ESMF_StateGet(state, itemNameList=itemNameList, &
+      itemTypeList=itemTypeList, rc=rc)
     if(ESMF_STDERRORCHECK(rc)) return ! bail out
 
     do iIndex=1, itemCount
@@ -187,6 +188,7 @@ module NUOPC_LogUtility
           "(",iIndex," of ",itemCount,") ", &
           trim(itemNameList(iIndex))//" is not connected."
       endif
+      call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, line=__LINE__,file=FILENAME)
     enddo
 
     deallocate(itemNameList,itemTypeList,stat=stat)
@@ -194,8 +196,6 @@ module NUOPC_LogUtility
       msg="Deallocation of item name and type list memory failed.", &
       line=__LINE__, file=FILENAME)) &
       return  ! bail out
-
-    call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, line=__LINE__,file=FILENAME)
 
   end subroutine
 
@@ -215,7 +215,9 @@ module NUOPC_LogUtility
     integer                     :: localDeCount
     integer                     :: dimCount, tileCount
     integer                     :: dimIndex, tileIndex
-    integer, allocatable        :: minIndexPTile(:,:), maxIndexPTile(:,:)
+    integer,allocatable         :: coordDimCount(:)
+    integer                     :: coordDimMax
+    integer,allocatable         :: minIndexPTile(:,:), maxIndexPTile(:,:)
     integer                     :: stat
     character(len=ESMF_MAXSTR)  :: logMsg
 
@@ -228,8 +230,41 @@ module NUOPC_LogUtility
 
     ! access localDeCount to show this is a real Grid
     call ESMF_GridGet(grid, name=gridName, &
-      localDeCount=localDeCount, distgrid=distgrid, rc=rc)
+      localDeCount=localDeCount, distgrid=distgrid, &
+      dimCount=dimCount,rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return  ! bail out
+
+    ! allocate coordDim info accord. to dimCount and tileCount
+    allocate(coordDimCount(dimCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of coordinate dimensions memory failed.", &
+      line=__LINE__, file=FILENAME)) &
+      return  ! bail out
+
+    ! get coordDim info
+    call ESMF_GridGet(grid, coordDimCount=coordDimCount, &
+      rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return  ! bail out
+
+    coordDimMax = 0
+    do dimIndex=1,dimCount
+      coordDimMax = MAX(coordDimMax,coordDimCount(dimIndex))
+    enddo
+
+    if (coordDimMax == 1) then
+      write (logMsg,"(A,A,A)") trim(llabel)//": ", &
+        trim(gridName), &
+        " is a rectilinear grid with 1D coordinates in each dimension."
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    endif
+
+    deallocate(coordDimCount, &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Dellocation of coordinate dimensions memory failed.", &
+      line=__LINE__, file=FILENAME)) &
+      return  ! bail out
 
     write (logMsg,"(A,A,(A,I0))") trim(llabel)//": ", &
       trim(gridName), &

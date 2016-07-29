@@ -11,58 +11,58 @@ module NUOPC_FileWriteUtility
   private
 
   public :: NUOPC_FileWriteGrid
-  public :: NUOPC_FileWriteMapgrid
-  public :: NUOPC_MAPGRID_GLOBAL
-  public :: NUOPC_MAPGRID_CONUS
-  public :: NUOPC_MAPGRID_IRENE
-  public :: NUOPC_MAPGRID_FRONTRANGE
-  public :: NUOPC_MAPGRID_PROTO100200
+  public :: NUOPC_FileWriteMapNCL
+  public :: NUOPC_MAP_GLOBAL
+  public :: NUOPC_MAP_CONUS
+  public :: NUOPC_MAP_IRENE
+  public :: NUOPC_MAP_FRONTRANGE
+  public :: NUOPC_MAP_PROTO100200
 
-  integer,parameter :: NUOPC_MAPGRID_GLOBAL = 1
-  integer,parameter :: NUOPC_MAPGRID_CONUS = 2
-  integer,parameter :: NUOPC_MAPGRID_IRENE = 3
-  integer,parameter :: NUOPC_MAPGRID_FRONTRANGE = 4
-  integer,parameter :: NUOPC_MAPGRID_PROTO100200 = 5
+  integer,parameter :: NUOPC_MAP_GLOBAL = 1
+  integer,parameter :: NUOPC_MAP_CONUS = 2
+  integer,parameter :: NUOPC_MAP_IRENE = 3
+  integer,parameter :: NUOPC_MAP_FRONTRANGE = 4
+  integer,parameter :: NUOPC_MAP_PROTO100200 = 5
 
-  type MapGridDesc
-    character(len=16) :: mapGridName
+  type MapDesc
+    character(len=16) :: mapName
     real              :: minLat
     real              :: maxLat
     real              :: minLon
     real              :: maxLon
-  endtype MapGridDesc
+  endtype MapDesc
 
-  type(MapGridDesc),parameter,dimension(5) :: MapGrid = &
-    (/ MapGridDesc( &
+  type(MapDesc),parameter,dimension(5) :: MapGrid = &
+    (/ MapDesc( &
          "GLOBAL", &
          -90.0, &
          90.0, &
          -180.0, &
          -180.0), &
-       MapGridDesc( &
+       MapDesc( &
          "CONUS", &
          18.0, &
          49.0, &
          -125.0, &
          -62.5), &
-       MapGridDesc( &
+       MapDesc( &
          "IRENE", &
          13.0, &
          55.0, &
          -120.0, &
          -46.0), &
-       MapGridDesc( &
+       MapDesc( &
          "FRONTRANGE", &
          38.5, &
          41.0, &
          -107.0, &
          -103.5), &
-       MapGridDesc( &
+       MapDesc( &
          "PROTO100200", &
          0.0, &
          100.0, &
          0.0, &
-         200.5) &
+         200.0) &
      /) 
 
 contains
@@ -71,33 +71,38 @@ contains
   ! Utilities
   !-----------------------------------------------------------------------------
 
-  subroutine NUOPC_FileWriteGrid(grid,prefix,mapGridList,rc)
+  subroutine NUOPC_FileWriteGrid(grid,fileName,mapList,rc)
     ! ARGUMENTS
     type(ESMF_Grid),intent(in)           :: grid
-    character(len=*),intent(in),optional :: prefix
-    integer,intent(in),optional          :: mapGridList(:)    
+    character(len=*),intent(in),optional :: fileName
+    integer,intent(in),optional          :: mapList(:)    
     integer,intent(out),optional         :: rc
 
     ! LOCAL VARIABLES
-    character(len=64)               :: lprefix
-    character(len=64)               :: gridFile
+    character(len=64)               :: lfileName
+    character(len=64)               :: gridName
     type(ESMF_Array)                :: array
     type(ESMF_ArrayBundle)          :: arrayBundle
     logical                         :: isPresent
+    integer                         :: dimCount
+    integer                         :: dimIndex
+    integer,allocatable             :: coordDimCount(:)
+    integer                         :: coordDimMax
+    integer                         :: stat
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    if (present(prefix)) then
-      lprefix = trim(prefix)
+    call ESMF_GridGet(grid, name=gridName, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return  ! bail out
+
+    if (present(fileName)) then
+      lfileName = trim(fileName)
     else
-      call ESMF_GridGet(grid,name=lprefix,rc=rc)
-      if (ESMF_STDERRORCHECK(rc)) return
+      lfileName = trim(gridName)//".nc"
     endif
 
     arrayBundle = ESMF_ArrayBundleCreate(rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return
-
-    write (gridFile,"(A)") trim(lprefix)//".nc"
 
     ! -- centers --
 
@@ -176,38 +181,78 @@ contains
    endif
 
     call ESMF_ArrayBundleWrite(arrayBundle, &
-     fileName=trim(gridFile),rc=rc)
+     fileName=trim(lfileName),rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return
 
     call ESMF_ArrayBundleDestroy(arrayBundle,rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return
 
-    if (present(mapGridList)) then
-      call NUOPC_FileWriteMapGrid(trim(gridFile),mapGridList,rc=rc)
-      if (ESMF_STDERRORCHECK(rc)) return
-    endif
+    if (present(mapList)) then
+      call ESMF_GridGet(grid,dimCount=dimCount,rc=rc)
+      if (ESMF_STDERRORCHECK(rc)) return  ! bail out
+
+      ! allocate coordDim info accord. to dimCount and tileCount
+      allocate(coordDimCount(dimCount), &
+        stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+        msg="Allocation of coordinate dimensions memory failed.", &
+        line=__LINE__, file=FILENAME)) &
+        return  ! bail out
+
+      ! get coordDim info
+      call ESMF_GridGet(grid, coordDimCount=coordDimCount, &
+        rc=rc)
+      if (ESMF_STDERRORCHECK(rc)) return  ! bail out
+
+      coordDimMax = 0
+      do dimIndex=1,dimCount
+        coordDimMax = MAX(coordDimMax,coordDimCount(dimIndex))
+      enddo
+
+      if (coordDimMax == 1) then
+        call NUOPC_FileWriteMapNCL(trim(lfileName),mapList, &
+          repeatCoord=.TRUE.,rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      else
+        call NUOPC_FileWriteMapNCL(trim(lfileName),mapList,rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      endif
+   endif
 
   end subroutine
 
-  subroutine NUOPC_FileWriteMapGrid(gridFile,mapGridList,title,gridName,rc)
+  subroutine NUOPC_FileWriteMapNCL(gridFile,mapList,title,gridName,repeatCoord,rc)
     ! ARGUMENTS
     character(len=*),intent(in)          :: gridFile
-    integer,intent(in)                   :: mapGridList(:)
+    integer,intent(in)                   :: mapList(:)
     character(len=*),intent(in),optional :: title
     character(len=*),intent(in),optional :: gridName
+    logical,intent(in),optional          :: repeatCoord
     integer,intent(out),optional         :: rc
 
     ! LOCAL VARIABLES
+    type(ESMF_VM)                   :: vm
     character(len=64)               :: ltitle
     character(len=64)               :: lgridName
-    character(len=64)               :: mapGridFile
-    character(len=64)               :: mapGridName
+    logical                         :: lrepeatCoord
+    character(len=64)               :: nclFile
+    character(len=64)               :: mapName
     integer                         :: mIndex
     integer                         :: markExt
     integer                         :: fUnit
     integer                         :: stat
+    integer                         :: lpe
 
     if (present(rc)) rc = ESMF_SUCCESS
+
+    ! Get current VM and pet number
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    call ESMF_VMGet(vm, localPet=lpe, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    if (lpe /= 0) return
 
     if (present(gridName)) then
       lgridName = trim(gridName)
@@ -226,26 +271,31 @@ contains
       ltitle = trim(lgridName)
     endif
 
+    if (present(repeatCoord)) then
+      lrepeatCoord = repeatCoord
+    else
+      lrepeatCoord = .FALSE.
+    endif
 
-    do mIndex=1,size(mapGridList)
-      selectcase(mapGridList(mIndex))
-        case (NUOPC_MAPGRID_GLOBAL,NUOPC_MAPGRID_CONUS,NUOPC_MAPGRID_IRENE, &
-        NUOPC_MAPGRID_FRONTRANGE,NUOPC_MAPGRID_PROTO100200)
-          mapGridName = trim(MapGrid(mapGridList(mIndex))%mapGridName)
+    do mIndex=1,size(mapList)
+      selectcase(mapList(mIndex))
+        case (NUOPC_MAP_GLOBAL,NUOPC_MAP_CONUS,NUOPC_MAP_IRENE, &
+        NUOPC_MAP_FRONTRANGE,NUOPC_MAP_PROTO100200)
+          mapName = trim(MapGrid(mapList(mIndex))%mapName)
         case default
-          mapGridName = 'UKNOWN'
+          mapName = 'UKNOWN'
       endselect
 
-      mapGridFile = trim(lgridName)// &
-        "_"//trim(mapGridName)//".ncl"
+      nclFile = trim(lgridName)// &
+        "_"//trim(mapName)//".ncl"
 
       call ESMF_UtilIOUnitGet(fUnit, rc=rc)
       if (ESMF_STDERRORCHECK(rc)) return
-      open (fUnit,file=trim(mapGridFile),action="write", &
+      open (fUnit,file=trim(nclFile),action="write", &
         status="new",iostat=stat)
       if (stat /= 0) then
         call ESMF_LogSetError(rcToCheck=ESMF_RC_FILE_OPEN,   &
-          msg="Cound not open "//trim(mapGridFile)//".", &
+          msg="Cound not open "//trim(nclFile)//".", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)
         return
       endif
@@ -253,29 +303,38 @@ contains
       write (fUnit,"(A)") 'begin'
       write (fUnit,"(A)") '  in = addfile("'//trim(gridFile)//'","r")'
       write (fUnit,"(A)") '  wks = gsn_open_wks("png","'// &
-        trim(lgridName)//'_'//trim(mapGridName)//'")'
+        trim(lgridName)//'_'//trim(mapName)//'")'
       write (fUnit,"(A)") '  res              = True'
       write (fUnit,"(A)") '  res@gsnMaximize  = True'
       write (fUnit,"(A)") '  res@gsnDraw      = False'
       write (fUnit,"(A)") '  res@gsnFrame     = False'
       write (fUnit,"(A)") '  res@tiMainString = "'// &
-        trim(ltitle)//' '//trim(mapGridName)//'"'
+        trim(ltitle)//' '//trim(mapName)//'"'
       write (fUnit,"(A)") '  res@pmTickMarkDisplayMode = "Always"'
-      write (fUnit,"(A)") '! '//trim(mapGridName)//' Map Grid'
-      if (mapGridList(mIndex) > 1 .AND. mapGridList(mIndex) <= size(MapGrid)) then
+      write (fUnit,"(A)") '; '//trim(mapName)//' Map Grid'
+      if (mapList(mIndex) > 1 .AND. mapList(mIndex) <= size(MapGrid)) then
         write (fUnit,"(A,F0.3)") &
-          '  res@mpMinLatF    = ',MapGrid(mapGridList(mIndex))%minLat
+          '  res@mpMinLatF    = ',MapGrid(mapList(mIndex))%minLat
         write (fUnit,"(A,F0.3)") &
-          '  res@mpMaxLatF    = ',MapGrid(mapGridList(mIndex))%maxLat
+          '  res@mpMaxLatF    = ',MapGrid(mapList(mIndex))%maxLat
         write (fUnit,"(A,F0.3)") &
-          '  res@mpMinLonF    = ',MapGrid(mapGridList(mIndex))%minLon
+          '  res@mpMinLonF    = ',MapGrid(mapList(mIndex))%minLon
         write (fUnit,"(A,F0.3)") &
-          '  res@mpMaxLonF    = ',MapGrid(mapGridList(mIndex))%minLon
+          '  res@mpMaxLonF    = ',MapGrid(mapList(mIndex))%maxLon
       endif
       write (fUnit,"(A)") '  map = gsn_csm_map_ce(wks,res)'
       write (fUnit,"(A)") '  hgt = in->lon_center(:,:)'
-      write (fUnit,"(A)") '  hgt@lat2d = in->lat_center(:,:)'
-      write (fUnit,"(A)") '  hgt@lon2d = in->lon_center(:,:)'
+      if (lrepeatCoord) then
+        write (fUnit,"(A)") '  dimlon = getfilevardimsizes(in,"lon_center")'
+        write (fUnit,"(A)") '  dimlat = getfilevardimsizes(in,"lat_center")'
+        write (fUnit,"(A)") '  hgt@lat2d = conform_dims((/dimlon(0),dimlat(1)/),'// &
+          'in->lat_center(:,0),1)'
+        write (fUnit,"(A)") '  hgt@lon2d = conform_dims((/dimlon(0),dimlat(1)/),'// &
+          'in->lon_center(0,:),0)'
+      else
+        write (fUnit,"(A)") '  hgt@lat2d = in->lat_center(:,:)'
+        write (fUnit,"(A)") '  hgt@lon2d = in->lon_center(:,:)'
+      endif
       write (fUnit,"(A)") '  pres                   = True'
       write (fUnit,"(A)") '  pres@gsnCoordsAsLines  = True'
       write (fUnit,"(A)") '  gsn_coordinates(wks,map,hgt,pres)'
@@ -284,7 +343,7 @@ contains
       close (fUnit,iostat=stat)
       if (stat /= 0) then
         call ESMF_LogSetError(rcToCheck=ESMF_RC_FILE_CLOSE,   &
-          msg="Cound not close "//trim(mapGridFile)//".", &
+          msg="Cound not close "//trim(nclFile)//".", &
           line=__LINE__, file=FILENAME, rcToReturn=rc)
         return
       endif
