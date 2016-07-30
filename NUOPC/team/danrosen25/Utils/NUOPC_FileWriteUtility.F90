@@ -89,6 +89,7 @@ contains
     integer,allocatable             :: coordDimCount(:)
     integer                         :: coordDimMax
     integer                         :: stat
+    logical                         :: corners
 
     if (present(rc)) rc = ESMF_SUCCESS
 
@@ -132,6 +133,7 @@ contains
       isPresent=isPresent, rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return
     if (isPresent) then
+      corners = .TRUE.
       call ESMF_GridGetCoord(grid, coordDim=1, &
         staggerLoc=ESMF_STAGGERLOC_CORNER, array=array, rc=rc)
       if (.not. ESMF_STDERRORCHECK(rc)) then
@@ -148,6 +150,8 @@ contains
         call ESMF_ArrayBundleAdd(arrayBundle,(/array/),rc=rc)
         if (ESMF_STDERRORCHECK(rc)) return
       endif
+    else
+      corners = .FALSE.
     endif
 
     ! -- mask --
@@ -211,23 +215,26 @@ contains
 
       if (coordDimMax == 1) then
         call NUOPC_FileWriteMapNCL(trim(lfileName),mapList, &
-          repeatCoord=.TRUE.,rc=rc)
+          repeatCoord=.TRUE.,corners=corners,rc=rc)
         if (ESMF_STDERRORCHECK(rc)) return
       else
-        call NUOPC_FileWriteMapNCL(trim(lfileName),mapList,rc=rc)
+        call NUOPC_FileWriteMapNCL(trim(lfileName),mapList, &
+          corners=corners,rc=rc)
         if (ESMF_STDERRORCHECK(rc)) return
       endif
    endif
 
   end subroutine
 
-  subroutine NUOPC_FileWriteMapNCL(gridFile,mapList,title,gridName,repeatCoord,rc)
+  subroutine NUOPC_FileWriteMapNCL(gridFile,mapList,title,gridName, &
+  repeatCoord,corners,rc)
     ! ARGUMENTS
     character(len=*),intent(in)          :: gridFile
     integer,intent(in)                   :: mapList(:)
     character(len=*),intent(in),optional :: title
     character(len=*),intent(in),optional :: gridName
     logical,intent(in),optional          :: repeatCoord
+    logical,intent(in),optional          :: corners
     integer,intent(out),optional         :: rc
 
     ! LOCAL VARIABLES
@@ -235,6 +242,7 @@ contains
     character(len=64)               :: ltitle
     character(len=64)               :: lgridName
     logical                         :: lrepeatCoord
+    logical                         :: lcorners
     character(len=64)               :: nclFile
     character(len=64)               :: mapName
     integer                         :: mIndex
@@ -242,6 +250,8 @@ contains
     integer                         :: fUnit
     integer                         :: stat
     integer                         :: lpe
+    character(len=10)               :: lat
+    character(len=10)               :: lon
 
     if (present(rc)) rc = ESMF_SUCCESS
 
@@ -277,6 +287,20 @@ contains
       lrepeatCoord = .FALSE.
     endif
 
+    if (present(corners)) then
+      lcorners = corners
+    else
+      lcorners = .FALSE.
+    endif
+
+    if (lcorners) then
+      lat = 'lat_corner'
+      lon = 'lon_corner'
+    else
+      lat = 'lat_center'
+      lon = 'lon_center'
+    endif
+
     do mIndex=1,size(mapList)
       selectcase(mapList(mIndex))
         case (NUOPC_MAP_GLOBAL,NUOPC_MAP_CONUS,NUOPC_MAP_IRENE, &
@@ -300,6 +324,8 @@ contains
         return
       endif
 
+      write (fUnit,"(A)") '; NUOPC_FileWriteMapNCL used to generate this file'
+      write (fUnit,"(A)") '; execute ncl <this file> to generate grid png file'
       write (fUnit,"(A)") 'begin'
       write (fUnit,"(A)") '  in = addfile("'//trim(gridFile)//'","r")'
       write (fUnit,"(A)") '  wks = gsn_open_wks("png","'// &
@@ -324,9 +350,9 @@ contains
       endif
       write (fUnit,"(A)") '  map = gsn_csm_map_ce(wks,res)'
       write (fUnit,"(A)") '  hgt = in->lon_center(:,:)'
+      write (fUnit,"(A)") '  dimlon = getfilevardimsizes(in,"lon_center")'
+      write (fUnit,"(A)") '  dimlat = getfilevardimsizes(in,"lat_center")'
       if (lrepeatCoord) then
-        write (fUnit,"(A)") '  dimlon = getfilevardimsizes(in,"lon_center")'
-        write (fUnit,"(A)") '  dimlat = getfilevardimsizes(in,"lat_center")'
         write (fUnit,"(A)") '  hgt@lat2d = conform_dims((/dimlon(0),dimlat(1)/),'// &
           'in->lat_center(:,0),1)'
         write (fUnit,"(A)") '  hgt@lon2d = conform_dims((/dimlon(0),dimlat(1)/),'// &
@@ -336,7 +362,14 @@ contains
         write (fUnit,"(A)") '  hgt@lon2d = in->lon_center(:,:)'
       endif
       write (fUnit,"(A)") '  pres                   = True'
-      write (fUnit,"(A)") '  pres@gsnCoordsAsLines  = True'
+      if (lcorners) then
+        write (fUnit,"(A)") '  pres@gsnCoordsAsLines  = True'
+      else
+        write (fUnit,"(A)") '  pres@gsnCoordsAsLines  = False'
+        write (fUnit,"(A)") '  if (dimlon(0)*dimlat(1) .gt. 999) then'
+        write (fUnit,"(A)") '    pres@gsMarkerIndex = 1'
+        write (fUnit,"(A)") '  end if'
+      endif
       write (fUnit,"(A)") '  gsn_coordinates(wks,map,hgt,pres)'
       write (fUnit,"(A)") 'end'
 
