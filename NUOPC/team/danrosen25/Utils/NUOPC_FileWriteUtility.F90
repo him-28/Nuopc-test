@@ -350,16 +350,16 @@ contains
       endif
       write (fUnit,"(A)") '  map = gsn_csm_map_ce(wks,res)'
       write (fUnit,"(A)") '  hgt = in->lon_center(:,:)'
-      write (fUnit,"(A)") '  dimlon = getfilevardimsizes(in,"lon_center")'
-      write (fUnit,"(A)") '  dimlat = getfilevardimsizes(in,"lat_center")'
+      write (fUnit,"(A)") '  dimlon = getfilevardimsizes(in,"'//trim(lon)//'")'
+      write (fUnit,"(A)") '  dimlat = getfilevardimsizes(in,"'//trim(lat)//'")'
       if (lrepeatCoord) then
         write (fUnit,"(A)") '  hgt@lat2d = conform_dims((/dimlon(0),dimlat(1)/),'// &
           'in->lat_center(:,0),1)'
         write (fUnit,"(A)") '  hgt@lon2d = conform_dims((/dimlon(0),dimlat(1)/),'// &
           'in->lon_center(0,:),0)'
       else
-        write (fUnit,"(A)") '  hgt@lat2d = in->lat_center(:,:)'
-        write (fUnit,"(A)") '  hgt@lon2d = in->lon_center(:,:)'
+        write (fUnit,"(A)") '  hgt@lat2d = in->'//trim(lat)//'(:,:)'
+        write (fUnit,"(A)") '  hgt@lon2d = in->'//trim(lon)//'(:,:)'
       endif
       write (fUnit,"(A)") '  pres                   = True'
       if (lcorners) then

@@ -18,7 +18,24 @@ module NUOPC_LogUtility
   public :: NUOPC_LogField
   public :: NUOPC_LogFieldValue
   public :: NUOPC_LogArrayValue
+  public :: NUOPC_LogFarrayValue
   public :: NUOPC_LogCplList
+
+  ! module interfaces
+  interface NUOPC_LogFarrayValue
+    module procedure NUOPC_LogFarrayValue_I41D
+    module procedure NUOPC_LogFarrayValue_I42D
+    module procedure NUOPC_LogFarrayValue_I43D
+    module procedure NUOPC_LogFarrayValue_I81D
+    module procedure NUOPC_LogFarrayValue_I82D
+    module procedure NUOPC_LogFarrayValue_I83D
+    module procedure NUOPC_LogFarrayValue_R41D
+    module procedure NUOPC_LogFarrayValue_R42D
+    module procedure NUOPC_LogFarrayValue_R43D
+    module procedure NUOPC_LogFarrayValue_R81D
+    module procedure NUOPC_LogFarrayValue_R82D
+    module procedure NUOPC_LogFarrayValue_R83D
+  end interface
 
   contains
 
@@ -478,15 +495,143 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
+    character(len=64)             :: llabel
+    type(ESMF_TypeKind_Flag)      :: typekind
+    integer                       :: rank
+    integer(ESMF_KIND_I4),pointer :: dataPtr_I4_1D(:)
+    integer(ESMF_KIND_I4),pointer :: dataPtr_I4_2D(:,:)
+    integer(ESMF_KIND_I4),pointer :: dataPtr_I4_3D(:,:,:)
+    integer(ESMF_KIND_I8),pointer :: dataPtr_I8_1D(:)
+    integer(ESMF_KIND_I8),pointer :: dataPtr_I8_2D(:,:)
+    integer(ESMF_KIND_I8),pointer :: dataPtr_I8_3D(:,:,:)
+    real(ESMF_KIND_R4),pointer    :: dataPtr_R4_1D(:)
+    real(ESMF_KIND_R4),pointer    :: dataPtr_R4_2D(:,:)
+    real(ESMF_KIND_R4),pointer    :: dataPtr_R4_3D(:,:,:)
+    real(ESMF_KIND_R8),pointer    :: dataPtr_R8_1D(:,:)
+    real(ESMF_KIND_R8),pointer    :: dataPtr_R8_2D(:,:)
+    real(ESMF_KIND_R8),pointer    :: dataPtr_R8_3D(:,:,:)
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      llabel = trim(label)
+    else
+      llabel = "NUOPC_LogArrayValue"
+    endif
+
+    call ESMF_ArrayGet(array, typekind=typekind,rank=rank, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    if (typekind == ESMF_TYPEKIND_I4) then
+      if (rank == 1) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_I4_1D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_I4_1D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 2) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_I4_2D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_I4_2D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 3) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_I4_3D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_I4_3D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      else
+        call ESMF_LogWrite(trim(llabel)//" rank out of log utility range.", &
+          ESMF_LOGMSG_INFO,line=__LINE__, file=FILENAME)
+      endif
+    elseif (typekind == ESMF_TYPEKIND_I8) then
+      if (rank == 1) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_I8_1D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_I8_1D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 2) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_I8_2D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_I8_2D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 3) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_I8_3D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_I8_3D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      else
+        call ESMF_LogWrite(trim(llabel)//" rank out of log uttility range.", &
+          ESMF_LOGMSG_INFO,line=__LINE__, file=FILENAME)
+      endif
+    elseif (typekind == ESMF_TYPEKIND_R4) then
+      if (rank == 1) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R4_1D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_R4_1D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 2) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R4_2D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_R4_2D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 3) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R4_3D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_R4_3D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      else
+        call ESMF_LogWrite(trim(llabel)//" rank out of log utility range.", &
+          ESMF_LOGMSG_INFO,line=__LINE__, file=FILENAME)
+      endif
+    elseif (typekind == ESMF_TYPEKIND_R8) then
+      if (rank == 1) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R8_1D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_R8_1D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 2) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R8_2D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_R8_2D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      elseif (rank == 3) then
+        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R8_3D, rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_LogFarrayValue(dataPtr_R8_3D, fieldName=trim(fieldName), &
+          label=trim(llabel), rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      else
+        call ESMF_LogWrite(trim(llabel)//" rank out of log utility range.", &
+          ESMF_LOGMSG_INFO,line=__LINE__, file=FILENAME)
+      endif
+    else
+      call ESMF_LogWrite(trim(llabel)//" typekind out of log utility range.", &
+        ESMF_LOGMSG_INFO,line=__LINE__, file=FILENAME)
+    endif
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_I41D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    integer(ESMF_KIND_I4),intent(in), pointer  :: farray(:)
+    character(len=*), intent(in), optional     :: fieldName
+    character(len=*), intent(in), optional     :: label
+    integer, intent(out), optional             :: rc
+
+    ! LOCAL VARIABLES
     character(len=130)          :: llabel
-    type(ESMF_TypeKind_Flag)    :: typekind
-    integer                     :: rank
-    real(ESMF_KIND_R4), pointer :: dataPtr_R4_1D(:)
-    real(ESMF_KIND_R4), pointer :: dataPtr_R4_2D(:,:)
-    real(ESMF_KIND_R4), pointer :: dataPtr_R4_3D(:,:,:)
-    real(ESMF_KIND_R8), pointer :: dataPtr_R8_1D(:,:)
-    real(ESMF_KIND_R8), pointer :: dataPtr_R8_2D(:,:)
-    real(ESMF_KIND_R8), pointer :: dataPtr_R8_3D(:,:,:)
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
@@ -499,84 +644,440 @@ module NUOPC_LogUtility
       endif
     else
       if (present(fieldName)) then
-        llabel = "NUOPC_LogArrayValue"//" "//trim(fieldName)
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
       else
-        llabel = "NUOPC_LogArrayValue"
+        llabel = "NUOPC_LogFarrayValue"
       endif
     endif
 
-    call ESMF_ArrayGet(array, typekind=typekind,rank=rank, rc=rc)
-    if (ESMF_STDERRORCHECK(rc)) return
-
-    if (typekind == ESMF_TYPEKIND_R4) then
-      if (rank == 1) then
-        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R4_1D, rc=rc)
-        if (ESMF_STDERRORCHECK(rc)) return
-        write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
           "(min,max,sum)=(", &
-          minval(dataPtr_R4_1D),",", &
-          maxval(dataPtr_R4_1D),",", &
-          sum(dataPtr_R4_1D),")"
-      elseif (rank == 2) then
-        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R4_2D, rc=rc)
-        if (ESMF_STDERRORCHECK(rc)) return
-        write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(dataPtr_R4_2D),",", &
-          maxval(dataPtr_R4_2D),",", &
-          sum(dataPtr_R4_2D),")"
-      elseif (rank == 3) then
-        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R4_3D, rc=rc)
-        if (ESMF_STDERRORCHECK(rc)) return
-        write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(dataPtr_R4_3D),",", &
-          maxval(dataPtr_R4_3D),",", &
-          sum(dataPtr_R4_3D),")"
-      else
-        write(logMsg,"(A,A)") trim(llabel)//": ", &
-          "rank out of NUOPC_LogArrayValue range."
-      endif
-    elseif (typekind == ESMF_TYPEKIND_R8) then
-      if (rank == 1) then
-        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R8_1D, rc=rc)
-        if (ESMF_STDERRORCHECK(rc)) return
-        write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(dataPtr_R8_1D),",", &
-          maxval(dataPtr_R8_1D),",", &
-          sum(dataPtr_R8_1D),")"
-      elseif (rank == 2) then
-        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R8_2D, rc=rc)
-        if (ESMF_STDERRORCHECK(rc)) return
-        write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(dataPtr_R8_2D),",", &
-          maxval(dataPtr_R8_2D),",", &
-          sum(dataPtr_R8_2D),")"
-      elseif (rank == 3) then
-        call ESMF_ArrayGet(array, farrayPtr=dataPtr_R8_3D, rc=rc)
-        if (ESMF_STDERRORCHECK(rc)) return
-        write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(dataPtr_R8_3D),",", &
-          maxval(dataPtr_R8_3D),",", &
-          sum(dataPtr_R8_3D),")"
-      else
-        write(logMsg,"(A,A)") trim(llabel)//": ", &
-          "rank out of NUOPC_LogArrayValue range."
-      endif
-    else
-      write(logMsg,"(A,A)") trim(llabel)//": ", &
-        "typekind out of NUOPC_LogArrayValue range."
-    endif
-
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
     call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
 
   end subroutine
 
   !-----------------------------------------------------------------------------
 
+  subroutine NUOPC_LogFarrayValue_I42D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    integer(ESMF_KIND_I4),intent(in), pointer  :: farray(:,:)
+    character(len=*), intent(in), optional     :: fieldName
+    character(len=*), intent(in), optional     :: label
+    integer, intent(out), optional             :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_I43D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    integer(ESMF_KIND_I4),intent(in), pointer  :: farray(:,:,:)
+    character(len=*), intent(in), optional     :: fieldName
+    character(len=*), intent(in), optional     :: label
+    integer, intent(out), optional             :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_I81D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    integer(ESMF_KIND_I8),intent(in), pointer  :: farray(:)
+    character(len=*), intent(in), optional     :: fieldName
+    character(len=*), intent(in), optional     :: label
+    integer, intent(out), optional             :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_I82D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    integer(ESMF_KIND_I8),intent(in), pointer  :: farray(:,:)
+    character(len=*), intent(in), optional     :: fieldName
+    character(len=*), intent(in), optional     :: label
+    integer, intent(out), optional             :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_I83D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    integer(ESMF_KIND_I8),intent(in), pointer  :: farray(:,:,:)
+    character(len=*), intent(in), optional     :: fieldName
+    character(len=*), intent(in), optional     :: label
+    integer, intent(out), optional             :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_R41D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    real(ESMF_KIND_R4),intent(in), pointer  :: farray(:)
+    character(len=*), intent(in), optional  :: fieldName
+    character(len=*), intent(in), optional  :: label
+    integer, intent(out), optional          :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_R42D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    real(ESMF_KIND_R4),intent(in), pointer  :: farray(:,:)
+    character(len=*), intent(in), optional  :: fieldName
+    character(len=*), intent(in), optional  :: label
+    integer, intent(out), optional          :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_R43D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    real(ESMF_KIND_R4),intent(in), pointer  :: farray(:,:,:)
+    character(len=*), intent(in), optional  :: fieldName
+    character(len=*), intent(in), optional  :: label
+    integer, intent(out), optional          :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_R81D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    real(ESMF_KIND_R8),intent(in), pointer  :: farray(:)
+    character(len=*), intent(in), optional  :: fieldName
+    character(len=*), intent(in), optional  :: label
+    integer, intent(out), optional          :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_R82D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    real(ESMF_KIND_R8),intent(in), pointer  :: farray(:,:)
+    character(len=*), intent(in), optional  :: fieldName
+    character(len=*), intent(in), optional  :: label
+    integer, intent(out), optional          :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_LogFarrayValue_R83D(farray, fieldName, label, rc)
+    ! ARGUMENTS
+    real(ESMF_KIND_R8),intent(in), pointer  :: farray(:,:,:)
+    character(len=*), intent(in), optional  :: fieldName
+    character(len=*), intent(in), optional  :: label
+    integer, intent(out), optional          :: rc
+
+    ! LOCAL VARIABLES
+    character(len=130)          :: llabel
+    character(len=ESMF_MAXSTR)  :: logMsg
+
+    if(present(rc)) rc = ESMF_SUCCESS
+
+    if (present(label)) then
+      if (present(fieldName)) then
+        llabel = trim(label)//" "//trim(fieldName)
+      else
+        llabel = trim(label)
+      endif
+    else
+      if (present(fieldName)) then
+        llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
+      else
+        llabel = "NUOPC_LogFarrayValue"
+      endif
+    endif
+
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
+          "(min,max,sum)=(", &
+          minval(farray),",", &
+          maxval(farray),",", &
+          sum(farray),")"
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
   subroutine NUOPC_LogCplList(cplcomp,label,rc)
     type(ESMF_CplComp),intent(in)        :: cplcomp
     character(len=*),intent(in),optional :: label
