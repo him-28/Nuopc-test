@@ -43,7 +43,7 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-all: NUOPC_LogUtility.o NUOPC_FileWriteUtility.o NUOPC_CopyUtility.o
+all: NUOPC_LogUtility.o NUOPC_FileWriteUtility.o NUOPC_CopyUtility.o NUOPC_FillUtility.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -62,4 +62,4 @@ info:
 	@echo ==================================================================
 
 edit:
-	nedit NUOPC_LogUtility.F90 NUOPC_FileWriteUtility.F90 NUOPC_CopyUtility &
+	nedit NUOPC_LogUtility.F90 NUOPC_FileWriteUtility.F90 NUOPC_CopyUtility.F90 NUOPC_FillUtility.F90 &

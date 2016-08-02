@@ -366,7 +366,7 @@ contains
         write (fUnit,"(A)") '  pres@gsnCoordsAsLines  = True'
       else
         write (fUnit,"(A)") '  pres@gsnCoordsAsLines  = False'
-        write (fUnit,"(A)") '  if (dimlon(0)*dimlat(1) .gt. 999) then'
+        write (fUnit,"(A)") '  if (dimlon(0)*dimlat(1) .gt. 99) then'
         write (fUnit,"(A)") '    pres@gsMarkerIndex = 1'
         write (fUnit,"(A)") '  end if'
       endif
