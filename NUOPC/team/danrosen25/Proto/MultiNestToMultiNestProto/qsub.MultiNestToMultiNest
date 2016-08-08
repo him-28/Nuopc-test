@@ -2,7 +2,7 @@
 
 #PBS -e err
 #PBS -o out
-#PBS -N AtmNestedLnd
+#PBS -N MultiNestToMultiNest
 #PBS -A NRLMR03795024
 #PBS -q debug
 #PBS -l select=1:ncpus=1:mpiprocs=1
@@ -25,7 +25,7 @@ module load esmf/7.0.0_debug gribapi/1.12.3  jasper/1.900.1
 
 export np=$PBS_NP
 # Enable Fortran RTL core dumps for severe run time failures
-export decfort_dump_flag=y
+#export decfort_dump_flag=y
 #export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
 
 # set resource usage limits

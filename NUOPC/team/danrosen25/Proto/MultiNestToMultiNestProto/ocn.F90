@@ -1,7 +1,20 @@
-module LND
+! Disabling the following macro, e.g. renaming to WRITEGRID_disable,
+! will disable grid NetCDF and NCL map grid file output.
+#define WRITEGRID
+! Disabling the following macro, e.g. renaming to WRITESTATE_disable,
+! will disable field NetCDF output during data init and run.
+#define WRITESTATE
+! Disabling the following macro, e.g. renaming to LOGCONN_disable,
+! will disable field connection logging during initialization.
+#define LOGCONN
+! Disabling the following macro, e.g. renaming to WRITEJNL_disable,
+! will disable ferret jnl script generation during finalize.
+#define WRITEJNL
+
+module OCN
 
   !-----------------------------------------------------------------------------
-  ! LND Component.
+  ! OCN Component.
   !-----------------------------------------------------------------------------
 
   use ESMF
@@ -13,7 +26,10 @@ module LND
     model_label_SetRunClock     => label_SetRunClock, &
     model_label_Advance         => label_Advance, &
     model_label_Finalize        => label_Finalize
-   
+  use NUOPC_FileWriteUtility
+  use NUOPC_LogUtility 
+  use NUOPC_FillUtility
+ 
   implicit none
   
   private
@@ -56,15 +72,15 @@ module LND
     nnests = 3, &
     nfields = 3
   integer,parameter,dimension(nnests) :: &
-    iCount = (/ 10,10,10 /), &
-    jCount = (/ 10,10,10 /)
+    iCount = (/ 20,50,100 /), &
+    jCount = (/ 20,50,100 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
     dt = (/ 30.D0, 20.D0, 10.D0 /)
   real(ESMF_KIND_R8),parameter,dimension(nnests) :: &
-    iMinCornerCoord = (/ 0._ESMF_KIND_R8,30._ESMF_KIND_R8,50._ESMF_KIND_R8 /), &
-    iMaxCornerCoord = (/ 100._ESMF_KIND_R8,80._ESMF_KIND_R8,60._ESMF_KIND_R8 /), &
-    jMinCornerCoord = (/ 0._ESMF_KIND_R8,50._ESMF_KIND_R8,100._ESMF_KIND_R8 /), &
-    jMaxCornerCoord = (/ 200._ESMF_KIND_R8,150._ESMF_KIND_R8,120._ESMF_KIND_R8 /)
+    iMinCornerCoord = (/ 240._ESMF_KIND_R8,260._ESMF_KIND_R8,270._ESMF_KIND_R8 /), &
+    iMaxCornerCoord = (/ 320._ESMF_KIND_R8,300._ESMF_KIND_R8,290._ESMF_KIND_R8 /), &
+    jMinCornerCoord = (/ 10._ESMF_KIND_R8,20._ESMF_KIND_R8,25._ESMF_KIND_R8 /), &
+    jMaxCornerCoord = (/ 60._ESMF_KIND_R8,50._ESMF_KIND_R8,45._ESMF_KIND_R8 /)
   type(FieldDesc),parameter,dimension(nfields) :: fields = &
     (/ FieldDesc( &
          "air_pressure_at_sea_level", &
@@ -199,7 +215,7 @@ module LND
       return  ! bail out
 
     ! set model name so it becomes identifiable
-    call ESMF_GridCompSet(model, name="LND", rc=rc)
+    call ESMF_GridCompSet(model, name="OCN", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -363,7 +379,7 @@ module LND
     type(ESMF_Field)        :: field
     integer                 :: nIndex, fIndex
     logical                 :: impConn, expConn
-    character(ESMF_MAXSTR)  :: logMsg
+    character(len=3)        :: nStr
     
     rc = ESMF_SUCCESS
 
@@ -382,9 +398,19 @@ module LND
       file=__FILE__)) &
       return  ! bail out
  
-    ! create a grid object for each nest
     do nIndex = 1, is%wrap%nnests
+      ! Nest integer to string
+      if ( nIndex > 999) then
+        call ESMF_LogSetError(ESMF_FAILURE, &
+          msg="Maximum nest size is 999.", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return  ! bail out
+      endif
+      write (nStr,"(I0)") nIndex
 
+      ! Create a grid object for current nest
       is%wrap%grids(nIndex) = ESMF_GridCreateNoPeriDimUfrm( &
         maxIndex=(/iCount(nIndex),jCount(nIndex)/), &
         minCornerCoord=(/iMinCornerCoord(nIndex), jMinCornerCoord(nIndex)/), &
@@ -396,9 +422,33 @@ module LND
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-    enddo
 
-    do nIndex = 1, is%wrap%nnests
+#ifdef WRITEGRID
+      ! Write the grid to file with NCL map file for current nest
+      call NUOPC_FileWriteGrid(is%wrap%grids(nIndex), &
+        fileName="OCN_GRID_"//trim(nStr)//".nc", &
+        nclMap=NUOPC_MAPPRESET_IRENE,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out 
+#endif
+#ifdef LOGCONN
+      ! Log the import and export field connections for current nest
+      call NUOPC_LogFieldConnections(is%wrap%NStateImp(nIndex), &
+        label="OCN Import State["//trim(nStr)//"]",rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_LogFieldConnections(is%wrap%NStateExp(nIndex), &
+        label="OCN Export State["//trim(nStr)//"]",rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+#endif
+
     do fIndex = 1, is%wrap%nfields
       if (is%wrap%fields(fIndex)%import) then
         impConn = NUOPC_IsConnected(is%wrap%NStateImp(nIndex), &
@@ -429,20 +479,10 @@ module LND
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-        write (logMsg, "(A,I0,A,A)") &
-          "Field realized in import state(nest=",nIndex,"): ", &
-          trim(is%wrap%fields(fIndex)%shortname)
-        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
-          line=__LINE__,file=__FILE__,rc=rc)
       elseif(is%wrap%fields(fIndex)%import) then
         call ESMF_StateRemove(is%wrap%NStateImp(nIndex), &
           (/trim(is%wrap%fields(fIndex)%shortname)/), &
           relaxedflag=.true.,rc=rc)
-        write (logMsg, "(A,I0,A,A)") &
-          "Field removed from import state(nest=",nIndex,"): ", &
-          trim(is%wrap%fields(fIndex)%shortname)
-        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
-          line=__LINE__,file=__FILE__,rc=rc)
       endif
 
       if (expConn) then
@@ -451,20 +491,10 @@ module LND
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-        write (logMsg, "(A,I0,A,A)") &
-          "Field realized in export state(nest=",nIndex,"): ", &
-          trim(is%wrap%fields(fIndex)%shortname)
-        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
-          line=__LINE__,file=__FILE__,rc=rc)
       elseif(is%wrap%fields(fIndex)%export) then
         call ESMF_StateRemove(is%wrap%NStateExp(nIndex), &
           (/trim(is%wrap%fields(fIndex)%shortname)/), &
           relaxedflag=.true.,rc=rc)
-        write (logMsg, "(A,I0,A,A)") &
-          "Field removed from export state(nest=",nIndex,"): ", &
-          trim(is%wrap%fields(fIndex)%shortname)
-        call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, &
-          line=__LINE__,file=__FILE__,rc=rc)
       endif
     enddo
     enddo
@@ -484,7 +514,6 @@ module LND
     character(len=64),allocatable          :: itemNameList(:)
     type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
     type(ESMF_Field)                       :: field
-    real(ESMF_KIND_R8), pointer            :: dataPtrR8D2(:,:)
     integer                                :: nIndex, iIndex
     integer                                :: stat
     type(ESMF_State)                       :: exportState
@@ -527,6 +556,13 @@ module LND
       endif
       write (nStr,"(I0)") nIndex
 
+      call NUOPC_FillState(is%wrap%NStateImp(nIndex), &
+        value=0, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
       ! initialize export fields to nest * 10
       call ESMF_StateGet(is%wrap%NStateExp(nIndex), &
         itemCount=itemCount, rc=rc)
@@ -560,14 +596,14 @@ module LND
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-          call ESMF_FieldGet(field, farrayPtr=dataPtrR8D2, rc=rc)
+          call NUOPC_FillField(field, &
+            value = (is%wrap%nnests - nIndex + 1) * 10._ESMF_KIND_R8, &
+            rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-          ! initialize the entire array
-          dataPtrR8D2 = (is%wrap%nnests - nIndex + 1) * 10._ESMF_KIND_R8
-         call NUOPC_SetAttribute(field, &
+          call NUOPC_SetAttribute(field, &
             name="Updated", value="true", rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
@@ -582,7 +618,8 @@ module LND
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-     
+
+#ifdef WRITESTATE 
       ! output export init data
       call NUOPC_Write(is%wrap%NStateExp(nIndex), &
         fileNamePrefix=trim(modelName)//"_export_init_"//trim(nStr)//"_", &
@@ -591,6 +628,7 @@ module LND
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#endif
 
     enddo
 
@@ -781,6 +819,7 @@ module LND
       endif
       write (nStr,"(I0)") nIndex
 
+#ifdef WRITESTATE
       ! output import data
       call NUOPC_Write(is%wrap%NStateImp(nIndex), &
         fileNamePrefix=trim(modelName)//"_import_"//trim(nStr)//"_", &
@@ -789,6 +828,7 @@ module LND
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out      
+#endif
 
       is%wrap%elapsedtimes(nIndex) = is%wrap%elapsedtimes(nIndex) + modelTimeStep
 
@@ -807,6 +847,8 @@ module LND
         is%wrap%elapsedtimes(nIndex) = &
           is%wrap%elapsedtimes(nIndex) - is%wrap%timesteps(nIndex)
       endif
+
+#ifdef WRITESTATE
       ! output export data
       call NUOPC_Write(is%wrap%NStateExp(nIndex), &
         fileNamePrefix=trim(modelName)//"_export_"//trim(nStr)//"_", &
@@ -815,6 +857,8 @@ module LND
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#endif
+
     enddo
 
   end subroutine
@@ -896,6 +940,7 @@ module LND
     type(InternalState)  :: is
     integer              :: stat
     integer              :: nIndex
+    character(len=3)     :: nStr
 
     rc = ESMF_SUCCESS
 
@@ -909,6 +954,45 @@ module LND
 
     ! -> destroy objects inside of internal state and deallocate memory
     do nIndex=1, is%wrap%nnests
+      ! Nest integer to string
+      if ( nIndex > 999) then
+        call ESMF_LogSetError(ESMF_FAILURE, &
+          msg="Maximum nest size is 999.", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return  ! bail out
+      endif
+      write (nStr,"(I0)") nIndex
+
+#ifdef WRITEJNL
+      ! Write the ferret script for plotting values
+      call NUOPC_FileWriteJNL( &
+        varName='sea_surface_temperature', &
+        dataFile='OCN_export_'//trim(nStr)//'_sst.nc', &
+        gridFile="OCN_GRID_"//trim(nStr)//".nc", &
+        slices=(/1,2,3,4,5,6/), &
+        map=NUOPC_MAPPRESET_IRENE, &
+        scale=(/0.0,50.0,5.0/), &
+        repeatCoord=.TRUE.,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_FileWriteJNL( &
+        varName='air_pressure_at_sea_level', &
+        dataFile='OCN_import_'//trim(nStr)//'_pmsl.nc', &
+        gridFile="OCN_GRID_"//trim(nStr)//".nc", &
+        slices=(/1,2,3,4,5,6/), &
+        map=NUOPC_MAPPRESET_IRENE, &
+        scale=(/0.0,50.0,5.0/), &
+        repeatCoord=.TRUE.,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+#endif
+
 !      call ESMF_StateDestroy(is%wrap%NStateImp(nIndex), rc=rc)
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 !        line=__LINE__, &

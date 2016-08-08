@@ -33,7 +33,7 @@ include $(ESMFMKFILE)
 	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
 
 %.o : %.F90
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) $<
         
 %.o : %.c
 	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
@@ -43,20 +43,23 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-mainApp: mainApp.o driver.o lnd.o
+esmApp: esmApp.o esm.o NUOPC_NestedConnector.o NUOPC_FileWriteUtility.o NUOPC_LogUtility.o NUOPC_FillUtility.o atm.o ocn.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
-mainApp.o: driver.o
-driver.o: lnd.o
+esmApp.o: esm.o
+esm.o: NUOPC_NestedConnector.o atm.o ocn.o
+NUOPC_NestedConnector.o: NUOPC_LogUtility.o NUOPC_FillUtility.o
+ocn.o: NUOPC_FileWriteUtility.o NUOPC_LogUtility.o
+atm.o: NUOPC_FileWriteUtility.o NUOPC_LogUtility.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
-	rm -f PET*.ESMF_LogFile *.nc err out core
+	rm -f PET*.ESMF_LogFile err out core *.nc *.ncl *.jnl
 clean:
-	rm -f mainApp *.o *.mod
+	rm -f esmApp *.o *.mod
 distclean: dust clean
 
 info:
@@ -67,4 +70,4 @@ info:
 	@echo ==================================================================
 
 edit:
-	nedit mainApp.F90 driver.F90 lnd.F90 &
+	nedit esmApp.F90 esm.F90 atm.F90 ocn.F90 &

@@ -10,7 +10,7 @@ module driver
     driver_routine_SS             => SetServices, &
     driver_label_SetModelServices => label_SetModelServices
   
-  use LND, only: lndSS => SetServices
+  use OCN, only: ocnSS => SetServices
   
   implicit none
   
@@ -18,7 +18,7 @@ module driver
   
   ! private module data --> ONLY PARAMETERS
   integer, parameter            :: stepCount = 6
-  real(ESMF_KIND_R8), parameter :: stepTime  = 10.D0  ! step time [s]
+  real(ESMF_KIND_R8), parameter :: stepTime  = 10.D0  ! step time [m]
                                                       ! should be parent step
 
   public SetServices
@@ -68,7 +68,7 @@ module driver
     rc = ESMF_SUCCESS
     
     ! SetServices for MODEL component
-    call NUOPC_DriverAddComp(driver, "LND", lndSS, comp=child, rc=rc)
+    call NUOPC_DriverAddComp(driver, "OCN", ocnSS, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -80,19 +80,19 @@ module driver
       return  ! bail out
       
     ! set the driver clock
-    call ESMF_TimeSet(startTime, s = 0, rc=rc)
+    call ESMF_TimeSet(startTime, m = 0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    call ESMF_TimeSet(stopTime, s_r8 = stepTime * stepCount, rc=rc)
+    call ESMF_TimeSet(stopTime, m_r8 = stepTime * stepCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    call ESMF_TimeIntervalSet(timeStep, s_r8 = stepTime, rc=rc)
+    call ESMF_TimeIntervalSet(timeStep, m_r8 = stepTime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

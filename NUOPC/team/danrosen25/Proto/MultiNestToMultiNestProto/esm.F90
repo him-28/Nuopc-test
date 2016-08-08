@@ -11,7 +11,7 @@ module ESM
     driver_label_SetModelServices => label_SetModelServices
   
   use ATM, only: atmSS => SetServices
-  use LND, only: lndSS => SetServices
+  use OCN, only: ocnSS => SetServices
   
   use NUOPC_NestedConnector, only: cplSS => SetServices 
  
@@ -79,8 +79,8 @@ module ESM
       file=__FILE__)) &
       return  ! bail out
       
-    ! SetServices for LND
-    call NUOPC_DriverAddComp(driver, "LND", lndSS, comp=child, rc=rc)
+    ! SetServices for OCN
+    call NUOPC_DriverAddComp(driver, "OCN", ocnSS, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -98,8 +98,8 @@ module ESM
     ! connectors can be set here, but will turn into no-ops.
 #define WITHCONNECTORS
 #ifdef WITHCONNECTORS
-    ! SetServices for atm2lnd
-    call NUOPC_DriverAddComp(driver, srcCompLabel="ATM", dstCompLabel="LND", &
+    ! SetServices for atm2ocn
+    call NUOPC_DriverAddComp(driver, srcCompLabel="ATM", dstCompLabel="OCN", &
       compSetServicesRoutine=cplSS, comp=connector, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -111,8 +111,8 @@ module ESM
       file=__FILE__)) &
       return  ! bail out
       
-    ! SetServices for lnd2atm
-    call NUOPC_DriverAddComp(driver, srcCompLabel="LND", dstCompLabel="ATM", &
+    ! SetServices for ocn2atm
+    call NUOPC_DriverAddComp(driver, srcCompLabel="OCN", dstCompLabel="ATM", &
       compSetServicesRoutine=cplSS, comp=connector, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &

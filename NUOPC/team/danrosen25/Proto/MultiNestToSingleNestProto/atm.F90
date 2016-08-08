@@ -1,3 +1,16 @@
+! Disabling the following macro, e.g. renaming to WRITEGRID_disable,
+! will disable grid NetCDF and NCL map grid file output.
+#define WRITEGRID
+! Disabling the following macro, e.g. renaming to WRITESTATE_disable,
+! will disable field NetCDF output during data init and run.
+#define WRITESTATE
+! Disabling the following macro, e.g. renaming to LOGCONN_disable,
+! will disable field connection logging during initialization.
+#define LOGCONN
+! Disabling the following macro, e.g. renaming to WRITEJNL_disable,
+! will disable ferret jnl script generation during finalize.
+#define WRITEJNL
+
 module ATM
 
   !-----------------------------------------------------------------------------
@@ -7,10 +20,14 @@ module ATM
   use ESMF
   use NUOPC
   use NUOPC_Model, &
-    model_routine_SS    => SetServices, &
-    model_label_DataInitialize  => label_DataInitialize, &
-    model_label_Advance => label_Advance
-  
+    model_routine_SS           => SetServices, &
+    model_label_DataInitialize => label_DataInitialize, &
+    model_label_Advance        => label_Advance, &
+    model_label_Finalize       => label_Finalize
+  use NUOPC_FileWriteUtility
+  use NUOPC_LogUtility
+  use NUOPC_FillUtility
+ 
   implicit none
   
   private
@@ -61,7 +78,12 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+    call NUOPC_CompSpecialize(model, specLabel=model_label_Finalize, &
+      specRoutine=ModelFinalize, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out 
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -74,11 +96,6 @@ module ATM
     
     rc = ESMF_SUCCESS
     
-    ! Disabling the following macro, e.g. renaming to WITHIMPORTFIELDS_disable,
-    ! will result in a model component that does not advertise any importable
-    ! Fields. Use this if you want to drive the model independently.
-#define WITHIMPORTFIELDS
-#ifdef WITHIMPORTFIELDS
     ! importable field: sea_surface_temperature
     call NUOPC_Advertise(importState, &
       StandardName="sea_surface_temperature", name="sst", rc=rc)
@@ -86,7 +103,6 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#endif
     
     ! exportable field: air_pressure_at_sea_level
     call NUOPC_Advertise(exportState, &
@@ -122,9 +138,9 @@ module ATM
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/100,100/), &
-      minCornerCoord=(/0._ESMF_KIND_R8, 0._ESMF_KIND_R8/), &
-      maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
+    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/200,200/), &
+      minCornerCoord=(/240._ESMF_KIND_R8, 10._ESMF_KIND_R8/), &
+      maxCornerCoord=(/320._ESMF_KIND_R8, 60._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -133,7 +149,31 @@ module ATM
       return  ! bail out
     gridOut = gridIn ! for now out same as in
 
-#ifdef WITHIMPORTFIELDS
+#ifdef WRITEGRID
+    ! Write the grid to file with NCL map file for current nest
+    call NUOPC_FileWriteGrid(gridIn, fileName="ATM_GRID.nc", &
+      nclMap=NUOPC_MAPPRESET_IRENE,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+#ifdef LOGCONN
+    ! Log the import and export field connections for current nest
+    call NUOPC_LogFieldConnections(importState, &
+      label="ATM Import State",rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_LogFieldConnections(exportState, &
+      label="ATM Export State",rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     ! importable field: sea_surface_temperature
     field = ESMF_FieldCreate(name="sst", grid=gridIn, &
       typekind=ESMF_TYPEKIND_R8, rc=rc)
@@ -146,7 +186,6 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#endif
 
     ! exportable field: air_pressure_at_sea_level
     field = ESMF_FieldCreate(name="pmsl", grid=gridOut, &
@@ -188,9 +227,9 @@ module ATM
     character(len=64),allocatable          :: itemNameList(:)
     type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
     type(ESMF_Field)                       :: field
-    real(ESMF_KIND_R8), pointer            :: dataPtrR8D2(:,:)
     integer                                :: iIndex
     integer                                :: stat
+    type(ESMF_State)                       :: importState
     type(ESMF_State)                       :: exportState
 
     rc = ESMF_SUCCESS
@@ -203,7 +242,8 @@ module ATM
       return  ! bail out
 
     ! query the Component for its exportState
-    call NUOPC_ModelGet(model, exportState=exportState, rc=rc)
+    call NUOPC_ModelGet(model, importState=importState, &
+      exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -226,6 +266,13 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
 
+    call NUOPC_FillState(importState, &
+      value=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     call ESMF_StateGet(exportState, &
       itemNameList=itemNameList, itemTypeList=itemTypeList, &
       rc=rc)
@@ -242,13 +289,11 @@ module ATM
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-        call ESMF_FieldGet(field, farrayPtr=dataPtrR8D2, rc=rc)
+        call NUOPC_FillField(field,value = 5._ESMF_KIND_R8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-          ! initialize the entire array
-        dataPtrR8D2 = 5._ESMF_KIND_R8
         call NUOPC_SetAttribute(field, &
           name="Updated", value="true", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -265,6 +310,7 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef WRITESTATE
     ! output export init data
     call NUOPC_Write(exportState, &
       fileNamePrefix=trim(modelName)//"_export_init_", &
@@ -273,6 +319,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
 
     if (NUOPC_IsUpdated(exportState)) then
       call NUOPC_CompAttributeSet(model, &
@@ -337,6 +384,7 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef WRITESTATE
     ! output import data
     call NUOPC_Write(importState, &
       fileNamePrefix=trim(modelName)//"_import_", &
@@ -345,6 +393,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
 
     call StateAdvance(exportState,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -352,6 +401,7 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef WRITESTATE
     ! output export data
     call NUOPC_Write(exportState, &
       fileNamePrefix=trim(modelName)//"_export_", &
@@ -360,6 +410,7 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
 
   end subroutine
 
@@ -427,4 +478,41 @@ module ATM
 
   end subroutine
 
+  !-----------------------------------------------------------------------------
+
+  subroutine ModelFinalize(model, rc)
+    type(ESMF_GridComp)  :: model
+    integer, intent(out) :: rc
+
+    rc = ESMF_SUCCESS
+
+#ifdef WRITEJNL
+    ! Write the ferret script for plottting values
+    call NUOPC_FileWriteJNL( &
+      varName='sea_surface_temperature', &
+      dataFile='ATM_import_sst.nc', &
+      gridFile="ATM_GRID.nc", &
+      slices=(/1,2,3,4,5,6/), &
+      map=NUOPC_MAPPRESET_IRENE, &
+      scale=(/0.0,50.0,5.0/), &
+      repeatCoord=.TRUE.,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_FileWriteJNL( &
+      varName='air_pressure_at_sea_level', &
+      dataFile='ATM_export_pmsl.nc', &
+      gridFile="ATM_GRID.nc", &
+      slices=(/1,2,3,4,5,6/), &
+      map=NUOPC_MAPPRESET_IRENE, &
+      scale=(/0.0,50.0,5.0/), &
+      repeatCoord=.TRUE.,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
+  end subroutine
 end module
