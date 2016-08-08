@@ -407,7 +407,7 @@ contains
   end subroutine    
 
   subroutine NUOPC_FileWriteJNL_coords(varName,dataFile,gridFile,slices,mapName, &
-  minCoords,maxCoords,jnlFile,repeatCoord,rc)
+  minCoords,maxCoords,scale,jnlFile,repeatCoord,rc)
     ! ARGUMENTS
     character(len=*),intent(in)          :: varName
     character(len=*),intent(in)          :: dataFile
@@ -416,6 +416,7 @@ contains
     character(len=*),intent(in)          :: mapName
     real,intent(in)                      :: minCoords(2)
     real,intent(in)                      :: maxCoords(2)
+    real,intent(in),optional             :: scale(3)
     character(len=*),intent(in),optional :: jnlFile
     logical,intent(in),optional          :: repeatCoord
     integer,intent(out),optional         :: rc
@@ -429,19 +430,20 @@ contains
       minCoords(2),maxCoords(2),minCoords(1),maxCoords(1))
 
     call NUOPC_FileWriteJNL(varName,dataFile,gridFile,slices, &
-      map=map,jnlFile=jnlFile, repeatCoord=repeatCoord, rc=rc)
+      map=map,scale=scale,jnlFile=jnlFile, repeatCoord=repeatCoord,rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return
 
   end subroutine
 
   subroutine NUOPC_FileWriteJNL_map(varName,dataFile,gridFile,slices,map, &
-  jnlFile,repeatCoord,rc)
+  scale,jnlFile,repeatCoord,rc)
     ! ARGUMENTS
     character(len=*),intent(in)          :: varName
     character(len=*),intent(in)          :: dataFile
     character(len=*),intent(in)          :: gridFile
     integer,intent(in)                   :: slices(:)
     type(MapDesc),intent(in)             :: map
+    real,intent(in),optional             :: scale(3)
     character(len=*),intent(in),optional :: jnlFile
     logical,intent(in),optional          :: repeatCoord
     integer,intent(out),optional         :: rc
@@ -450,8 +452,11 @@ contains
     type(ESMF_VM)                   :: vm
     integer                         :: lpe
     character(len=64)               :: ljnlFile
-    character(len=64)               :: fileBase
     logical                         :: lrepeatCoord
+    character(len=64)               :: fileBase
+    character(len=64)               :: limits
+    character(len=64)               :: levels
+    character(len=64)               :: latlon
     integer                         :: markExt
     integer                         :: sIndex
     integer                         :: fUnit
@@ -492,6 +497,27 @@ contains
       lrepeatCoord = .FALSE.
     endif
 
+    if (map%global) then
+      limits = ''
+    else
+      write (limits,"(2(A,F0.3,A,F0.3))") &
+        '/vlimits=',map%minLat,':',map%maxLat, &
+        '/hlimits=',map%minLon,':',map%maxLon
+    endif
+
+    if (lrepeatCoord) then
+      latlon = ',lon_center[d=2,j=1:1],lat_center[d=2,i=1:1]'
+    else
+      latlon = ',lon_center[d=2],lat_center[d=2]'
+    endif
+
+    if (present(scale)) then
+      write (levels,"(A,F0.3,A,F0.3,A,F0.3,A)") &
+        '/levels=(',scale(1),',',scale(2),',',scale(3),')'
+    else
+      levels = ''
+    endif
+
     call ESMF_UtilIOUnitGet(fUnit, rc=rc)
     if (ESMF_STDERRORCHECK(rc)) return
     open (fUnit,file=trim(ljnlFile),action="write", &
@@ -512,35 +538,12 @@ contains
     write (fUnit,"(A,A)") ''
 
     do sIndex=1,size(slices)
-      if (map%global) then
-        if (lrepeatCoord) then
-          write (fUnit,"(A,I0,(A,A,A),A)") &
-            'shade/k=',slices(sIndex), &
-            ' ',trim(varName),'[d=1]', &
-            ',lon_center[d=2,j=1:1],lat_center[d=2,i=1:1]'
-        else
-          write (fUnit,"(A,I0,(A,A,A),A)") &
-            'shade/k=',slices(sIndex), &
-            ' ',trim(varName),'[d=1]', &
-            ',lon_center[d=2],lat_center[d=2]'
-        endif
-      else
-        if (lrepeatCoord) then
-          write (fUnit,"(A,I0,2(A,F0.3,A,F0.3),(A,A,A),A)") &
-            'shade/k=',slices(sIndex), &
-            '/vlimits=',map%minLat,':',map%maxLat, &
-            '/hlimits=',map%minLon,':',map%maxLon, &
-            ' ',trim(varName),'[d=1]', &
-            ',lon_center[d=2,j=1:1],lat_center[d=2,i=1:1]'
-        else
-          write (fUnit,"(A,I0,2(A,F0.3,A,F0.3),(A,A,A),A)") &
-            'shade/k=',slices(sIndex), &
-            '/vlimits=',map%minLat,':',map%maxLat, &
-            '/hlimits=',map%minLon,':',map%maxLon, &
-            ' ',trim(varName),'[d=1]', &
-            ',lon_center[d=2],lat_center[d=2]'
-        endif
-      endif
+      write (fUnit,"((A,I0),A,A,(A,A,A),A)") &
+        'shade/k=',slices(sIndex), &
+        trim(limits), &
+        trim(levels), &
+        ' ',trim(varName),'[d=1]', &
+        trim(latlon)
       write (fUnit,"(A,(A,A,I0,A))") 'FRAME/FILE=', &
         trim(fileBase),'_',slices(sIndex),'.gif'
       write (fUnit,"(A)") ''
