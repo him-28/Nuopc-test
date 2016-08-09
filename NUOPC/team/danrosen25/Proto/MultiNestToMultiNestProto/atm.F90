@@ -968,20 +968,20 @@ module ATM
 #ifdef WRITEJNL
       ! Write the ferret script for plotting values
       call NUOPC_FileWriteJNL( &
-        varName='sea_surface_temperature', &
-        dataFile='ATM_export_'//trim(nStr)//'_sst.nc', &
+        varName='air_pressure_at_sea_level', &
+        dataFile='ATM_export_'//trim(nStr)//'_pmsl.nc', &
         gridFile="ATM_GRID_"//trim(nStr)//".nc", &
         slices=(/1,2,3,4,5,6/), &
         map=NUOPC_MAPPRESET_IRENE, &
-        scale=(/0.0,50.0,5.0/), &
+        scale=(/0.0,500.0,50.0/), &
         repeatCoord=.TRUE.,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
       call NUOPC_FileWriteJNL( &
-        varName='air_pressure_at_sea_level', &
-        dataFile='ATM_import_'//trim(nStr)//'_pmsl.nc', &
+        varName='sea_surface_temperature', &
+        dataFile='ATM_import_'//trim(nStr)//'_sst.nc', &
         gridFile="ATM_GRID_"//trim(nStr)//".nc", &
         slices=(/1,2,3,4,5,6/), &
         map=NUOPC_MAPPRESET_IRENE, &

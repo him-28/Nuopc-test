@@ -985,7 +985,7 @@ module OCN
         gridFile="OCN_GRID_"//trim(nStr)//".nc", &
         slices=(/1,2,3,4,5,6/), &
         map=NUOPC_MAPPRESET_IRENE, &
-        scale=(/0.0,50.0,5.0/), &
+        scale=(/0.0,500.0,50.0/), &
         repeatCoord=.TRUE.,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &

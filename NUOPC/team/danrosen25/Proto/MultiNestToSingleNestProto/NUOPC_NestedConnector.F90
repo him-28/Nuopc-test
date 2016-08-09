@@ -22,7 +22,6 @@ module NUOPC_NestedConnector
 
   use ESMF
   use NUOPC
-  use NUOPC_LogUtility
 
   implicit none
   
