@@ -13,6 +13,14 @@ module NUOPC_FillUtility
   public :: NUOPC_FillField
   public :: NUOPC_FillArray
   public :: NUOPC_FillFieldBundle
+  public :: NUOPC_FillState
+
+  interface NUOPC_FillState
+    module procedure NUOPC_FillState_I4
+    module procedure NUOPC_FillState_I8
+    module procedure NUOPC_FillState_R4
+    module procedure NUOPC_FillState_R8
+  end interface
 
   interface NUOPC_FillFieldBundle
     module procedure NUOPC_FillFieldBundle_I4
@@ -41,7 +49,225 @@ module NUOPC_FillUtility
 contains
 
   !-----------------------------------------------------------------------------
-  ! Fill ESMF Field to FORTRAN Array
+  ! Fill ESMF State
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_FillState_I4(state,value,rc)
+   ! ARGUMENTS
+    type(ESMF_State), intent(in)                :: state
+    integer(ESMF_KIND_I4),intent(in)            :: value
+    integer, intent(out),optional               :: rc
+
+    ! LOCAL VARIABLES
+    integer                                :: iIndex
+    integer                                :: itemCount
+    character(len=64),allocatable          :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_Field)                       :: field
+    integer                                :: stat
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state,itemCount=itemCount, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    allocate( &
+      itemNameList(itemCount), &
+      itemTypeList(itemCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_StateGet(state,itemNameList=itemNameList, &
+      itemTypeList=itemTypeList,rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    do iIndex = 1, itemCount
+      if ( itemTypeList(iIndex) == ESMF_STATEITEM_FIELD) then
+        call ESMF_StateGet(state,field=field, &
+          itemName=itemNameList(iIndex),rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_FillField(field,value=value,rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      endif
+    enddo
+
+    deallocate(itemNameList, itemTypeList, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_FillState_I8(state,value,rc)
+   ! ARGUMENTS
+    type(ESMF_State), intent(in)                :: state
+    integer(ESMF_KIND_I8),intent(in)            :: value
+    integer, intent(out),optional               :: rc
+
+    ! LOCAL VARIABLES
+    integer                                :: iIndex
+    integer                                :: itemCount
+    character(len=64),allocatable          :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_Field)                       :: field
+    integer                                :: stat
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state,itemCount=itemCount, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    allocate( &
+      itemNameList(itemCount), &
+      itemTypeList(itemCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_StateGet(state,itemNameList=itemNameList, &
+      itemTypeList=itemTypeList,rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    do iIndex = 1, itemCount
+      if ( itemTypeList(iIndex) == ESMF_STATEITEM_FIELD) then
+        call ESMF_StateGet(state,field=field, &
+          itemName=itemNameList(iIndex),rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_FillField(field,value=value,rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      endif
+    enddo
+
+    deallocate(itemNameList, itemTypeList, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_FillState_R4(state,value,rc)
+   ! ARGUMENTS
+    type(ESMF_State), intent(in)                :: state
+    real(ESMF_KIND_R4),intent(in)               :: value
+    integer, intent(out),optional               :: rc
+
+    ! LOCAL VARIABLES
+    integer                                :: iIndex
+    integer                                :: itemCount
+    character(len=64),allocatable          :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_Field)                       :: field
+    integer                                :: stat
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state,itemCount=itemCount, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    allocate( &
+      itemNameList(itemCount), &
+      itemTypeList(itemCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_StateGet(state,itemNameList=itemNameList, &
+      itemTypeList=itemTypeList,rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    do iIndex = 1, itemCount
+      if ( itemTypeList(iIndex) == ESMF_STATEITEM_FIELD) then
+        call ESMF_StateGet(state,field=field, &
+          itemName=itemNameList(iIndex),rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_FillField(field,value=value,rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      endif
+    enddo
+
+    deallocate(itemNameList, itemTypeList, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine NUOPC_FillState_R8(state,value,rc)
+   ! ARGUMENTS
+    type(ESMF_State), intent(in)                :: state
+    real(ESMF_KIND_R8),intent(in)               :: value
+    integer, intent(out),optional               :: rc
+
+    ! LOCAL VARIABLES
+    integer                                :: iIndex
+    integer                                :: itemCount
+    character(len=64),allocatable          :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_Field)                       :: field
+    integer                                :: stat
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state,itemCount=itemCount, rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    allocate( &
+      itemNameList(itemCount), &
+      itemTypeList(itemCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_StateGet(state,itemNameList=itemNameList, &
+      itemTypeList=itemTypeList,rc=rc)
+    if (ESMF_STDERRORCHECK(rc)) return
+
+    do iIndex = 1, itemCount
+      if ( itemTypeList(iIndex) == ESMF_STATEITEM_FIELD) then
+        call ESMF_StateGet(state,field=field, &
+          itemName=itemNameList(iIndex),rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+        call NUOPC_FillField(field,value=value,rc=rc)
+        if (ESMF_STDERRORCHECK(rc)) return
+      endif
+    enddo
+
+    deallocate(itemNameList, itemTypeList, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Deallocation of state item list memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+  ! Fill ESMF Field Bundle
   !-----------------------------------------------------------------------------
 
   subroutine NUOPC_FillFieldBundle_I4(fieldbundle,value,rc)
