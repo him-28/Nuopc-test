@@ -162,16 +162,21 @@ module NUOPC_LogUtility
     character(len=64)                       :: llabel
     character(len=64), allocatable          :: itemNameList(:)
     type(ESMF_StateItem_Flag), allocatable  :: itemTypeList(:)
-    character(len=64)                       :: stateName
+    character(len=32)                       :: stateName
     integer                                 :: iIndex, itemCount
     integer                                 :: stat
     character(len=ESMF_MAXSTR)              :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state, itemCount=itemCount, &
+      nestedFlag=nestedFlag,name=stateName,rc=rc)
+    if(ESMF_STDERRORCHECK(rc)) return ! bail out
+
     if(present(label)) then
       llabel = trim(label)
     else
-      llabel = 'NUOPC_LogFieldConnections'
+      llabel = 'NUOPC_LogFieldConnections '//trim(stateName)
     endif
 
     call ESMF_StateGet(state, itemCount=itemCount, &
@@ -190,22 +195,16 @@ module NUOPC_LogUtility
 
     do iIndex=1, itemCount
       if (itemTypeList(iIndex) /= ESMF_STATEITEM_FIELD) then
-        write (logMsg,"(A,A,(A,I0,A,I0,A),A)") trim(llabel)//": ", &
-          trim(stateName), &
-          "(",iIndex," of ",itemCount,") ", &
+        write (logMsg,"(A,A)") trim(llabel)//": ", &
           trim(itemNameList(iIndex))//" is not a field."
       elseif (NUOPC_IsConnected(state, fieldName=itemNameList(iIndex))) then
-        write (logMsg,"(A,A,(A,I0,A,I0,A),A)") trim(llabel)//": ", &
-          trim(stateName), &
-          "(",iIndex," of ",itemCount,") ", &
+        write (logMsg,"(A,A)") trim(llabel)//": ", &
           trim(itemNameList(iIndex))//" is connected."
       else
-        write (logMsg,"(A,A,(A,I0,A,I0,A),A)") trim(llabel)//": ", &
-          trim(stateName), &
-          "(",iIndex," of ",itemCount,") ", &
+        write (logMsg,"(A,A)") trim(llabel)//": ", &
           trim(itemNameList(iIndex))//" is not connected."
       endif
-      call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO, line=__LINE__,file=FILENAME)
+      call ESMF_LogWrite(trim(logMsg),ESMF_LOGMSG_INFO)
     enddo
 
     deallocate(itemNameList,itemTypeList,stat=stat)
@@ -273,7 +272,7 @@ module NUOPC_LogUtility
       write (logMsg,"(A,A,A)") trim(llabel)//": ", &
         trim(gridName), &
         " is a rectilinear grid with 1D coordinates in each dimension."
-      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
     endif
 
     deallocate(coordDimCount, &
@@ -286,7 +285,7 @@ module NUOPC_LogUtility
     write (logMsg,"(A,A,(A,I0))") trim(llabel)//": ", &
       trim(gridName), &
       " local decomposition count=",localDeCount
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
     ! get dimCount and tileCount
     call ESMF_DistGridGet(distgrid, dimCount=dimCount, tileCount=tileCount, rc=rc)
@@ -295,11 +294,11 @@ module NUOPC_LogUtility
     write (logMsg,"(A,A,(A,I0))") trim(llabel)//": ", &
       trim(gridName), &
       " dimension count=",dimCount
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
     write (logMsg,"(A,A,(A,I0))") trim(llabel)//": ", &
       trim(gridName), &
       " tile count=",tileCount
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
     ! allocate minIndexPTile and maxIndexPTile accord. to dimCount and tileCount
     allocate(minIndexPTile(dimCount, tileCount), &
@@ -322,7 +321,7 @@ module NUOPC_LogUtility
         tileIndex,",",dimIndex,",", &
         minIndexPTile(dimIndex,tileIndex),",", &
         maxIndexPTile(dimIndex,tileIndex),")"
-      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
     enddo
     enddo
 
@@ -631,17 +630,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional             :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -650,12 +645,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -669,17 +667,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional             :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -688,12 +682,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -707,17 +704,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional             :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -726,12 +719,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -745,17 +741,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional             :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -764,12 +756,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -783,17 +778,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional             :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -802,12 +793,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -821,17 +815,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional             :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -840,12 +830,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -859,17 +852,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -878,12 +867,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -897,17 +889,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -916,12 +904,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -935,17 +926,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -954,12 +941,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -973,17 +963,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -992,12 +978,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -1011,17 +1000,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -1030,12 +1015,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 
@@ -1049,17 +1037,13 @@ module NUOPC_LogUtility
     integer, intent(out), optional          :: rc
 
     ! LOCAL VARIABLES
-    character(len=130)          :: llabel
+    character(len=64)          :: llabel
     character(len=ESMF_MAXSTR)  :: logMsg
 
     if(present(rc)) rc = ESMF_SUCCESS
 
     if (present(label)) then
-      if (present(fieldName)) then
-        llabel = trim(label)//" "//trim(fieldName)
-      else
-        llabel = trim(label)
-      endif
+      llabel = trim(label)
     else
       if (present(fieldName)) then
         llabel = "NUOPC_LogFarrayValue"//" "//trim(fieldName)
@@ -1068,12 +1052,15 @@ module NUOPC_LogUtility
       endif
     endif
 
-    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel)//": ", &
-          "(min,max,sum)=(", &
-          minval(farray),",", &
-          maxval(farray),",", &
-          sum(farray),")"
-    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO, line=__LINE__, file=FILENAME)
+    write(logMsg,'(A,A,3(F0.3,A))') trim(llabel), &
+      " MinVal=",minval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " MaxVal=",maxval(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+    write(logMsg,'(A,(A,F0.3))') trim(llabel), &
+      " Sum=",sum(farray)
+    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
 
   end subroutine
 

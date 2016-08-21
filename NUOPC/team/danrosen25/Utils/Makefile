@@ -43,8 +43,8 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-all: NUOPC_LogUtility.o NUOPC_FileWriteUtility.o NUOPC_CopyUtility.o NUOPC_FillUtility.o
-
+all: NUOPC_FileReadUtility.o NUOPC_FillUtility.o NUOPC_LogUtility.o \
+	NUOPC_CopyUtility.o NUOPC_FileWriteUtility.o NUOPC_ToStringUtility.o
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
@@ -62,4 +62,4 @@ info:
 	@echo ==================================================================
 
 edit:
-	nedit NUOPC_LogUtility.F90 NUOPC_FileWriteUtility.F90 NUOPC_CopyUtility.F90 NUOPC_FillUtility.F90 &
+	nedit NUOPC_LogUtility.F90 NUOPC_FileWriteUtility.F90 NUOPC_CopyUtility.F90 NUOPC_FillUtility.F90 NUOPC_FieldDesc.F90 &
