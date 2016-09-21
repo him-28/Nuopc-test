@@ -56,8 +56,8 @@ module NUOPC_MultiNestConnector
   type type_InternalStateStruct
     integer                                        :: imNestCount
     integer                                        :: exNestCount
-    character(ESMF_MAXSTR), allocatable            :: imNestSet(:)
-    character(ESMF_MAXSTR), allocatable            :: exNestSet(:)
+    character(ESMF_MAXSTR), pointer                :: imNestSet(:)
+    character(ESMF_MAXSTR), pointer                :: exNestSet(:)
     type(type_InternalStateStructN2N), allocatable :: N2N(:,:)
     type(ESMF_State)                               :: state
    end type
@@ -529,8 +529,8 @@ call printStringList("exportNamespaceList", exportNamespaceList)
     if (associated(importStandardNameList) .and. &
       associated(exportStandardNameList)) then
 
-      importNestLoop: do imNestIndex=0,is%wrap%imNestCount
-      exportNestLoop: do exNestIndex=0,is%wrap%exNestCount
+      importNestLoop: do imNestIndex=1,is%wrap%imNestCount
+      exportNestLoop: do exNestIndex=1,is%wrap%exNestCount
 
       ! simple linear search of items that match between both lists
       do j=1, size(exportStandardNameList)  ! consumer side
@@ -759,9 +759,9 @@ print *, "current bondLevel=", bondLevel
               return  ! bail out
             endif
 
-            write (cplList(count),"(A,A,I0,A,I0,A)") &  
-              trim(importStandardNameList(i)),"[", &
-              importNestList(i),".",exportNestList(j),"]"
+            write (cplList(count),"(A,A)") &  
+              trim(importStandardNameList(i)), &
+              "["//trim(importNestList(i))//"."//trim(exportNestList(j))//"]"
             ! make the targeted entry to the ConsumerConnection attribute
             write (connectionString, "('targeted:', i10)") bondLevel
             call NUOPC_SetAttribute(field, name="ConsumerConnection", &
@@ -2511,8 +2511,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     !TODO: bail out if rootPet not found
 
     ! hand coded, specific AttributeUpdate
-    do imNestIndex=0,is%wrap%imNestCount
-    do exNestIndex=0,is%wrap%exNestCount
+    do imNestIndex=1,is%wrap%imNestCount
+    do exNestIndex=1,is%wrap%exNestCount
       call NUOPC_UpdateTimestamp(&
         is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList, rootPet=rootPet, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2530,8 +2530,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     endif
 
     ! update the timestamp on all of the dst fields to that on the src side
-    do imNestIndex=0,is%wrap%imNestCount
-    do exNestIndex=0,is%wrap%exNestCount
+    do imNestIndex=1,is%wrap%imNestCount
+    do exNestIndex=1,is%wrap%exNestCount
       call NUOPC_UpdateTimestamp( &
         is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList, &
         is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldList, &
@@ -2820,7 +2820,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 
   subroutine GetUniqueNestSet(nestList,nestSet,nestCount,rc)
     character(len=*),pointer,intent(in)                     :: nestList(:)
-    character(ESMF_MAXSTR),allocatable,intent(out),optional :: nestSet(:)
+    character(ESMF_MAXSTR),pointer,intent(out),optional     :: nestSet(:)
     integer,intent(out),optional                            :: nestCount
     integer,intent(out),optional                            :: rc
 
@@ -2841,7 +2841,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     endif
 
     if (present(nestSet)) then    
-      if (allocated(nestSet)) then
+      if (associated(nestSet)) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
           msg="nestSet must enter unallocated", &
           line=__LINE__, &
@@ -3445,11 +3445,17 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 ! !IROUTINE: NUOPC_ConnectorGet - Get parameters from a Connector
 !
 ! !INTERFACE:
-  subroutine NUOPC_ConnectorGet(connector, fromNest, toNest, srcFields, dstFields, rh, state, rc)
+  subroutine NUOPC_ConnectorGet(connector, fromNest, toNest, &
+  fromNestCount, toNestCount, fromNestSet, toNestSet, &
+  srcFields, dstFields, rh, state, rc)
 ! !ARGUMENTS:
     type(ESMF_CplComp)                            :: connector
     character(len=*),       intent(in),  optional :: fromNest
     character(len=*),       intent(in),  optional :: toNest
+    integer,                intent(out), optional :: fromNestCount
+    integer,                intent(out), optional :: toNestCount
+    character(ESMF_MAXSTR), intent(out), pointer, optional :: fromNestSet(:)
+    character(ESMF_MAXSTR), intent(out), pointer, optional :: toNestSet(:)
     type(ESMF_FieldBundle), intent(out), optional :: srcFields
     type(ESMF_FieldBundle), intent(out), optional :: dstFields
     type(ESMF_RouteHandle), intent(out), optional :: rh
@@ -3487,14 +3493,47 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (.not.present(srcFields) .and. &
         .not.present(dstFields) .and. &
         .not.present(rh) .and. &
-        .not.present(state)) return
-    
+        .not.present(state) .and. &
+        .not.present(fromNestCount) .and. &
+        .not.present(toNestCount) .and. &
+        .not.present(fromNestSet) .and. &
+        .not.present(toNestSet)) return
+
     ! query Component for the internal State
     nullify(is%wrap)
     call ESMF_UserCompGetInternalState(connector, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
       return  ! bail out
+
+    if (present(fromNestCount)) fromNestCount = is%wrap%imNestCount
+    if (present(toNestCount)) toNestCount = is%wrap%exNestCount
+
+    if (present(fromNestSet)) then
+      if (associated(fromNestSet)) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="fromNestSet must enter unassociated", &
+          line=__LINE__, &
+          file=FILENAME, &
+          rcToReturn=rc)
+          return  ! bail out
+      else
+        fromNestSet = is%wrap%imNestSet
+      endif
+    endif
+
+    if (present(toNestSet)) then
+      if (associated(toNestSet)) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="toNestSet must enter unassociated", &
+          line=__LINE__, &
+          file=FILENAME, &
+          rcToReturn=rc)
+          return  ! bail out
+      else
+        toNestSet = is%wrap%exNestSet
+      endif
+    endif
 
     imNest = 0
     exNest = 0

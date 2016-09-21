@@ -1,0 +1,42 @@
+#!/bin/ksh --login
+#BSUB -e err
+#BSUB -o out
+#BSUB -J MultiNestConnector
+#BSUB -q small
+#BSUB -P UCUB0024
+#BSUB -n 1
+#BSUB -x
+#BSUB -W 00:30
+
+set -x
+
+source /etc/profile
+module purge
+module load ncarenv/1.0 ncarbinlibs/1.1 
+module load intel/15.0.0 ncarcompilers/1.0 netcdf/4.3.0 mkl/11.1.2 impi/4.0.3.008
+module use /glade/p/work/drosen/modulefiles/yellowstone
+module load esmf_drosen
+
+export OMP_NUM_THREADS=1
+export MP_EUIDEVELOP=min
+export MP_MPILIB=mpich2
+export MP_LABELIO=yes
+export MP_STDOUTMODE=unordered
+
+# Enable Fortran RTL core dumps for severe run time failures
+export decfort_dump_flag=y
+#export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+
+# set resource usage limits
+ulimit -c unlimited #coredumpsize
+ulimit -s unlimited #stacksize
+ulimit -t unlimited #cputime
+ulimit -d unlimited #datasize
+ulimit -m unlimited #memoryuse
+
+echo "Model started:  " `date`
+mpirun -np 1 ./esmApp
+echo "Model ended:    " `date`
+
+exit
+

@@ -1,0 +1,42 @@
+#! /bin/ksh --login
+
+#PBS -e err
+#PBS -o out
+#PBS -N MultiNestConnector
+#PBS -A NRLMR03795024
+#PBS -q debug
+#PBS -l select=1:ncpus=1:mpiprocs=1
+##PBS -l select=1:ncpus=12:mpiprocs=12:accelerator=False
+#PBS -l walltime=00:30:00
+#PBS -W umask=027
+
+cd $PBS_O_WORKDIR
+
+set -x
+
+source /opt/modules/default/init/ksh
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-pgi
+module load PrgEnv-intel
+module load cray-hdf5-parallel
+module load cray-netcdf-hdf5parallel
+module load ccm
+module use /p/home/drosen/Modules
+module load esmf/7.0.0_debug gribapi/1.12.3  jasper/1.900.1
+
+export np=$PBS_NP
+# Enable Fortran RTL core dumps for severe run time failures
+#export decfort_dump_flag=y
+#export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+
+# set resource usage limits
+ulimit -c unlimited #coredumpsize
+ulimit -s unlimited #stacksize
+ulimit -t unlimited #cputime
+ulimit -d unlimited #datasize
+ulimit -m unlimited #memoryuse
+
+echo "Model started:  " `date`
+aprun -n 1 ./esmApp
+echo "Model ended:    " `date`
+
+exit
