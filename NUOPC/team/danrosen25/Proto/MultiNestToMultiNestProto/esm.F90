@@ -13,7 +13,7 @@ module ESM
   use ATM, only: atmSS => SetServices
   use OCN, only: ocnSS => SetServices
   
-  use NUOPC_NestedConnector, only: cplSS => SetServices 
+  use NUOPC_MultiNestConnector, only: cplSS => SetServices 
  
   implicit none
   

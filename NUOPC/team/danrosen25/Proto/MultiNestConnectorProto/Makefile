@@ -54,7 +54,7 @@ esm.o: NUOPC_MultiNestConnector.o atm.o ocn.o med.o
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
-	rm -f PET*.ESMF_LogFile
+	rm -f PET*.ESMF_LogFile err out core*
 clean:
 	rm -f esmApp *.o *.mod
 distclean: dust clean

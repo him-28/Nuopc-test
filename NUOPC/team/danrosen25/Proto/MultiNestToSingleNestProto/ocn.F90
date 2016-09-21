@@ -29,6 +29,7 @@ module OCN
   use NUOPC_FileWriteUtility
   use NUOPC_LogUtility 
   use NUOPC_FillUtility
+  use NUOPC_MultiNestConnector, only: NUOPC_AddNamespaceWithNest
  
   implicit none
   
@@ -279,16 +280,16 @@ module OCN
       return  ! bail out
 
     ! add namespace
-    call NUOPC_AddNamespace(importState, &
-      namespace="1", &
+    call NUOPC_AddNamespaceWithNest(importState, &
+      nest="1", &
       nestedStateName="NestedStateImp_N1", &
       nestedState=is%wrap%NStateImp(1), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_AddNamespace(exportState, &
-      namespace="1", &
+    call NUOPC_AddNamespaceWithNest(exportState, &
+      nest="1", &
       nestedStateName="NestedStateExp_N1", &
       nestedState=is%wrap%NStateExp(1), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -306,16 +307,16 @@ module OCN
         return  ! bail out
       endif
       write (nStr,"(I0)") nIndex
-      call NUOPC_AddNamespace(importState, &
-        namespace=trim(nStr), &
+      call NUOPC_AddNamespaceWithNest(importState, &
+        nest=trim(nStr), &
         nestedStateName="NestedStateImp_N"//trim(nStr), &
         nestedState=is%wrap%NStateImp(nIndex), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-      call NUOPC_AddNamespace(exportState, &
-        namespace=trim(nStr), &
+      call NUOPC_AddNamespaceWithNest(exportState, &
+        nest=trim(nStr), &
         nestedStateName="NestedStateExp_N"//trim(nStr), &
         nestedState=is%wrap%NStateExp(nIndex), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

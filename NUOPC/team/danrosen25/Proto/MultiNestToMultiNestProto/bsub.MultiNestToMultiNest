@@ -1,7 +1,7 @@
 #!/bin/ksh --login
 #BSUB -e err
 #BSUB -o out
-#BSUB -J MultiNestConnector
+#BSUB -J MultiNestToMultiNest
 #BSUB -q small
 #BSUB -P UCUB0024
 #BSUB -n 1

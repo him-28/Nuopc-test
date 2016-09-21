@@ -43,13 +43,13 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-esmApp: esmApp.o esm.o NUOPC_NestedConnector.o NUOPC_FileWriteUtility.o NUOPC_LogUtility.o NUOPC_FillUtility.o atm.o ocn.o
+esmApp: esmApp.o esm.o NUOPC_MultiNestConnector.o NUOPC_FileWriteUtility.o NUOPC_LogUtility.o NUOPC_FillUtility.o atm.o ocn.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 esmApp.o: esm.o
-esm.o: NUOPC_NestedConnector.o atm.o ocn.o
-NUOPC_NestedConnector.o: NUOPC_LogUtility.o
+esm.o: NUOPC_MultiNestConnector.o atm.o ocn.o
+NUOPC_MultiNestConnector.o: NUOPC_LogUtility.o
 ocn.o: NUOPC_FileWriteUtility.o NUOPC_LogUtility.o NUOPC_FillUtility.o
 atm.o: NUOPC_FileWriteUtility.o NUOPC_LogUtility.o NUOPC_FillUtility.o
 

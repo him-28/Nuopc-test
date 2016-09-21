@@ -28,6 +28,8 @@ module NUOPC_MultiNestConnector
   private
   
   public SetServices
+  public NUOPC_GetStateMemberListsWithNests
+  public NUOPC_AddNamespaceWithNest
   public label_ComputeRouteHandle, label_ExecuteRouteHandle, &
     label_ReleaseRouteHandle, label_Finalize
   
@@ -2137,7 +2139,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out 
-          if (fromNest == importNestList(imNestIndex) .AND. toNest == exportNestList(exNestIndex)) then
+          if (fromNest == is%wrap%imNestSet(imNestIndex) .AND. toNest == is%wrap%exNestSet(exNestIndex)) then
             cplListN2Nsize = cplListN2Nsize + 1
           endif  
         enddo
@@ -2154,7 +2156,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-          if (fromNest == importNestList(imNestIndex) .AND. toNest == exportNestList(exNestIndex)) then
+          if (fromNest == is%wrap%imNestSet(imNestIndex) .AND. toNest == is%wrap%exNestSet(exNestIndex)) then
             cplListN2Nsize = cplListN2Nsize + 1
             cplListN2N(cplListN2Nsize) = cplList(i)
           endif
@@ -2716,12 +2718,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
   !----- Helper routines below ...
   !-----------------------------------------------------------------------------
 
-  function getBondLevel(imNamespace, exNamespace, imNest, exNest, logBondLevel, label)
+  function getBondLevel(imNamespace, exNamespace, imNest, exNest, label)
     integer                    :: getBondLevel
     character(len=*)           :: imNamespace, exNamespace
     character(len=*)           :: imNest, exNest
     character(len=*), optional :: label
-    logical, optional          :: logBondLevel       
     character(len=80)          :: imKey1, imKey2, imKey
     character(len=80)          :: exKey1, exKey2, exKey
     integer                    :: imMark1, imMark2
@@ -2798,19 +2799,12 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       endif
     endif
 
-100 if (present(logBondLevel)) then
-      if(logBondLevel) then
-        if (present(label)) then
-          write (logMsg,"(2A,3A,A,I0)") trim(label), " BondLevel[", &
-            trim(imNamespace),",",trim(exNamespace), &
-            "]=",getBondLevel
-        else
-          write (logMsg,"(A,3A,A,I0)") "BondLevel[", &
-            trim(imNamespace),",",trim(exNamespace), &
-            "]=",getBondLevel
-        endif
-        call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
-      endif
+100 if (present(label)) then
+      write (logMsg,"(A,A,A,I0)") trim(label), &
+        " Namespace["//trim(imNamespace)//"->"//trim(exNamespace)//"]", &
+        " Nest["//trim(imNest)//"->"//trim(exNest)//"]=", &
+        getBondLevel
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
     endif
     !TODO: it may make sense to check for further nested namespace match
 
@@ -3867,8 +3861,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           line=__LINE__, &
           file=FILENAME)) &
           return  ! bail out
-       call NUOPC_GetAttribute(state, name="Namespace", value=namespace, &
-          rc=rc)
+        call NUOPC_GetAttribute(state, name="Namespace", &
+          value=namespace, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=FILENAME)) &
@@ -3949,8 +3943,12 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
                 NestList(fieldCount) = l_NestList(i)
               endif
               if (present(NamespaceList)) then
-                NamespaceList(fieldCount) = trim(namespace)//":"// &
-                  trim(l_NamespaceList(i))
+                if (l_NamespaceList(i) /= "[UNLABELED_NESTED_STATE]") then
+                  NamespaceList(fieldCount) = trim(namespace)//":"// &
+                    trim(l_NamespaceList(i))
+                else
+                  NamespaceList(fieldCount) = trim(namespace)
+                endif
               endif
               if (present(fieldList)) then
                 fieldList(fieldCount) = l_fieldList(i)
@@ -3971,6 +3969,151 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       deallocate(stateitemtypeList)
     endif
     
+  end subroutine
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
+!BOP
+! !IROUTINE: NUOPC_AddNamespaceWithNest - Add a namespace and or nest to a State
+! !INTERFACE:
+  subroutine NUOPC_AddNamespaceWithNest(state, namespace, nest, &
+    nestedStateName, nestedState, rc)
+! !ARGUMENTS:
+    type(ESMF_State), intent(inout)         :: state
+    character(len=*), intent(in),  optional :: namespace
+    character(len=*), intent(in),  optional :: nest
+    character(len=*), intent(in),  optional :: nestedStateName
+    type(ESMF_State), intent(out), optional :: nestedState
+    integer,          intent(out), optional :: rc
+! !DESCRIPTION:
+!   Add a namespace to {\tt state}. Namespaces are implemented via nested
+!   states. This creates a nested state inside of {\tt state}. The nested state
+!   is returned as {\tt nestedState}. If provided, {\tt nestedStateName} will
+!   be used to name the newly created nested state. The default name of the
+!   nested state is equal to {\tt namespace}.
+!
+!   The arguments are:
+!   \begin{description}
+!   \item[state]
+!     The {\tt ESMF\_State} object to which the namespace is added.
+!   \item[namespace]
+!     The namespace string.
+!   \item[nest]
+!     The nest string.
+!   \item[{[nestedStateName]}]
+!     Name of the nested state. Defaults to {\tt namespace}.
+!   \item[{[nestedState]}]
+!     Optional return of the newly created nested state.
+!   \item[{[rc]}]
+!     Return code; equals {\tt ESMF\_SUCCESS} if there are no errors.
+!   \end{description}
+!
+!EOP
+  !-----------------------------------------------------------------------------
+    ! local variables
+    type(ESMF_State)        :: nestedS
+    character(len=80)       :: nestedSName
+    character(ESMF_MAXSTR)  :: s_namespace
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    if (.not.present(namespace) .and. &
+        .not.present(nest)) then
+      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+        msg="Missing namespace or nest", &
+        line=__LINE__, &
+        file=FILENAME, &
+        rcToReturn=rc)
+      return  ! bail out
+    endif
+
+    if (present(nestedStateName)) then
+      nestedSName = trim(nestedStateName)
+    else
+      nestedSName = trim(namespace)
+    endif
+
+    nestedS = ESMF_StateCreate(name=nestedSName, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    call NUOPC_InitAttributesStateWithNest(nestedS, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    if (present(namespace)) then
+      call NUOPC_SetAttribute(nestedS, name="Namespace", &
+        value=trim(namespace), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    else
+      call NUOPC_SetAttribute(nestedS, name="Namespace", &
+        value="[UNLABELED_NESTED_STATE]", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    endif
+
+    if (present(nest)) then
+      call NUOPC_SetAttribute(nestedS, name="Nest", &
+        value=trim(nest), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    else
+      call NUOPC_SetAttribute(nestedS, name="Nest", &
+        value="0", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=FILENAME)) return  ! bail out
+    endif
+
+    call ESMF_StateAdd(state, (/nestedS/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    if (present(nestedState)) &
+      nestedState = nestedS
+
+  end subroutine
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
+!BOPI
+! !IROUTINE: NUOPC_InitAttributeWithNest - Initialize the NUOPC State Attributes
+! !INTERFACE:
+  ! call using generic interface: NUOPC_InitAttributes
+  subroutine NUOPC_InitAttributesStateWithNest(state, rc)
+! !ARGUMENTS:
+    type(ESMF_state)                      :: state
+    integer,      intent(out), optional   :: rc
+! !DESCRIPTION:
+!   Add the standard NUOPC State AttPack hierarchy to the State.
+!
+!   The highest level in the AttPack hierarchy will have convention="NUOPC" and
+!   purpose="Instance".
+!EOPI
+  !-----------------------------------------------------------------------------
+    ! local variables
+    character(ESMF_MAXSTR)            :: attrList(3)
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! Set up a customized list of Attributes to be added to the Fields
+    attrList(1) = "Namespace"           ! namespace of this State
+    attrList(2) = "FieldTransferPolicy" ! indicates to connectors to transfer/mirror fields:
+                                        !    one of transferNone, transferAll
+    attrList(3) = "Nest"                ! nest of this State
+
+    ! add Attribute packages
+    call ESMF_AttributeAdd(state, convention="NUOPC", purpose="Instance", &
+      attrList=attrList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
+    ! set Attributes to defaults
+    call ESMF_AttributeSet(state, attrList(2), "transferNone", &
+        convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=FILENAME)) return  ! bail out
+
   end subroutine
   !-----------------------------------------------------------------------------
 
