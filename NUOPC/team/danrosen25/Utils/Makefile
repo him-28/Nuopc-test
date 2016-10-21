@@ -44,7 +44,8 @@ include $(ESMFMKFILE)
 
 # -----------------------------------------------------------------------------
 all: NUOPC_FileReadUtility.o NUOPC_FillUtility.o NUOPC_LogUtility.o \
-	NUOPC_CopyUtility.o NUOPC_FileWriteUtility.o NUOPC_ToStringUtility.o
+	NUOPC_CopyUtility.o NUOPC_FileWriteUtility.o NUOPC_ToStringUtility.o \
+	NUOPC_MultiNestConnector.o
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
