@@ -58,8 +58,8 @@ module NUOPC_MultiNestConnector
   type type_InternalStateStruct
     integer                                        :: imNestCount
     integer                                        :: exNestCount
-    character(ESMF_MAXSTR), pointer                :: imNestSet(:)
-    character(ESMF_MAXSTR), pointer                :: exNestSet(:)
+    character(ESMF_MAXSTR),pointer                 :: imNestSet(:)
+    character(ESMF_MAXSTR),pointer                 :: exNestSet(:)
     type(type_InternalStateStructN2N), allocatable :: N2N(:,:)
     type(ESMF_State)                               :: state
    end type
@@ -412,7 +412,7 @@ call printStringList("importNestList", importNestList)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 #if 0
-call printStringList("exportNestList", exportSNestList)
+call printStringList("exportNestList", exportNestList)
 #endif
 
     call GetUniqueNestSet(importNestList,&
@@ -440,6 +440,7 @@ call printStringList("exportNestList", exportSNestList)
       return  ! bail out 
 
   end subroutine
+
   !-----------------------------------------------------------------------------
   
   subroutine InitializeP1a(cplcomp, importState, exportState, clock, rc)
@@ -3512,7 +3513,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           rcToReturn=rc)
           return  ! bail out
       else
-        fromNestSet = is%wrap%imNestSet
+        fromNestSet => is%wrap%imNestSet
       endif
     endif
 
@@ -3525,10 +3526,17 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
           rcToReturn=rc)
           return  ! bail out
       else
-        toNestSet = is%wrap%exNestSet
+        toNestSet => is%wrap%exNestSet
       endif
     endif
 
+    ! Get the requested state member
+    if (present(state))     state = is%wrap%state
+
+    if (.not.present(srcFields) .and. &
+        .not.present(dstFields) .and. &
+        .not.present(rh)) return
+    
     imNest = 0
     exNest = 0
     do imNestIndex=1,is%wrap%imNestCount
@@ -3537,7 +3545,6 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (is%wrap%exNestSet(exNestIndex) /= l_toNest) cycle
       imNest = imNestIndex
       exNest = exNestIndex
-      exit
     enddo
     enddo
 
@@ -3554,7 +3561,6 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (present(srcFields)) srcFields = is%wrap%N2N(imNest,exNest)%srcFields
     if (present(dstFields)) dstFields = is%wrap%N2N(imNest,exNest)%dstFields
     if (present(rh))        rh = is%wrap%N2N(imNest,exNest)%rh
-    if (present(state))     state = is%wrap%state
     
   end subroutine
   !-----------------------------------------------------------------------------
