@@ -1,8 +1,8 @@
 #define ESMF_STDERRORCHECK(rc) ESMF_LogFoundError(rcToCheck=rc,msg=ESMF_LOGERR_PASSTHRU,line=__LINE__,file=__FILE__)
-#define FILENAME "NUOPC_CopyUtility.F90"
-#define MODNAME "NUOPC_CopyUtility"
+#define FILENAME "beta_NUOPC_Copy.F90"
+#define MODNAME "beta_NUOPC_Copy"
 
-module NUOPC_CopyUtility
+module beta_NUOPC_Copy
   use ESMF
   use NUOPC
 
@@ -102,7 +102,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_I41D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -124,7 +124,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_I42D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -146,7 +146,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_I43D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -168,7 +168,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_I81D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -190,7 +190,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_I82D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -212,7 +212,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_I83D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -234,7 +234,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_R41D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -256,7 +256,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_R42D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -278,7 +278,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_R43D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -300,7 +300,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_R81D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -322,7 +322,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_R82D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -344,7 +344,7 @@ contains
   subroutine NUOPC_CopyFieldToFarray_R83D(field,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -368,7 +368,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_I41D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -390,7 +390,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_I42D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -412,7 +412,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_I43D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -434,7 +434,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_I81D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -456,7 +456,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_I82D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -478,7 +478,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_I83D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -500,7 +500,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_R41D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -522,7 +522,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_R42D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -544,7 +544,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_R43D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -566,7 +566,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_R81D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -588,7 +588,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_R82D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -610,7 +610,7 @@ contains
   subroutine NUOPC_CopyFarrayToField_R83D(farray,field,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Field), intent(in)                :: field
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -634,7 +634,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_I41D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -650,7 +650,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_I42D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -666,7 +666,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_I43D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -682,7 +682,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_I81D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -698,7 +698,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_I82D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -714,7 +714,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_I83D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -730,7 +730,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_R41D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -746,7 +746,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_R42D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -762,7 +762,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_R43D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -778,7 +778,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_R81D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -794,7 +794,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_R82D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -810,7 +810,7 @@ contains
   subroutine NUOPC_CopyArrayToFarray_R83D(array,farray,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -828,7 +828,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_I41D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -844,7 +844,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_I42D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
     
@@ -860,7 +860,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_I43D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -876,7 +876,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_I81D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -892,7 +892,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_I82D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -908,7 +908,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_I83D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -924,7 +924,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_R41D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -940,7 +940,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_R42D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -956,7 +956,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_R43D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -972,7 +972,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_R81D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -988,7 +988,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_R82D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -1004,7 +1004,7 @@ contains
   subroutine NUOPC_CopyFarrayToArray_R83D(farray,array,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:,:)
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
 
@@ -1022,7 +1022,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_I41D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1089,7 +1089,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_I42D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1156,7 +1156,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_I43D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I4),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I4),intent(inout)         :: farray(:,:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1223,7 +1223,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_I81D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1290,7 +1290,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_I82D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1357,7 +1357,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_I83D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    integer(ESMF_KIND_I8),pointer,intent(inout) :: farray(:,:,:)
+    integer(ESMF_KIND_I8),intent(inout)         :: farray(:,:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1424,7 +1424,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_R41D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1491,7 +1491,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_R42D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1558,7 +1558,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_R43D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R4),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R4),intent(inout)            :: farray(:,:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1625,7 +1625,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_R81D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1692,7 +1692,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_R82D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc
@@ -1759,7 +1759,7 @@ contains
   subroutine NUOPC_CopyArrayFarray_R83D(array,farray,reverse,localDe,rc)
    ! ARGUMENTS
     type(ESMF_Array), intent(in)                :: array
-    real(ESMF_KIND_R8),pointer,intent(inout)    :: farray(:,:,:)
+    real(ESMF_KIND_R8),intent(inout)            :: farray(:,:,:)
     logical,intent(in)                          :: reverse
     integer,intent(in),optional                 :: localDe
     integer, intent(out),optional               :: rc

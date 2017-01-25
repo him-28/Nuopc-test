@@ -9,12 +9,12 @@
 ! Licensed under the University of Illinois-NCSA License.
 !
 !==============================================================================
-#define FILENAME "NUOPC_MultiNestConnector.F90"
+#define FILENAME "beta_NUOPC_MultiDomainConnector.F90"
 !==============================================================================
 
 #define RECONCILE_MEMORY_DEBUG_off
 
-module NUOPC_MultiNestConnector
+module beta_NUOPC_MultiDomainConnector
 
   !-----------------------------------------------------------------------------
   ! Generic Coupler Component.
@@ -22,14 +22,13 @@ module NUOPC_MultiNestConnector
 
   use ESMF
   use NUOPC
+  use beta_NUOPC_Base
 
   implicit none
   
   private
   
   public SetServices
-  public NUOPC_GetStateMemberListsWithNests
-  public NUOPC_AddNamespaceWithNest
   public label_ComputeRouteHandle, label_ExecuteRouteHandle, &
     label_ReleaseRouteHandle, label_Finalize
   
@@ -44,7 +43,7 @@ module NUOPC_MultiNestConnector
   character(*), parameter :: &
     label_Finalize = "Connector_Finalize"
 
-  type type_InternalStateStructN2N
+  type type_InternalStateStructD2D
     type(ESMF_FieldBundle)              :: srcFields
     type(ESMF_FieldBundle)              :: dstFields
     type(ESMF_Field), pointer           :: srcFieldList(:)
@@ -56,11 +55,11 @@ module NUOPC_MultiNestConnector
   end type
 
   type type_InternalStateStruct
-    integer                                        :: imNestCount
-    integer                                        :: exNestCount
-    character(ESMF_MAXSTR),pointer                 :: imNestSet(:)
-    character(ESMF_MAXSTR),pointer                 :: exNestSet(:)
-    type(type_InternalStateStructN2N), allocatable :: N2N(:,:)
+    integer                                        :: imDomainCount
+    integer                                        :: exDomainCount
+    character(ESMF_MAXSTR),pointer                 :: imDomainSet(:)
+    character(ESMF_MAXSTR),pointer                 :: exDomainSet(:)
+    type(type_InternalStateStructD2D), allocatable :: D2D(:,:)
     type(ESMF_State)                               :: state
    end type
 
@@ -81,6 +80,8 @@ module NUOPC_MultiNestConnector
     
     ! local variables
     character(ESMF_MAXSTR)    :: name
+    type(type_InternalState)  :: is
+    integer                   :: stat
 
     rc = ESMF_SUCCESS
 
@@ -174,7 +175,17 @@ module NUOPC_MultiNestConnector
       phaseLabelList=(/"FinalizePhase1"/), userRoutine=Finalize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      
+
+    ! Allocate memory for the internal state and set it in the Component
+    allocate(is%wrap, stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of internal state memory failed.", &
+      line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
+      return  ! bail out
+    call ESMF_UserCompSetInternalState(connector, label_InternalState, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -187,23 +198,11 @@ module NUOPC_MultiNestConnector
     
     ! local variables
     character(ESMF_MAXSTR)                    :: name
-    type(type_InternalState)                  :: is
-    integer                                   :: stat
 
     rc = ESMF_SUCCESS
 
     ! query the Component for info
     call ESMF_CplCompGet(cplcomp, name=name, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-
-    ! allocate memory for the internal state and set it in the Component
-    allocate(is%wrap, stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Allocation of internal state memory failed.", &
-      line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
-      return  ! bail out
-    call ESMF_UserCompSetInternalState(cplcomp, label_InternalState, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
@@ -353,7 +352,7 @@ module NUOPC_MultiNestConnector
 
   !-----------------------------------------------------------------------------
 
-  subroutine InitializeNestToNest(cplcomp, importState, exportState, clock, rc)
+  subroutine InitializeDomainToDomain(cplcomp, importState, exportState, clock, rc)
     type(ESMF_CplComp)   :: cplcomp
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
@@ -363,8 +362,8 @@ module NUOPC_MultiNestConnector
 
     character(ESMF_MAXSTR)                :: name
     type(type_InternalState)              :: is
-    character(ESMF_MAXSTR), pointer       :: importNestList(:)
-    character(ESMF_MAXSTR), pointer       :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer       :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer       :: exportDomainList(:)
     integer                               :: stat
 
     rc = ESMF_SUCCESS
@@ -375,8 +374,8 @@ module NUOPC_MultiNestConnector
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
     ! prepare local pointer variables
-    nullify(importNestList)
-    nullify(exportNestList)
+    nullify(importDomainList)
+    nullify(exportDomainList)
 
     ! query Component for its internal State
     nullify(is%wrap)
@@ -386,7 +385,7 @@ module NUOPC_MultiNestConnector
 
     ! reconcile the States including Attributes
 #ifdef RECONCILE_MEMORY_DEBUG_on
-call ESMF_VMLogMemInfo("befNestToNest Reconcile")
+call ESMF_VMLogMemInfo("befDomainToDomain Reconcile")
 #endif
     call NUOPC_Reconcile(importState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -395,46 +394,46 @@ call ESMF_VMLogMemInfo("befNestToNest Reconcile")
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 #ifdef RECONCILE_MEMORY_DEBUG_on
-call ESMF_VMLogMemInfo("aftNestToNest Reconcile")
+call ESMF_VMLogMemInfo("aftDomainToDomain Reconcile")
 #endif
 
-    call NUOPC_GetStateMemberListsWithNests(importState, &
-      nestList=importNestList, rc=rc)
+    call beta_NUOPC_GetStateMemberLists(importState, &
+      domainList=importDomainList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
 #if 0
-call printStringList("importNestList", importNestList)
+call printStringList("importDomainList", importDomainList)
 #endif
 
-    call NUOPC_GetStateMemberListsWithNests(exportState, &
-      nestList=exportNestList, rc=rc)
+    call beta_NUOPC_GetStateMemberLists(exportState, &
+      domainList=exportDomainList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 #if 0
-call printStringList("exportNestList", exportNestList)
+call printStringList("exportDomainList", exportDomainList)
 #endif
 
-    call GetUniqueNestSet(importNestList,&
-      nestSet=is%wrap%imNestSet, nestCount=is%wrap%imNestCount,rc=rc)
+    call GetUniqueDomainSet(importDomainList,&
+      domainSet=is%wrap%imDomainSet, domainCount=is%wrap%imDomainCount,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    call GetUniqueNestSet(exportNestList, &
-      nestSet=is%wrap%exNestSet, nestCount=is%wrap%exNestCount, rc=rc)
+    call GetUniqueDomainSet(exportDomainList, &
+      domainSet=is%wrap%exDomainSet, domainCount=is%wrap%exDomainCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
-    if (allocated(is%wrap%N2N)) then
+    if (allocated(is%wrap%D2D)) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="N2N must enter unallocated", &
+        msg="D2D must enter unallocated", &
         line=__LINE__, &
         file=FILENAME, &
         rcToReturn=rc)
       return  ! bail out
     endif
 
-    allocate(is%wrap%N2N(is%wrap%imNestCount,is%wrap%exNestCount), stat=stat)
-    if (ESMF_LogFoundAllocError(stat, msg="allocating N2N", &
+    allocate(is%wrap%D2D(is%wrap%imDomainCount,is%wrap%exDomainCount), stat=stat)
+    if (ESMF_LogFoundAllocError(stat, msg="allocating D2D", &
       line=__LINE__, &
       file=FILENAME)) &
       return  ! bail out 
@@ -460,12 +459,12 @@ call printStringList("exportNestList", exportNestList)
     type(ESMF_Field),       pointer       :: exportFieldList(:)
     type(ESMF_Field)                      :: field
     character(ESMF_MAXSTR)                :: connectionString
-    character(ESMF_MAXSTR), pointer       :: importNestList(:)
-    character(ESMF_MAXSTR), pointer       :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer       :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer       :: exportDomainList(:)
     character(ESMF_MAXSTR), pointer       :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer       :: exportNamespaceList(:)
-    integer                               :: imNestIndex
-    integer                               :: exNestIndex
+    integer                               :: imDomainIndex
+    integer                               :: exDomainIndex
 
     rc = ESMF_SUCCESS
 
@@ -496,15 +495,15 @@ call ESMF_VMLogMemInfo("aftP1a Reconcile")
 
     nullify(importStandardNameList)
     nullify(importFieldList)
-    nullify(importNestList)
+    nullify(importDomainList)
     nullify(importNamespaceList)
     nullify(exportStandardNameList)
     nullify(exportFieldList)
-    nullify(exportNestList)
+    nullify(exportDomainList)
     nullify(exportNamespaceList)
     
-    call NUOPC_GetStateMemberListsWithNests(importState, importStandardNameList, &
-      fieldList=importFieldList, nestList=importNestList, &
+    call beta_NUOPC_GetStateMemberLists(importState, importStandardNameList, &
+      fieldList=importFieldList, domainList=importDomainList, &
       namespaceList=importNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -514,8 +513,8 @@ call printStringList("importStandardNameList", importStandardNameList)
 call printStringList("importNamespaceList", importNamespaceList)
 #endif
       
-    call NUOPC_GetStateMemberListsWithNests(exportState, exportStandardNameList, &
-      fieldList=exportFieldList, nestList=exportNestList, &
+    call beta_NUOPC_GetStateMemberLists(exportState, exportStandardNameList, &
+      fieldList=exportFieldList, domainList=exportDomainList, &
       namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -524,7 +523,7 @@ call printStringList("exportStandardNameList", exportStandardNameList)
 call printStringList("exportNamespaceList", exportNamespaceList)
 #endif
 
-    call InitializeNestToNest(cplcomp, importState, exportState, clock, rc)
+    call InitializeDomainToDomain(cplcomp, importState, exportState, clock, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       
@@ -532,21 +531,21 @@ call printStringList("exportNamespaceList", exportNamespaceList)
     if (associated(importStandardNameList) .and. &
       associated(exportStandardNameList)) then
 
-      importNestLoop: do imNestIndex=1,is%wrap%imNestCount
-      exportNestLoop: do exNestIndex=1,is%wrap%exNestCount
+      importDomainLoop: do imDomainIndex=1,is%wrap%imDomainCount
+      exportDomainLoop: do exDomainIndex=1,is%wrap%exDomainCount
 
       ! simple linear search of items that match between both lists
       do j=1, size(exportStandardNameList)  ! consumer side
-      if (exportNestList(j) /= is%wrap%exNestSet(exNestIndex)) cycle
+      if (exportDomainList(j) /= is%wrap%exDomainSet(exDomainIndex)) cycle
         do i=1, size(importStandardNameList)  ! producer side
-        if (importNestList(i) /= is%wrap%imNestSet(imNestIndex)) cycle
+        if (importDomainList(i) /= is%wrap%imDomainSet(imDomainIndex)) cycle
           if (NUOPC_FieldDictionaryMatchSyno( &
             importStandardNameList(i), exportStandardNameList(j))) then
             ! found matching standard name pair
             ! -> determine bondLevel according to namespace matching
             bondLevel = &
               getBondLevel(importNamespaceList(i), exportNamespaceList(j), &
-                           importNestList(i), exportNestList(j))
+                           importDomainList(i), exportDomainList(j))
 
             if (bondLevel == -1) cycle  ! break out and look for next match
 
@@ -594,18 +593,18 @@ print *, "bondLevelMax:", bondLevelMax, "bondLevel:", bondLevel
           endif
         enddo
       enddo
-      enddo exportNestLoop
-      enddo importNestLoop
+      enddo exportDomainLoop
+      enddo importDomainLoop
 
     endif
     
     if (associated(importStandardNameList)) deallocate(importStandardNameList)
     if (associated(importFieldList)) deallocate(importFieldList)
-    if (associated(importNestList)) deallocate(importNestList)
+    if (associated(importDomainList)) deallocate(importDomainList)
     if (associated(importNamespaceList)) deallocate(importNamespaceList)
     if (associated(exportStandardNameList)) deallocate(exportStandardNameList)
     if (associated(exportFieldList)) deallocate(exportFieldList)
-    if (associated(exportNestList)) deallocate(exportNestList)
+    if (associated(exportDomainList)) deallocate(exportDomainList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
     
   end subroutine
@@ -629,13 +628,13 @@ print *, "bondLevelMax:", bondLevelMax, "bondLevel:", bondLevel
     type(ESMF_Field),       pointer       :: exportFieldList(:)
     type(ESMF_Field)                      :: field
     character(ESMF_MAXSTR)                :: connectionString
-    character(ESMF_MAXSTR), pointer       :: importNestList(:)
-    character(ESMF_MAXSTR), pointer       :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer       :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer       :: exportDomainList(:)
     character(ESMF_MAXSTR), pointer       :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer       :: exportNamespaceList(:)
     character(ESMF_MAXSTR), pointer       :: cplList(:)
-    integer                               :: imNestIndex
-    integer                               :: exNestIndex
+    integer                               :: imDomainIndex
+    integer                               :: exDomainIndex
 
     rc = ESMF_SUCCESS
 
@@ -673,15 +672,15 @@ call ESMF_VMLogMemInfo("aftP1b Reconcile")
     
     nullify(importStandardNameList)
     nullify(importFieldList)
-    nullify(importNestList)
+    nullify(importDomainList)
     nullify(importNamespaceList)
     nullify(exportStandardNameList)
     nullify(exportFieldList)
-    nullify(exportNestList)
+    nullify(exportDomainList)
     nullify(exportNamespaceList)
     
-    call NUOPC_GetStateMemberListsWithNests(importState, importStandardNameList, &
-      fieldList=importFieldList, nestList=importNestList, &
+    call beta_NUOPC_GetStateMemberLists(importState, importStandardNameList, &
+      fieldList=importFieldList, domainList=importDomainList, &
       namespaceList=importNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -690,8 +689,8 @@ call printStringList("importStandardNameList", importStandardNameList)
 call printStringList("importNamespaceList", importNamespaceList)
 #endif
       
-    call NUOPC_GetStateMemberListsWithNests(exportState, exportStandardNameList, &
-      fieldList=exportFieldList, nestList=exportNestList, &
+    call beta_NUOPC_GetStateMemberLists(exportState, exportStandardNameList, &
+      fieldList=exportFieldList, domainList=exportDomainList, &
       namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -711,21 +710,21 @@ call printStringList("exportNamespaceList", exportNamespaceList)
 
       count = 0
 
-      importNestLoop: do imNestIndex=1,is%wrap%imNestCount
-      exportNestLoop: do exNestIndex=1,is%wrap%exNestCount
+      importDomainLoop: do imDomainIndex=1,is%wrap%imDomainCount
+      exportDomainLoop: do exDomainIndex=1,is%wrap%exDomainCount
 
       ! simple linear search of items that match between both lists
       exportListLoop: do j=1, size(exportStandardNameList)  ! consumer side
-        if (exportNestList(j) /= is%wrap%exNestSet(exNestIndex)) cycle
+        if (exportDomainList(j) /= is%wrap%exDomainSet(exDomainIndex)) cycle
       importListLoop: do i=1, size(importStandardNameList)  ! producer side
-        if (importNestList(i) /= is%wrap%imNestSet(imNestIndex)) cycle
+        if (importDomainList(i) /= is%wrap%imDomainSet(imDomainIndex)) cycle
         if (NUOPC_FieldDictionaryMatchSyno( &
           importStandardNameList(i), exportStandardNameList(j))) then
           ! found matching standard name pair
           ! -> determine bondLevel according to namespace matching
           bondLevel = &
             getBondLevel(importNamespaceList(i), exportNamespaceList(j), &
-                         importNestList(i), exportNestList(j))
+                         importDomainList(i), exportDomainList(j))
               
 #if 0
 print *, "current bondLevel=", bondLevel
@@ -744,7 +743,7 @@ print *, "current bondLevel=", bondLevel
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
           if (index(trim(connectionString), "targeted:")==1) then
             ! this export field has already been targeted but can be
-            ! re-targeted for different nests
+            ! re-targeted for different domains
             read (connectionString(10:len(connectionString)), "(i10)") &
               bondLevelMax  ! the bondLevel that was targeted
           else
@@ -764,7 +763,7 @@ print *, "current bondLevel=", bondLevel
 
             write (cplList(count),"(A,A)") &  
               trim(importStandardNameList(i)), &
-              "["//trim(importNestList(i))//"."//trim(exportNestList(j))//"]"
+              "["//trim(importDomainList(i))//"."//trim(exportDomainList(j))//"]"
             ! make the targeted entry to the ConsumerConnection attribute
             write (connectionString, "('targeted:', i10)") bondLevel
             call NUOPC_SetAttribute(field, name="ConsumerConnection", &
@@ -777,8 +776,8 @@ print *, "current bondLevel=", bondLevel
 
       enddo importListLoop
       enddo exportListLoop
-      enddo exportNestLoop
-      enddo importNestLoop
+      enddo exportDomainLoop
+      enddo importDomainLoop
 
       if (associated(cplList)) then
         if (count>0) then
@@ -794,11 +793,11 @@ print *, "current bondLevel=", bondLevel
     
     if (associated(importStandardNameList)) deallocate(importStandardNameList)
     if (associated(importFieldList)) deallocate(importFieldList)
-    if (associated(importNestList)) deallocate(importNestList)
+    if (associated(importDomainList)) deallocate(importDomainList)
     if (associated(importNamespaceList)) deallocate(importNamespaceList)
     if (associated(exportStandardNameList)) deallocate(exportStandardNameList)
     if (associated(exportFieldList)) deallocate(exportFieldList)
-    if (associated(exportNestList)) deallocate(exportNestList)
+    if (associated(exportDomainList)) deallocate(exportDomainList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
 
   end subroutine
@@ -859,8 +858,8 @@ print *, "current bondLevel=", bondLevel
     character(ESMF_MAXSTR)          :: cplName
     integer                         :: cplListSize, i
     integer                         :: bondLevel, bondLevelMax
-    character(ESMF_MAXSTR), pointer :: importNestList(:)
-    character(ESMF_MAXSTR), pointer :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer :: exportDomainList(:)
     character(ESMF_MAXSTR), pointer :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: exportNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: importStandardNameList(:)
@@ -876,7 +875,7 @@ print *, "current bondLevel=", bondLevel
     character(ESMF_MAXSTR)          :: name
     character(ESMF_MAXSTR)          :: iTransferOffer, eTransferOffer
     character(len=64)               :: label
-    character(ESMF_MAXSTR)          :: fromNest, toNest
+    character(ESMF_MAXSTR)          :: fromDomain, toDomain
     character(ESMF_MAXSTR)          :: logMsg
 
     rc = ESMF_SUCCESS
@@ -890,11 +889,11 @@ print *, "current bondLevel=", bondLevel
     nullify(cplList)
     nullify(importStandardNameList)
     nullify(importFieldList)
-    nullify(importNestList)
+    nullify(importDomainList)
     nullify(importNamespaceList)
     nullify(exportStandardNameList)
     nullify(exportFieldList)
-    nullify(exportNestList)
+    nullify(exportDomainList)
     nullify(exportNamespaceList)
 
     ! query Component for its internal State
@@ -935,13 +934,13 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     endif
     ! get the importState and exportState std lists
-    call NUOPC_GetStateMemberListsWithNests(importState, importStandardNameList, &
-      fieldList=importFieldList, nestList=importNestList, &
+    call beta_NUOPC_GetStateMemberLists(importState, importStandardNameList, &
+      fieldList=importFieldList, domainList=importDomainList, &
       namespaceList=importNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    call NUOPC_GetStateMemberListsWithNests(exportState, exportStandardNameList, &
-      fieldList=exportFieldList, nestList=exportNestList, &
+    call beta_NUOPC_GetStateMemberLists(exportState, exportStandardNameList, &
+      fieldList=exportFieldList, domainList=exportDomainList, &
       namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -959,16 +958,16 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
 !      cplName = chopStringList(1) ! first part is the standard name of cpl field
 !      deallocate(chopStringList)
 
-      call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+      call ParseCplItem(cplList(i),cplName,fromDomain,toDomain,rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
       foundFlag = .false. ! reset
 
       do eMatch=1, size(exportStandardNameList)  ! consumer side
-      if (exportNestList(eMatch) /= toNest) cycle
+      if (exportDomainList(eMatch) /= toDomain) cycle
         do iMatch=1, size(importStandardNameList)  ! producer side
-        if (importNestList(iMatch) /= fromNest) cycle
+        if (importDomainList(iMatch) /= fromDomain) cycle
           if (NUOPC_FieldDictionaryMatchSyno(importStandardNameList(iMatch), &
             cplName) .and. NUOPC_FieldDictionaryMatchSyno( &
             exportStandardNameList(eMatch), cplName)) then
@@ -977,7 +976,7 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
             bondLevel = &
               getBondLevel(importNamespaceList(iMatch), &
               exportNamespaceList(eMatch), &
-              importNestList(iMatch), exportNestList(eMatch))
+              importDomainList(iMatch), exportDomainList(eMatch))
               
             if (bondLevel == -1) cycle  ! break out and look for next match
             
@@ -1146,11 +1145,11 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
     if (associated(cplList)) deallocate(cplList)
     if (associated(importStandardNameList)) deallocate(importStandardNameList)
     if (associated(importFieldList)) deallocate(importFieldList)
-    if (associated(importNestList)) deallocate(importNestList)
+    if (associated(importDomainList)) deallocate(importDomainList)
     if (associated(importNamespaceList)) deallocate(importNamespaceList)
     if (associated(exportStandardNameList)) deallocate(exportStandardNameList)
     if (associated(exportFieldList)) deallocate(exportFieldList)
-    if (associated(exportNestList)) deallocate(exportNestList)
+    if (associated(exportDomainList)) deallocate(exportDomainList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
     
   end subroutine
@@ -1168,8 +1167,8 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
     character(ESMF_MAXSTR)          :: cplName
     integer                         :: cplListSize, i
     integer                         :: bondLevel, bondLevelMax
-    character(ESMF_MAXSTR), pointer :: importNestList(:)
-    character(ESMF_MAXSTR), pointer :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer :: exportDomainList(:)
     character(ESMF_MAXSTR), pointer :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: exportNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: importStandardNameList(:)
@@ -1196,7 +1195,7 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
     integer(ESMF_KIND_I4), pointer  :: ungriddedLBound(:), ungriddedUBound(:)
     integer                         :: fieldDimCount, gridDimCount
     character(len=64)               :: label
-    character(ESMF_MAXSTR)          :: fromNest, toNest
+    character(ESMF_MAXSTR)          :: fromDomain, toDomain
 
     rc = ESMF_SUCCESS
 
@@ -1220,11 +1219,11 @@ call ESMF_VMLogMemInfo("aftP2 Reconcile")
     nullify(cplList)
     nullify(importStandardNameList)
     nullify(importFieldList)
-    nullify(importNestList)
+    nullify(importDomainList)
     nullify(importNamespaceList)
     nullify(exportStandardNameList)
     nullify(exportFieldList)
-    nullify(exportNestList)
+    nullify(exportDomainList)
     nullify(exportNamespaceList)
     
     ! query Component for its internal State
@@ -1265,13 +1264,13 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     endif
     ! get the importState and exportState std lists
-    call NUOPC_GetStateMemberListsWithNests(importState, importStandardNameList, &
-      fieldList=importFieldList, nestList=importNestList, &
+    call beta_NUOPC_GetStateMemberLists(importState, importStandardNameList, &
+      fieldList=importFieldList, domainList=importDomainList, &
       namespaceList=importNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    call NUOPC_GetStateMemberListsWithNests(exportState, exportStandardNameList, &
-      fieldList=exportFieldList, nestList=exportNestList, &
+    call beta_NUOPC_GetStateMemberLists(exportState, exportStandardNameList, &
+      fieldList=exportFieldList, domainList=exportDomainList, &
       namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -1289,16 +1288,16 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
 !      cplName = chopStringList(1) ! first part is the standard name of cpl field
 !      deallocate(chopStringList)
 
-      call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+      call ParseCplItem(cplList(i),cplName,fromDomain,toDomain,rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       
       ! find import and export side match
       foundFlag = .false. ! reset
       do eMatch=1, size(exportStandardNameList)  ! consumer side
-      if (exportNestList(eMatch) /= toNest) cycle  
+      if (exportDomainList(eMatch) /= toDomain) cycle  
         do iMatch=1, size(importStandardNameList)  ! producer side
-        if (importNestList(iMatch) /= fromNest) cycle
+        if (importDomainList(iMatch) /= fromDomain) cycle
           if (NUOPC_FieldDictionaryMatchSyno(importStandardNameList(iMatch), &
             cplName) .and. NUOPC_FieldDictionaryMatchSyno( &
             exportStandardNameList(eMatch), cplName)) then
@@ -1307,7 +1306,7 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
             bondLevel = &
               getBondLevel(importNamespaceList(iMatch), &
               exportNamespaceList(eMatch), &
-              importNestList(iMatch), exportNestList(eMatch))
+              importDomainList(iMatch), exportDomainList(eMatch))
               
             if (bondLevel == -1) cycle  ! break out and look for next match
             
@@ -1516,11 +1515,11 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
     if (associated(cplList)) deallocate(cplList)
     if (associated(importStandardNameList)) deallocate(importStandardNameList)
     if (associated(importFieldList)) deallocate(importFieldList)
-    if (associated(importNestList)) deallocate(importNestList)
+    if (associated(importDomainList)) deallocate(importDomainList)
     if (associated(importNamespaceList)) deallocate(importNamespaceList)
     if (associated(exportStandardNameList)) deallocate(exportStandardNameList)
     if (associated(exportFieldList)) deallocate(exportFieldList)
-    if (associated(exportNestList)) deallocate(exportNestList)
+    if (associated(exportDomainList)) deallocate(exportDomainList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
     
   end subroutine
@@ -1538,8 +1537,8 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
     character(ESMF_MAXSTR)          :: cplName
     integer                         :: cplListSize, i
     integer                         :: bondLevel, bondLevelMax
-    character(ESMF_MAXSTR), pointer :: importNestList(:)
-    character(ESMF_MAXSTR), pointer :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer :: exportDomainList(:)
     character(ESMF_MAXSTR), pointer :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: exportNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: importStandardNameList(:)
@@ -1562,7 +1561,7 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
     character(ESMF_MAXSTR)          :: name, valueString
     character(ESMF_MAXSTR)          :: iTransferAction, eTransferAction
     integer                         :: verbosity
-    character(ESMF_MAXSTR)          :: fromNest, toNest
+    character(ESMF_MAXSTR)          :: fromDomain, toDomain
 
     rc = ESMF_SUCCESS
 
@@ -1586,11 +1585,11 @@ call ESMF_VMLogMemInfo("aftP3 Reconcile")
     nullify(cplList)
     nullify(importStandardNameList)
     nullify(importFieldList)
-    nullify(importNestList)
+    nullify(importDomainList)
     nullify(importNamespaceList)
     nullify(exportStandardNameList)
     nullify(exportFieldList)
-    nullify(exportNestList)
+    nullify(exportDomainList)
     nullify(exportNamespaceList)
     
     ! query Component for its internal State
@@ -1631,13 +1630,13 @@ call ESMF_VMLogMemInfo("aftP4 Reconcile")
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     endif
     ! get the importState and exportState std lists
-    call NUOPC_GetStateMemberListsWithNests(importState, importStandardNameList, &
-      fieldList=importFieldList, nestList=importNestList, &
+    call beta_NUOPC_GetStateMemberLists(importState, importStandardNameList, &
+      fieldList=importFieldList, domainList=importDomainList, &
        namespaceList=importNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    call NUOPC_GetStateMemberListsWithNests(exportState, exportStandardNameList, &
-      fieldList=exportFieldList, nestList=exportNestList, &
+    call beta_NUOPC_GetStateMemberLists(exportState, exportStandardNameList, &
+      fieldList=exportFieldList, domainList=exportDomainList, &
       namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -1655,16 +1654,16 @@ call ESMF_VMLogMemInfo("aftP4 Reconcile")
 !      cplName = chopStringList(1) ! first part is the standard name of cpl field
 !      deallocate(chopStringList)
       
-      call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+      call ParseCplItem(cplList(i),cplName,fromDomain,toDomain,rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
       ! find import and export side match
       foundFlag = .false. ! reset
       do eMatch=1, size(exportStandardNameList)  ! consumer side
-      if (exportNestList(eMatch) /= toNest) cycle
+      if (exportDomainList(eMatch) /= toDomain) cycle
         do iMatch=1, size(importStandardNameList)  ! producer side
-        if (importNestList(iMatch) /= fromNest) cycle
+        if (importDomainList(iMatch) /= fromDomain) cycle
           if (NUOPC_FieldDictionaryMatchSyno(importStandardNameList(iMatch), &
             cplName) .and. NUOPC_FieldDictionaryMatchSyno( &
             exportStandardNameList(eMatch), cplName)) then
@@ -1673,7 +1672,7 @@ call ESMF_VMLogMemInfo("aftP4 Reconcile")
             bondLevel = &
               getBondLevel(importNamespaceList(iMatch), &
               exportNamespaceList(eMatch), &
-              importNestList(iMatch), exportNestList(eMatch))
+              importDomainList(iMatch), exportDomainList(eMatch))
               
             if (bondLevel == -1) cycle  ! break out and look for next match
             
@@ -1837,11 +1836,11 @@ call ESMF_VMLogMemInfo("aftP4 Reconcile")
     if (associated(cplList)) deallocate(cplList)
     if (associated(importStandardNameList)) deallocate(importStandardNameList)
     if (associated(importFieldList)) deallocate(importFieldList)
-    if (associated(importNestList)) deallocate(importNestList)
+    if (associated(importDomainList)) deallocate(importDomainList)
     if (associated(importNamespaceList)) deallocate(importNamespaceList)
     if (associated(exportStandardNameList)) deallocate(exportStandardNameList)
     if (associated(exportFieldList)) deallocate(exportFieldList)
-    if (associated(exportNestList)) deallocate(exportNestList)
+    if (associated(exportDomainList)) deallocate(exportDomainList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
 
   end subroutine
@@ -1893,11 +1892,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     character(ESMF_MAXSTR), pointer :: cplList(:), chopStringList(:)
     character(ESMF_MAXSTR)          :: cplName
     integer                         :: cplListSize, i
-    integer                         :: cplListN2Nsize
-    character(ESMF_MAXSTR), pointer :: cplListN2N(:)
+    integer                         :: cplListD2Dsize
+    character(ESMF_MAXSTR), pointer :: cplListD2D(:)
     integer                         :: bondLevel, bondLevelMax
-    character(ESMF_MAXSTR), pointer :: importNestList(:)
-    character(ESMF_MAXSTR), pointer :: exportNestList(:)
+    character(ESMF_MAXSTR), pointer :: importDomainList(:)
+    character(ESMF_MAXSTR), pointer :: exportDomainList(:)
     character(ESMF_MAXSTR), pointer :: importNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: exportNamespaceList(:)
     character(ESMF_MAXSTR), pointer :: importStandardNameList(:)
@@ -1916,8 +1915,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     character(ESMF_MAXSTR)          :: name, valueString
     integer                         :: verbosity
     character(len=64)               :: label
-    character(ESMF_MAXSTR)          :: fromNest, toNest
-    integer                         :: imNestIndex, exNestIndex
+    character(ESMF_MAXSTR)          :: fromDomain, toDomain
+    integer                         :: imDomainIndex, exDomainIndex
 
     rc = ESMF_SUCCESS
 
@@ -1941,11 +1940,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     nullify(cplList)
     nullify(importStandardNameList)
     nullify(importFieldList)
-    nullify(importNestList)
+    nullify(importDomainList)
     nullify(importNamespaceList)
     nullify(exportStandardNameList)
     nullify(exportFieldList)
-    nullify(exportNestList)
+    nullify(exportDomainList)
     nullify(exportNamespaceList)
     
     ! query Component for its internal State
@@ -1973,13 +1972,13 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     endif
 
     ! get the importState and exportState std lists
-    call NUOPC_GetStateMemberListsWithNests(importState, importStandardNameList, &
-      fieldList=importFieldList, nestList=importNestList, &
+    call beta_NUOPC_GetStateMemberLists(importState, importStandardNameList, &
+      fieldList=importFieldList, domainList=importDomainList, &
       namespaceList=importNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    call NUOPC_GetStateMemberListsWithNests(exportState, exportStandardNameList, &
-      fieldList=exportFieldList, nestList=exportNestList, &
+    call beta_NUOPC_GetStateMemberLists(exportState, exportStandardNameList, &
+      fieldList=exportFieldList, domainList=exportDomainList, &
       namespaceList=exportNamespaceList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out    
@@ -1987,17 +1986,17 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     ! clean starting condition for pointer member inside internal state
 
     ! prepare FieldBundles to store src and dst Fields
-    do imNestIndex=1,is%wrap%imNestCount
-    do exNestIndex=1,is%wrap%exNestCount
-      is%wrap%N2N(imNestIndex,exNestIndex)%srcFields = &
+    do imDomainIndex=1,is%wrap%imDomainCount
+    do exDomainIndex=1,is%wrap%exDomainCount
+      is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields = &
         ESMF_FieldBundleCreate(rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      is%wrap%N2N(imNestIndex,exNestIndex)%dstFields = &
+      is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields = &
         ESMF_FieldBundleCreate(rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-      nullify(is%wrap%N2N(imNestIndex,exNestIndex)%termOrders)
+      nullify(is%wrap%D2D(imDomainIndex,exDomainIndex)%termOrders)
     enddo
     enddo
       
@@ -2014,16 +2013,16 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 !      cplName = chopStringList(1) ! first part is the standard name of cpl field
 !      deallocate(chopStringList)
 
-      call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+      call ParseCplItem(cplList(i),cplName,fromDomain,toDomain,rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       
       ! find import and export side match
       foundFlag = .false. ! reset
       do eMatch=1, size(exportStandardNameList)  ! consumer side
-      if (exportNestList(eMatch) /= toNest) cycle
+      if (exportDomainList(eMatch) /= toDomain) cycle
         do iMatch=1, size(importStandardNameList)  ! producer side
-        if (importNestList(iMatch) /= fromNest) cycle
+        if (importDomainList(iMatch) /= fromDomain) cycle
           if (NUOPC_FieldDictionaryMatchSyno(importStandardNameList(iMatch), &
             cplName) .and. NUOPC_FieldDictionaryMatchSyno( &
             exportStandardNameList(eMatch), cplName)) then
@@ -2032,7 +2031,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
             bondLevel = &
               getBondLevel(importNamespaceList(iMatch), &
               exportNamespaceList(eMatch), &
-              importNestList(iMatch), exportNestList(eMatch))
+              importDomainList(iMatch), exportDomainList(eMatch))
               
             if (bondLevel == -1) cycle  ! break out and look for next match
             
@@ -2085,18 +2084,18 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         iField=importFieldList(iMatch)
         eField=exportFieldList(eMatch)
 
-        do imNestIndex=1,is%wrap%imNestCount
-        if (importNestList(iMatch) /= is%wrap%imNestSet(imNestIndex)) cycle
-        do exNestIndex=1,is%wrap%exNestCount
-        if (exportNestList(eMatch) /= is%wrap%exNestSet(exNestIndex)) cycle
+        do imDomainIndex=1,is%wrap%imDomainCount
+        if (importDomainList(iMatch) /= is%wrap%imDomainSet(imDomainIndex)) cycle
+        do exDomainIndex=1,is%wrap%exDomainCount
+        if (exportDomainList(eMatch) /= is%wrap%exDomainSet(exDomainIndex)) cycle
           ! add the import and export Fields to FieldBundles
           call ESMF_FieldBundleAdd( &
-            is%wrap%N2N(imNestIndex,exNestIndex)%srcFields, &
+            is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields, &
             (/iField/), multiflag=.true., rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
           call ESMF_FieldBundleAdd( &
-            is%wrap%N2N(imNestIndex,exNestIndex)%dstFields, &
+            is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields, &
             (/eField/), multiflag=.true., rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -2131,49 +2130,49 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (.not.existflag) then
       ! if not specialized -> use default method to:
       ! precompute the regrid for all src to dst Fields
-      do imNestIndex=1,is%wrap%imNestCount
-      do exNestIndex=1,is%wrap%exNestCount
-        nullify(cplListN2N)
-        cplListN2Nsize = 0
+      do imDomainIndex=1,is%wrap%imDomainCount
+      do exDomainIndex=1,is%wrap%exDomainCount
+        nullify(cplListD2D)
+        cplListD2Dsize = 0
 
         do i=1,cplListSize    
-          call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+          call ParseCplItem(cplList(i),cplName,fromDomain,toDomain,rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out 
-          if (fromNest == is%wrap%imNestSet(imNestIndex) .AND. toNest == is%wrap%exNestSet(exNestIndex)) then
-            cplListN2Nsize = cplListN2Nsize + 1
+          if (fromDomain == is%wrap%imDomainSet(imDomainIndex) .AND. toDomain == is%wrap%exDomainSet(exDomainIndex)) then
+            cplListD2Dsize = cplListD2Dsize + 1
           endif  
         enddo
 
-        allocate(cplListN2N(cplListN2NSize), &
+        allocate(cplListD2D(cplListD2DSize), &
           stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of internal cplList() failed.", &
           line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
           return  ! bail out
 
-        cplListN2Nsize = 0
+        cplListD2Dsize = 0
         do i=1,cplListSize
-          call ParseCplItem(cplList(i),cplName,fromNest,toNest,rc)
+          call ParseCplItem(cplList(i),cplName,fromDomain,toDomain,rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-          if (fromNest == is%wrap%imNestSet(imNestIndex) .AND. toNest == is%wrap%exNestSet(exNestIndex)) then
-            cplListN2Nsize = cplListN2Nsize + 1
-            cplListN2N(cplListN2Nsize) = cplList(i)
+          if (fromDomain == is%wrap%imDomainSet(imDomainIndex) .AND. toDomain == is%wrap%exDomainSet(exDomainIndex)) then
+            cplListD2Dsize = cplListD2Dsize + 1
+            cplListD2D(cplListD2Dsize) = cplList(i)
           endif
         enddo
 
         call FieldBundleCplStore( &
-          is%wrap%N2N(imNestIndex,exNestIndex)%srcFields, &
-          is%wrap%N2N(imNestIndex,exNestIndex)%dstFields, &
-          cplList=cplListN2N, &
-          rh=is%wrap%N2N(imNestIndex,exNestIndex)%rh, &
-          termOrders=is%wrap%N2N(imNestIndex,exNestIndex)%termOrders, &
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields, &
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields, &
+          cplList=cplListD2D, &
+          rh=is%wrap%D2D(imDomainIndex,exDomainIndex)%rh, &
+          termOrders=is%wrap%D2D(imDomainIndex,exDomainIndex)%termOrders, &
           name=name, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
-        deallocate(cplListN2N)
+        deallocate(cplListD2D)
 
       enddo
       enddo
@@ -2197,24 +2196,24 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 
 
     ! populate remaining internal state members
-    do imNestIndex=1,is%wrap%imNestCount
-    do exNestIndex=1,is%wrap%exNestCount
+    do imDomainIndex=1,is%wrap%imDomainCount
+    do exDomainIndex=1,is%wrap%exDomainCount
       call ESMF_FieldBundleGet( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%srcFields, &
-        fieldCount=is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldCount, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields, &
+        fieldCount=is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       call ESMF_FieldBundleGet( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%dstFields, &
-        fieldCount=is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldCount, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields, &
+        fieldCount=is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFieldCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
 
       allocate( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList( &
-          is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldCount), &
-        is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldList( &
-          is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldCount), &
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldList( &
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldCount), &
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFieldList( &
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFieldCount), &
         stat=stat)
       if (ESMF_LogFoundAllocError(statusToCheck=stat, &
         msg="Allocation of internal field lists failed.", &
@@ -2222,13 +2221,13 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         return  ! bail out
 
       call ESMF_FieldBundleGet( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%srcFields, &
-        fieldList=is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields, &
+        fieldList=is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       call ESMF_FieldBundleGet( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%dstFields, &
-        fieldList=is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldList, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields, &
+        fieldList=is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFieldList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out    
     enddo
@@ -2238,11 +2237,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (associated(cplList)) deallocate(cplList)
     if (associated(importStandardNameList)) deallocate(importStandardNameList)
     if (associated(importFieldList)) deallocate(importFieldList)
-    if (associated(importNestList)) deallocate(importNestList)
+    if (associated(importDomainList)) deallocate(importDomainList)
     if (associated(importNamespaceList)) deallocate(importNamespaceList)
     if (associated(exportStandardNameList)) deallocate(exportStandardNameList)
     if (associated(exportFieldList)) deallocate(exportFieldList)
-    if (associated(exportNestList)) deallocate(exportNestList)
+    if (associated(exportDomainList)) deallocate(exportDomainList)
     if (associated(exportNamespaceList)) deallocate(exportNamespaceList)
     
   end subroutine
@@ -2321,7 +2320,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     integer                   :: verbosity
     integer                   :: profiling
     character(ESMF_MAXSTR)    :: name
-    integer                   :: imNestIndex, exNestIndex
+    integer                   :: imDomainIndex, exDomainIndex
 
     real(ESMF_KIND_R8)        :: timeBase, time0, time
 
@@ -2427,13 +2426,13 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (.not.existflag) then
       ! if not specialized -> use default method to:
       ! execute the regrid operation
-      do imNestIndex=1,is%wrap%imNestCount
-      do exNestIndex=1,is%wrap%exNestCount
+      do imDomainIndex=1,is%wrap%imDomainCount
+      do exDomainIndex=1,is%wrap%exDomainCount
         call ESMF_FieldBundleRegrid( &
-          is%wrap%N2N(imNestIndex,exNestIndex)%srcFields, &
-          is%wrap%N2N(imNestIndex,exNestIndex)%dstFields, &
-          routehandle=is%wrap%N2N(imNestIndex,exNestIndex)%rh, &
-          termorderflag=is%wrap%N2N(imNestIndex,exNestIndex)%termOrders, &
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields, &
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields, &
+          routehandle=is%wrap%D2D(imDomainIndex,exDomainIndex)%rh, &
+          termorderflag=is%wrap%D2D(imDomainIndex,exDomainIndex)%termOrders, &
           zeroregion=ESMF_REGION_SELECT, &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2514,10 +2513,10 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     !TODO: bail out if rootPet not found
 
     ! hand coded, specific AttributeUpdate
-    do imNestIndex=1,is%wrap%imNestCount
-    do exNestIndex=1,is%wrap%exNestCount
+    do imDomainIndex=1,is%wrap%imDomainCount
+    do exDomainIndex=1,is%wrap%exDomainCount
       call NUOPC_UpdateTimestamp(&
-        is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList, rootPet=rootPet, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldList, rootPet=rootPet, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     enddo
@@ -2533,11 +2532,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     endif
 
     ! update the timestamp on all of the dst fields to that on the src side
-    do imNestIndex=1,is%wrap%imNestCount
-    do exNestIndex=1,is%wrap%exNestCount
+    do imDomainIndex=1,is%wrap%imDomainCount
+    do exDomainIndex=1,is%wrap%exDomainCount
       call NUOPC_UpdateTimestamp( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList, &
-        is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldList, &
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldList, &
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFieldList, &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
@@ -2579,8 +2578,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     logical                   :: existflag
     character(ESMF_MAXSTR)    :: name, valueString
     integer                   :: verbosity
-    integer                   :: imNestIndex
-    integer                   :: exNestIndex
+    integer                   :: imDomainIndex
+    integer                   :: exDomainIndex
 
     rc = ESMF_SUCCESS
 
@@ -2618,10 +2617,10 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (.not.existflag) then
       ! if not specialized -> use default method to:
       ! release the regrid operation
-      do imNestIndex=1,is%wrap%imNestCount
-      do exNestIndex=1,is%wrap%exNestCount
+      do imDomainIndex=1,is%wrap%imDomainCount
+      do exDomainIndex=1,is%wrap%exDomainCount
         call ESMF_FieldBundleRegridRelease( &
-          is%wrap%N2N(imNestIndex,exNestIndex)%rh, rc=rc)
+          is%wrap%D2D(imDomainIndex,exDomainIndex)%rh, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       enddo
@@ -2654,24 +2653,24 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       return  ! bail out
 
     ! deallocate and destroy remaining internal state members
-    do imNestIndex=1,is%wrap%imNestCount
-    do exNestIndex=1,is%wrap%exNestCount
-      deallocate(is%wrap%N2N(imNestIndex,exNestIndex)%srcFieldList, stat=stat)
+    do imDomainIndex=1,is%wrap%imDomainCount
+    do exDomainIndex=1,is%wrap%exDomainCount
+      deallocate(is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFieldList, stat=stat)
       if (ESMF_LogFoundAllocError(statusToCheck=stat, &
         msg="Deallocation of internal state srcFieldList member failed.", &
         line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
         return  ! bail out
-      deallocate(is%wrap%N2N(imNestIndex,exNestIndex)%dstFieldList, stat=stat)
+      deallocate(is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFieldList, stat=stat)
       if (ESMF_LogFoundAllocError(statusToCheck=stat, &
         msg="Deallocation of internal state dstFieldList member failed.", &
         line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
         return  ! bail out
       call ESMF_FieldBundleDestroy( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%srcFields, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%srcFields, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
       call ESMF_FieldBundleDestroy( &
-        is%wrap%N2N(imNestIndex,exNestIndex)%dstFields, rc=rc)
+        is%wrap%D2D(imDomainIndex,exDomainIndex)%dstFields, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
     enddo
@@ -2680,10 +2679,10 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       is%wrap%state, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//FILENAME)) return  ! bail out
-    do imNestIndex=1,is%wrap%imNestCount
-    do exNestIndex=1,is%wrap%exNestCount
-      if (associated(is%wrap%N2N(imNestIndex,exNestIndex)%termOrders)) then
-        deallocate(is%wrap%N2N(imNestIndex,exNestIndex)%termOrders, stat=stat)
+    do imDomainIndex=1,is%wrap%imDomainCount
+    do exDomainIndex=1,is%wrap%exDomainCount
+      if (associated(is%wrap%D2D(imDomainIndex,exDomainIndex)%termOrders)) then
+        deallocate(is%wrap%D2D(imDomainIndex,exDomainIndex)%termOrders, stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Deallocation of termOrders list.", &
           line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
@@ -2692,17 +2691,17 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     enddo
     enddo
 
-    ! deallocate N2N memory
-    deallocate(is%wrap%N2N, stat=stat)
+    ! deallocate D2D memory
+    deallocate(is%wrap%D2D, stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Deallocation of nest to nest memory failed.", &
+      msg="Deallocation of domain to domain memory failed.", &
       line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
       return  ! bail out
 
-    ! deallocate Nest set memory
-    deallocate(is%wrap%imNestSet,is%wrap%exNestSet, stat=stat)
+    ! deallocate Domain set memory
+    deallocate(is%wrap%imDomainSet,is%wrap%exDomainSet, stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg="Deallocation of nest set memory failed.", &
+      msg="Deallocation of domain set memory failed.", &
       line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
       return  ! bail out
     
@@ -2719,10 +2718,10 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
   !----- Helper routines below ...
   !-----------------------------------------------------------------------------
 
-  function getBondLevel(imNamespace, exNamespace, imNest, exNest, label)
+  function getBondLevel(imNamespace, exNamespace, imDomain, exDomain, label)
     integer                    :: getBondLevel
     character(len=*)           :: imNamespace, exNamespace
-    character(len=*)           :: imNest, exNest
+    character(len=*)           :: imDomain, exDomain
     character(len=*), optional :: label
     character(len=80)          :: imKey1, imKey2, imKey
     character(len=80)          :: exKey1, exKey2, exKey
@@ -2777,8 +2776,8 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       exKey2 = "" ! empty string
     endif
 
-    ! Increase bondLevel if nests match
-    if (trim(imNest) == trim(exNest)) then
+    ! Increase bondLevel if domain match
+    if (trim(imDomain) == trim(exDomain)) then
       getBondLevel = getBondLevel + 1
     endif
 
@@ -2803,7 +2802,7 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 100 if (present(label)) then
       write (logMsg,"(A,A,A,I0)") trim(label), &
         " Namespace["//trim(imNamespace)//"->"//trim(exNamespace)//"]", &
-        " Nest["//trim(imNest)//"->"//trim(exNest)//"]=", &
+        " Domain["//trim(imDomain)//"->"//trim(exDomain)//"]=", &
         getBondLevel
       call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
     endif
@@ -2813,32 +2812,32 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 
   !-----------------------------------------------------------------------------
 
-  subroutine GetUniqueNestSet(nestList,nestSet,nestCount,rc)
-    character(len=*),pointer,intent(in)                     :: nestList(:)
-    character(ESMF_MAXSTR),pointer,intent(out),optional     :: nestSet(:)
-    integer,intent(out),optional                            :: nestCount
+  subroutine GetUniqueDomainSet(domainList,domainSet,domainCount,rc)
+    character(len=*),pointer,intent(in)                     :: domainList(:)
+    character(ESMF_MAXSTR),pointer,intent(out),optional     :: domainSet(:)
+    integer,intent(out),optional                            :: domainCount
     integer,intent(out),optional                            :: rc
 
     ! local variables
-    integer :: l_nestCount
+    integer :: l_domainCount
     integer :: stat
     integer :: listIndex
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    if (.NOT.associated(nestList)) then
+    if (.NOT.associated(domainList)) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="nestList must enter associated", &
+        msg="domainList must enter associated", &
         line=__LINE__, &
         file=FILENAME, &
         rcToReturn=rc)
       return  ! bail out
     endif
 
-    if (present(nestSet)) then    
-      if (associated(nestSet)) then
+    if (present(domainSet)) then    
+      if (associated(domainSet)) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-          msg="nestSet must enter unallocated", &
+          msg="domainSet must enter unallocated", &
           line=__LINE__, &
           file=FILENAME, &
           rcToReturn=rc)
@@ -2846,11 +2845,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       endif
     endif
 
-    if (size(nestList) == 0) then
-      if (present(nestCount)) nestCount = 0
-      if (present(nestSet)) then
-        allocate(nestSet(0), stat=stat)
-        if (ESMF_LogFoundAllocError(stat, msg="allocating nestSet", &
+    if (size(domainList) == 0) then
+      if (present(domainCount)) domainCount = 0
+      if (present(domainSet)) then
+        allocate(domainSet(0), stat=stat)
+        if (ESMF_LogFoundAllocError(stat, msg="allocating domainSet", &
           line=__LINE__, &
           file=FILENAME)) &
           return  ! bail out
@@ -2858,29 +2857,29 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       return
     endif
 
-    l_nestCount = 1
+    l_domainCount = 1
 
-    do listIndex=2,size(nestList)
-      if(.NOT. ANY(nestList(1:listIndex-1) .EQ. nestList(listIndex))) then
-        l_nestCount = l_nestCount + 1
+    do listIndex=2,size(domainList)
+      if(.NOT. ANY(domainList(1:listIndex-1) .EQ. domainList(listIndex))) then
+        l_domainCount = l_domainCount + 1
       endif
     enddo
 
-    if (present(nestCount)) nestCount = l_nestCount
+    if (present(domainCount)) domainCount = l_domainCount
 
-    if (present(nestSet)) then
-      allocate(nestSet(l_nestCount), stat=stat)
-      if (ESMF_LogFoundAllocError(stat, msg="allocating nestSet", &
+    if (present(domainSet)) then
+      allocate(domainSet(l_domainCount), stat=stat)
+      if (ESMF_LogFoundAllocError(stat, msg="allocating domainSet", &
         line=__LINE__, &
         file=FILENAME)) &
         return  ! bail out
 
-      l_nestCount = 1
-      nestSet(1) = nestList(1)
-      do listIndex=2,size(nestList)
-        if(.NOT. ANY(nestSet(1:l_nestCount) .EQ. nestList(listIndex))) then
-          l_nestCount = l_nestCount + 1
-          nestSet(l_nestCount) = nestList(listIndex)
+      l_domainCount = 1
+      domainSet(1) = domainList(1)
+      do listIndex=2,size(domainList)
+        if(.NOT. ANY(domainSet(1:l_domainCount) .EQ. domainList(listIndex))) then
+          l_domainCount = l_domainCount + 1
+          domainSet(l_domainCount) = domainList(listIndex)
         endif
       enddo
     endif
@@ -2889,11 +2888,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 
   !-----------------------------------------------------------------------------
 
-  subroutine ParseCplItem(cplItem,stdName,fromNest,toNest,rc)
+  subroutine ParseCplItem(cplItem,stdName,fromDomain,toDomain,rc)
     character(len=*)                    :: cplItem
     character(len=*),intent(out)        :: stdName
-    character(ESMF_MAXSTR), intent(out) :: fromNest
-    character(ESMF_MAXSTR), intent(out) :: toNest
+    character(ESMF_MAXSTR), intent(out) :: fromDomain
+    character(ESMF_MAXSTR), intent(out) :: toDomain
     integer, intent(out)                :: rc
 
     ! local variables
@@ -2921,14 +2920,14 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     if (mark1 < 1 .OR. mark2 < 1 .OR. mark3 < 1 .OR. &
     mark2 - mark1 < 2 .OR. mark3 - mark2 < 2) then
       stdName = cplName
-      fromNest = "0"
-      toNest = "0"
+      fromDomain = "0"
+      toDomain = "0"
     endif
 
     stdName = cplName(1:mark1-1)
 
-    fromNest = cplName(mark1+1:mark2-1)
-    toNest = cplName(mark2+1:mark3-1)
+    fromDomain = cplName(mark1+1:mark2-1)
+    toDomain = cplName(mark2+1:mark3-1)
 
   end subroutine
 
@@ -3440,17 +3439,17 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 ! !IROUTINE: NUOPC_ConnectorGet - Get parameters from a Connector
 !
 ! !INTERFACE:
-  subroutine NUOPC_ConnectorGet(connector, fromNest, toNest, &
-  fromNestCount, toNestCount, fromNestSet, toNestSet, &
+  subroutine NUOPC_ConnectorGet(connector, fromDomain, toDomain, &
+  fromDomainCount, toDomainCount, fromDomainSet, toDomainSet, &
   srcFields, dstFields, rh, state, rc)
 ! !ARGUMENTS:
     type(ESMF_CplComp)                            :: connector
-    character(len=*),       intent(in),  optional :: fromNest
-    character(len=*),       intent(in),  optional :: toNest
-    integer,                intent(out), optional :: fromNestCount
-    integer,                intent(out), optional :: toNestCount
-    character(ESMF_MAXSTR), intent(out), pointer, optional :: fromNestSet(:)
-    character(ESMF_MAXSTR), intent(out), pointer, optional :: toNestSet(:)
+    character(len=*),       intent(in),  optional :: fromDomain
+    character(len=*),       intent(in),  optional :: toDomain
+    integer,                intent(out), optional :: fromDomainCount
+    integer,                intent(out), optional :: toDomainCount
+    character(ESMF_MAXSTR), intent(out), pointer, optional :: fromDomainSet(:)
+    character(ESMF_MAXSTR), intent(out), pointer, optional :: toDomainSet(:)
     type(ESMF_FieldBundle), intent(out), optional :: srcFields
     type(ESMF_FieldBundle), intent(out), optional :: dstFields
     type(ESMF_RouteHandle), intent(out), optional :: rh
@@ -3464,19 +3463,19 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     ! local variables
     character(ESMF_MAXSTR)          :: name
     type(type_InternalState)        :: is
-    character(ESMF_MAXSTR)          :: l_fromNest
-    character(ESMF_MAXSTR)          :: l_toNest
-    integer                         :: imNestIndex
-    integer                         :: exNestIndex
-    integer                         :: imNest
-    integer                         :: exNest
+    character(ESMF_MAXSTR)          :: l_fromDomain
+    character(ESMF_MAXSTR)          :: l_toDomain
+    integer                         :: imDomainIndex
+    integer                         :: exDomainIndex
+    integer                         :: imDomain
+    integer                         :: exDomain
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    l_fromNest="0"
-    l_toNest="0"
-    if (present(fromNest)) l_fromNest = fromNest
-    if (present(toNest)) l_toNest = toNest
+    l_fromDomain="0"
+    l_toDomain="0"
+    if (present(fromDomain)) l_fromDomain = fromDomain
+    if (present(toDomain)) l_toDomain = toDomain
 
     ! query the Component for info
     call ESMF_CplCompGet(connector, name=name, rc=rc)
@@ -3489,10 +3488,10 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         .not.present(dstFields) .and. &
         .not.present(rh) .and. &
         .not.present(state) .and. &
-        .not.present(fromNestCount) .and. &
-        .not.present(toNestCount) .and. &
-        .not.present(fromNestSet) .and. &
-        .not.present(toNestSet)) return
+        .not.present(fromDomainCount) .and. &
+        .not.present(toDomainCount) .and. &
+        .not.present(fromDomainSet) .and. &
+        .not.present(toDomainSet)) return
 
     ! query Component for the internal State
     nullify(is%wrap)
@@ -3501,32 +3500,32 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
       return  ! bail out
 
-    if (present(fromNestCount)) fromNestCount = is%wrap%imNestCount
-    if (present(toNestCount)) toNestCount = is%wrap%exNestCount
+    if (present(fromDomainCount)) fromDomainCount = is%wrap%imDomainCount
+    if (present(toDomainCount)) toDomainCount = is%wrap%exDomainCount
 
-    if (present(fromNestSet)) then
-      if (associated(fromNestSet)) then
+    if (present(fromDomainSet)) then
+      if (associated(fromDomainSet)) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-          msg="fromNestSet must enter unassociated", &
+          msg="fromDomainSet must enter unassociated", &
           line=__LINE__, &
           file=FILENAME, &
           rcToReturn=rc)
           return  ! bail out
       else
-        fromNestSet => is%wrap%imNestSet
+        fromDomainSet => is%wrap%imDomainSet
       endif
     endif
 
-    if (present(toNestSet)) then
-      if (associated(toNestSet)) then
+    if (present(toDomainSet)) then
+      if (associated(toDomainSet)) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-          msg="toNestSet must enter unassociated", &
+          msg="toDomainSet must enter unassociated", &
           line=__LINE__, &
           file=FILENAME, &
           rcToReturn=rc)
           return  ! bail out
       else
-        toNestSet => is%wrap%exNestSet
+        toDomainSet => is%wrap%exDomainSet
       endif
     endif
 
@@ -3537,20 +3536,20 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
         .not.present(dstFields) .and. &
         .not.present(rh)) return
     
-    imNest = 0
-    exNest = 0
-    do imNestIndex=1,is%wrap%imNestCount
-    if (is%wrap%imNestSet(imNestIndex) /= l_fromNest) cycle
-    do exNestIndex=1,is%wrap%exNestCount
-    if (is%wrap%exNestSet(exNestIndex) /= l_toNest) cycle
-      imNest = imNestIndex
-      exNest = exNestIndex
+    imDomain = 0
+    exDomain = 0
+    do imDomainIndex=1,is%wrap%imDomainCount
+    if (is%wrap%imDomainSet(imDomainIndex) /= l_fromDomain) cycle
+    do exDomainIndex=1,is%wrap%exDomainCount
+    if (is%wrap%exDomainSet(exDomainIndex) /= l_toDomain) cycle
+      imDomain = imDomainIndex
+      exDomain = exDomainIndex
     enddo
     enddo
 
-    if(imNest == 0 .OR. exNest==0) then
+    if(imDomain == 0 .OR. exDomain==0) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="Nest to Nest value not found", &
+        msg="Domain to Domain value not found", &
         line=__LINE__, &
         file=FILENAME, &
         rcToReturn=rc)
@@ -3558,9 +3557,9 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     endif
     
     ! Get the requested members
-    if (present(srcFields)) srcFields = is%wrap%N2N(imNest,exNest)%srcFields
-    if (present(dstFields)) dstFields = is%wrap%N2N(imNest,exNest)%dstFields
-    if (present(rh))        rh = is%wrap%N2N(imNest,exNest)%rh
+    if (present(srcFields)) srcFields = is%wrap%D2D(imDomain,exDomain)%srcFields
+    if (present(dstFields)) dstFields = is%wrap%D2D(imDomain,exDomain)%dstFields
+    if (present(rh))        rh = is%wrap%D2D(imDomain,exDomain)%rh
     
   end subroutine
   !-----------------------------------------------------------------------------
@@ -3570,11 +3569,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
 ! !IROUTINE: NUOPC_ConnectorSet - Set parameters in a Connector
 !
 ! !INTERFACE:
-  subroutine NUOPC_ConnectorSet(connector, fromNest, toNest, srcFields, dstFields, rh, state, rc)
+  subroutine NUOPC_ConnectorSet(connector, fromDomain, toDomain, srcFields, dstFields, rh, state, rc)
 ! !ARGUMENTS:
     type(ESMF_CplComp)                            :: connector
-    character(len=*),       intent(in),  optional :: fromNest
-    character(len=*),       intent(in),  optional :: toNest
+    character(len=*),       intent(in),  optional :: fromDomain
+    character(len=*),       intent(in),  optional :: toDomain
     type(ESMF_FieldBundle), intent(in),  optional :: srcFields
     type(ESMF_FieldBundle), intent(in),  optional :: dstFields
     type(ESMF_RouteHandle), intent(in),  optional :: rh
@@ -3588,19 +3587,19 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     ! local variables
     character(ESMF_MAXSTR)          :: name
     type(type_InternalState)        :: is
-    character(ESMF_MAXSTR)          :: l_fromNest
-    character(ESMF_MAXSTR)          :: l_toNest
-    integer                         :: imNestIndex
-    integer                         :: exNestIndex
-    integer                         :: imNest
-    integer                         :: exNest
+    character(ESMF_MAXSTR)          :: l_fromDomain
+    character(ESMF_MAXSTR)          :: l_toDomain
+    integer                         :: imDomainIndex
+    integer                         :: exDomainIndex
+    integer                         :: imDomain
+    integer                         :: exDomain
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    l_fromNest="0"
-    l_toNest="0"
-    if (present(fromNest)) l_fromNest = fromNest
-    if (present(toNest)) l_toNest = toNest
+    l_fromDomain="0"
+    l_toDomain="0"
+    if (present(fromDomain)) l_fromDomain = fromDomain
+    if (present(toDomain)) l_toDomain = toDomain
 
     ! query the Component for info
     call ESMF_CplCompGet(connector, name=name, rc=rc)
@@ -3621,21 +3620,21 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
       line=__LINE__, file=trim(name)//":"//FILENAME, rcToReturn=rc)) &
       return  ! bail out
 
-    imNest=0
-    exNest=0    
-    do imNestIndex=1,is%wrap%imNestCount
-    if (is%wrap%imNestSet(imNestIndex) /= l_fromNest) cycle
-    do exNestIndex=1,is%wrap%exNestCount
-    if (is%wrap%exNestSet(exNestIndex) /= l_toNest) cycle
-      imNest = imNestIndex
-      exNest = exNestIndex
+    imDomain=0
+    exDomain=0    
+    do imDomainIndex=1,is%wrap%imDomainCount
+    if (is%wrap%imDomainSet(imDomainIndex) /= l_fromDomain) cycle
+    do exDomainIndex=1,is%wrap%exDomainCount
+    if (is%wrap%exDomainSet(exDomainIndex) /= l_toDomain) cycle
+      imDomain = imDomainIndex
+      exDomain = exDomainIndex
       exit
     enddo
     enddo
 
-    if(imNest == 0 .OR. exNest==0) then
+    if(imDomain == 0 .OR. exDomain==0) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="Nest to nest value not found", &
+        msg="Domain to domain value not found", &
         line=__LINE__, &
         file=FILENAME, &
         rcToReturn=rc)
@@ -3643,483 +3642,11 @@ call ESMF_VMLogMemInfo("aftP5 Reconcile")
     endif
 
     ! Set the requested members
-    if (present(srcFields)) is%wrap%N2N(imNest,exNest)%srcFields = srcFields
-    if (present(dstFields)) is%wrap%N2N(imNest,exNest)%dstFields = dstFields
-    if (present(rh))        is%wrap%N2N(imNest,exNest)%rh = rh
+    if (present(srcFields)) is%wrap%D2D(imDomain,exDomain)%srcFields = srcFields
+    if (present(dstFields)) is%wrap%D2D(imDomain,exDomain)%dstFields = dstFields
+    if (present(rh))        is%wrap%D2D(imDomain,exDomain)%rh = rh
     if (present(state))     is%wrap%state = state
     
-  end subroutine
-  !-----------------------------------------------------------------------------
-
-  !-----------------------------------------------------------------------------
-!BOP
-! !IROUTINE: NUOPC_GetStateMemberListsWithNests - Build lists of information of State members
-! !INTERFACE:
-  recursive subroutine NUOPC_GetStateMemberListsWithNests(state, StandardNameList, &
-    ConnectedList, NestList, NamespaceList, itemNameList, fieldList, rc)
-! !ARGUMENTS:
-    type(ESMF_State),       intent(in)            :: state
-    character(ESMF_MAXSTR), pointer, optional     :: StandardNameList(:)
-    character(ESMF_MAXSTR), pointer, optional     :: ConnectedList(:)
-    character(ESMF_MAXSTR), pointer, optional     :: NestList(:)
-    character(ESMF_MAXSTR), pointer, optional     :: NamespaceList(:)
-    character(ESMF_MAXSTR), pointer, optional     :: itemNameList(:)
-    type(ESMF_Field),       pointer, optional     :: fieldList(:)
-    integer,                intent(out), optional :: rc
-! !DESCRIPTION:
-!   Construct lists containing the StandardNames, field names, and connected 
-!   status of the fields in {\tt state}. Return this information in the
-!   list arguments. Recursively parse through nested States.
-!
-!   All pointer arguments present must enter this method unassociated. On 
-!   return, the deallocation of an associated pointer becomes the responsibility
-!   of the caller.
-!
-!   The arguments are:
-!   \begin{description}
-!   \item[state]
-!     The {\tt ESMF\_State} object to be queried.
-!   \item[{[StandardNameList]}]
-!     If present, return a list of the "StandardName" attribute of each member.
-!   \item[{[ConnectedList]}]
-!     If present, return a list of the "Connected" attribute of each member.
-!   \item[{[NestList]}]
-!     If present, return a list of the "Nest" attribute of each member.
-!   \item[{[NamespaceList]}]
-!     If present, return a list of the namespace of each member.
-!   \item[{[itemNameList]}]
-!     If present, return a list of each member name.
-!   \item[{[fieldList]}]
-!     If present, return a list of the member fields.
-!   \item[{[rc]}]
-!     Return code; equals {\tt ESMF\_SUCCESS} if there are no errors.
-!   \end{description}
-!
-!EOP
-  !-----------------------------------------------------------------------------
-    ! local variables
-    integer           :: item, itemCount, fieldCount, stat, i
-    type(ESMF_Field)  :: field
-    character(ESMF_MAXSTR), allocatable     :: ll_itemNameList(:)
-    type(ESMF_StateItem_Flag), allocatable  :: stateitemtypeList(:)
-    type(ESMF_State)                        :: nestedState
-    character(ESMF_MAXSTR), pointer         :: l_StandardNameList(:)
-    character(ESMF_MAXSTR), pointer         :: l_itemNameList(:)
-    character(ESMF_MAXSTR), pointer         :: l_ConnectedList(:)
-    character(ESMF_MAXSTR), pointer         :: l_NestList(:)
-    character(ESMF_MAXSTR), pointer         :: l_NamespaceList(:)
-    type(ESMF_Field),       pointer         :: l_fieldList(:)
-    character(ESMF_MAXSTR)                  :: nest
-    character(ESMF_MAXSTR)                  :: namespace
-    
-    if (present(rc)) rc = ESMF_SUCCESS
-    
-    call ESMF_StateGet(state, itemCount=itemCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=FILENAME)) &
-      return  ! bail out
-          
-    if (itemCount > 0) then
-      allocate(ll_itemNameList(itemCount))
-      allocate(stateitemtypeList(itemCount))
-      call ESMF_StateGet(state, itemNameList=ll_itemNameList, &
-        itemtypeList=stateitemtypeList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=FILENAME)) &
-        return  ! bail out
-        
-      fieldCount = 0  ! reset
-      do item=1, itemCount
-        if (stateitemtypeList(item) == ESMF_STATEITEM_FIELD) then
-          fieldCount = fieldCount + 1
-        else if (stateitemtypeList(item) == ESMF_STATEITEM_STATE) then
-          ! recursively parse the nested state
-          nullify(l_StandardNameList)
-          call ESMF_StateGet(state, itemName=ll_itemNameList(item), &
-            nestedState=nestedState, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-          call NUOPC_GetStateMemberListsWithNests(nestedState, l_StandardNameList, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-          if (associated(l_StandardNameList)) then
-            fieldCount = fieldCount + size(l_StandardNameList)
-            deallocate(l_StandardNameList)
-          endif
-        endif
-      enddo
-      
-      if (present(StandardNameList)) then
-        if (associated(StandardNameList)) then
-          call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-            msg="StandardNameList must enter unassociated", &
-            line=__LINE__, &
-            file=FILENAME, &
-            rcToReturn=rc)
-          return  ! bail out
-        else
-          allocate(StandardNameList(fieldCount), stat=stat)
-          if (ESMF_LogFoundAllocError(stat, msg="allocating StandardNameList", &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-        endif
-      endif
-      
-      if (present(itemNameList)) then
-        if (associated(itemNameList)) then
-          call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-            msg="itemNameList must enter unassociated", &
-            line=__LINE__, &
-            file=FILENAME, &
-            rcToReturn=rc)
-          return  ! bail out
-        else
-          allocate(itemNameList(fieldCount), stat=stat)
-          if (ESMF_LogFoundAllocError(stat, msg="allocating itemNameList", &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-        endif
-      endif
-
-      if (present(ConnectedList)) then
-        if (associated(ConnectedList)) then
-          call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-            msg="ConnectedList must enter unassociated", &
-            line=__LINE__, &
-            file=FILENAME, &
-            rcToReturn=rc)
-          return  ! bail out
-        else
-          allocate(ConnectedList(fieldCount), stat=stat)
-          if (ESMF_LogFoundAllocError(stat, msg="allocating ConnectedList", &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-        endif
-      endif
-
-      if (present(NestList)) then
-        if (associated(NestList)) then
-          call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-            msg="NestList must enter unassociated", &
-            line=__LINE__, &
-            file=FILENAME, &
-            rcToReturn=rc)
-          return  ! bail out
-        else
-          allocate(NestList(fieldCount), stat=stat)
-          if (ESMF_LogFoundAllocError(stat, msg="allocating NestList", &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-        endif
-      endif
-
-      if (present(NamespaceList)) then
-        if (associated(NamespaceList)) then
-          call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-            msg="NamespaceList must enter unassociated", &
-            line=__LINE__, &
-            file=FILENAME, &
-            rcToReturn=rc)
-          return  ! bail out
-        else
-          allocate(NamespaceList(fieldCount), stat=stat)
-          if (ESMF_LogFoundAllocError(stat, msg="allocating NamespaceList", &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-        endif
-      endif
-
-      if (present(fieldList)) then
-        if (associated(fieldList)) then
-          call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-            msg="fieldList must enter unassociated", &
-            line=__LINE__, &
-            file=FILENAME, &
-            rcToReturn=rc)
-          return  ! bail out
-        else
-          allocate(fieldList(fieldCount), stat=stat)
-          if (ESMF_LogFoundAllocError(stat, msg="allocating fieldList", &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-        endif
-      endif
-
-      fieldCount = 1  ! reset
-
-      do item=1, itemCount
-        call ESMF_AttributeGet(state, name="Nest", value=nest, &
-          defaultvalue="0", convention="NUOPC", purpose="Instance", &
-          attnestflag=ESMF_ATTNEST_ON, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=FILENAME)) &
-          return  ! bail out
-        call NUOPC_GetAttribute(state, name="Namespace", &
-          value=namespace, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=FILENAME)) &
-          return  ! bail out
-        if (stateitemtypeList(item) == ESMF_STATEITEM_FIELD) then
-          call ESMF_StateGet(state, itemName=ll_itemNameList(item), &
-            field=field, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-          if (present(StandardNameList)) then
-            call NUOPC_GetAttribute(field, name="StandardName", &
-              value=StandardNameList(fieldCount), rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, &
-              file=FILENAME)) &
-              return  ! bail out
-          endif
-          if (present(itemNameList)) then
-            itemNameList(fieldCount)=ll_itemNameList(item)
-          endif
-          if (present(ConnectedList)) then
-            call NUOPC_GetAttribute(field, name="Connected", &
-              value=ConnectedList(fieldCount), rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, &
-              file=FILENAME)) &
-              return  ! bail out
-          endif
-          if (present(NestList)) then
-            NestList(fieldCount)=trim(nest)
-          endif
-          if (present(NamespaceList)) then
-            NamespaceList(fieldCount)=trim(namespace)
-          endif
-          if (present(fieldList)) then
-            fieldList(fieldCount)=field
-          endif
-          fieldCount = fieldCount + 1
-        else if (stateitemtypeList(item) == ESMF_STATEITEM_STATE) then
-          ! recursively parse the nested state
-          nullify(l_StandardNameList)
-          nullify(l_itemNameList)
-          nullify(l_ConnectedList)
-          nullify(l_NestList)
-          nullify(l_NamespaceList)
-          nullify(l_fieldList)
-          call ESMF_StateGet(state, itemName=ll_itemNameList(item), &
-            nestedState=nestedState, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-          call NUOPC_GetStateMemberListsWithNests(nestedState, &
-            StandardNameList=l_StandardNameList, &
-            itemNameList=l_itemNameList, &
-            ConnectedList=l_ConnectedList, &
-            NestList=l_NestList, &
-            NamespaceList=l_NamespaceList, &
-            fieldList=l_fieldList, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=FILENAME)) &
-            return  ! bail out
-          if (associated(l_StandardNameList)) then
-            do i=1, size(l_StandardNameList)
-              if (present(StandardNameList)) then
-                StandardNameList(fieldCount) = l_StandardNameList(i)
-              endif
-              if (present(itemNameList)) then
-                itemNameList(fieldCount) = l_itemNameList(i)
-              endif
-              if (present(ConnectedList)) then
-                ConnectedList(fieldCount) = l_ConnectedList(i)
-              endif
-              if (present(NestList)) then
-                NestList(fieldCount) = l_NestList(i)
-              endif
-              if (present(NamespaceList)) then
-                if (l_NamespaceList(i) /= "[UNLABELED_NESTED_STATE]") then
-                  NamespaceList(fieldCount) = trim(namespace)//":"// &
-                    trim(l_NamespaceList(i))
-                else
-                  NamespaceList(fieldCount) = trim(namespace)
-                endif
-              endif
-              if (present(fieldList)) then
-                fieldList(fieldCount) = l_fieldList(i)
-              endif
-              fieldCount = fieldCount + 1
-            enddo
-            deallocate(l_StandardNameList)
-            deallocate(l_itemNameList)
-            deallocate(l_ConnectedList)
-            deallocate(l_NestList)
-            deallocate(l_NamespaceList)
-            deallocate(l_fieldList)
-          endif
-        endif
-      enddo
-        
-      deallocate(ll_itemNameList)
-      deallocate(stateitemtypeList)
-    endif
-    
-  end subroutine
-  !-----------------------------------------------------------------------------
-
-  !-----------------------------------------------------------------------------
-!BOP
-! !IROUTINE: NUOPC_AddNamespaceWithNest - Add a namespace and or nest to a State
-! !INTERFACE:
-  subroutine NUOPC_AddNamespaceWithNest(state, namespace, nest, &
-    nestedStateName, nestedState, rc)
-! !ARGUMENTS:
-    type(ESMF_State), intent(inout)         :: state
-    character(len=*), intent(in),  optional :: namespace
-    character(len=*), intent(in),  optional :: nest
-    character(len=*), intent(in),  optional :: nestedStateName
-    type(ESMF_State), intent(out), optional :: nestedState
-    integer,          intent(out), optional :: rc
-! !DESCRIPTION:
-!   Add a namespace to {\tt state}. Namespaces are implemented via nested
-!   states. This creates a nested state inside of {\tt state}. The nested state
-!   is returned as {\tt nestedState}. If provided, {\tt nestedStateName} will
-!   be used to name the newly created nested state. The default name of the
-!   nested state is equal to {\tt namespace}.
-!
-!   The arguments are:
-!   \begin{description}
-!   \item[state]
-!     The {\tt ESMF\_State} object to which the namespace is added.
-!   \item[namespace]
-!     The namespace string.
-!   \item[nest]
-!     The nest string.
-!   \item[{[nestedStateName]}]
-!     Name of the nested state. Defaults to {\tt namespace}.
-!   \item[{[nestedState]}]
-!     Optional return of the newly created nested state.
-!   \item[{[rc]}]
-!     Return code; equals {\tt ESMF\_SUCCESS} if there are no errors.
-!   \end{description}
-!
-!EOP
-  !-----------------------------------------------------------------------------
-    ! local variables
-    type(ESMF_State)        :: nestedS
-    character(len=80)       :: nestedSName
-    character(ESMF_MAXSTR)  :: s_namespace
-
-    if (present(rc)) rc = ESMF_SUCCESS
-
-    if (.not.present(namespace) .and. &
-        .not.present(nest)) then
-      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="Missing namespace or nest", &
-        line=__LINE__, &
-        file=FILENAME, &
-        rcToReturn=rc)
-      return  ! bail out
-    endif
-
-    if (present(nestedStateName)) then
-      nestedSName = trim(nestedStateName)
-    else
-      nestedSName = trim(namespace)
-    endif
-
-    nestedS = ESMF_StateCreate(name=nestedSName, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    call NUOPC_InitAttributesStateWithNest(nestedS, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    if (present(namespace)) then
-      call NUOPC_SetAttribute(nestedS, name="Namespace", &
-        value=trim(namespace), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-    else
-      call NUOPC_SetAttribute(nestedS, name="Namespace", &
-        value="[UNLABELED_NESTED_STATE]", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-    endif
-
-    if (present(nest)) then
-      call NUOPC_SetAttribute(nestedS, name="Nest", &
-        value=trim(nest), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-    else
-      call NUOPC_SetAttribute(nestedS, name="Nest", &
-        value="0", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=FILENAME)) return  ! bail out
-    endif
-
-    call ESMF_StateAdd(state, (/nestedS/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    if (present(nestedState)) &
-      nestedState = nestedS
-
-  end subroutine
-  !-----------------------------------------------------------------------------
-
-  !-----------------------------------------------------------------------------
-!BOPI
-! !IROUTINE: NUOPC_InitAttributeWithNest - Initialize the NUOPC State Attributes
-! !INTERFACE:
-  ! call using generic interface: NUOPC_InitAttributes
-  subroutine NUOPC_InitAttributesStateWithNest(state, rc)
-! !ARGUMENTS:
-    type(ESMF_state)                      :: state
-    integer,      intent(out), optional   :: rc
-! !DESCRIPTION:
-!   Add the standard NUOPC State AttPack hierarchy to the State.
-!
-!   The highest level in the AttPack hierarchy will have convention="NUOPC" and
-!   purpose="Instance".
-!EOPI
-  !-----------------------------------------------------------------------------
-    ! local variables
-    character(ESMF_MAXSTR)            :: attrList(3)
-
-    if (present(rc)) rc = ESMF_SUCCESS
-
-    ! Set up a customized list of Attributes to be added to the Fields
-    attrList(1) = "Namespace"           ! namespace of this State
-    attrList(2) = "FieldTransferPolicy" ! indicates to connectors to transfer/mirror fields:
-                                        !    one of transferNone, transferAll
-    attrList(3) = "Nest"                ! nest of this State
-
-    ! add Attribute packages
-    call ESMF_AttributeAdd(state, convention="NUOPC", purpose="Instance", &
-      attrList=attrList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
-    ! set Attributes to defaults
-    call ESMF_AttributeSet(state, attrList(2), "transferNone", &
-        convention="NUOPC", purpose="Instance", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=FILENAME)) return  ! bail out
-
   end subroutine
   !-----------------------------------------------------------------------------
 

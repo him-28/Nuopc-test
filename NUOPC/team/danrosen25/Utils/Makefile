@@ -43,9 +43,20 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-all: NUOPC_FileReadUtility.o NUOPC_FillUtility.o NUOPC_LogUtility.o \
-	NUOPC_CopyUtility.o NUOPC_FileWriteUtility.o NUOPC_ToStringUtility.o \
-	NUOPC_MultiNestConnector.o
+all: 	beta_NUOPC_Auxiliary.o \
+	beta_NUOPC_Copy.o \
+	beta_NUOPC_Fill.o \
+	beta_NUOPC_MultiDomainConnector.o \
+	beta_NUOPC_ToString.o \
+	beta_NUOPC_Base.o \
+	beta_NUOPC_FileRead.o \
+	beta_NUOPC_Log.o \
+	beta_NUOPC_NaNcheck.o
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+beta_NUOPC_MultiDomainConnector.o: beta_NUOPC_Base.o
+
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
