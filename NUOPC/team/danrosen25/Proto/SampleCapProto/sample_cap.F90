@@ -945,17 +945,17 @@ module sample_cap_mod
           line=__LINE__, file=__FILE__)) return ! bail out
         if (.NOT.NUOPC_IsAtTime(field, currTime)) then
           if (is%wrap%verbosity .gt. 1) then
-            write(tmpStr,'(a,a16,a)') trim(cname)//': ', &
-              trim(itemNameList(i)), &
-              ' inter-model initialization dependency SATISFIED.'
+            write(tmpStr,'(A,A40,A)') trim(cname)//': ', &
+              'Inter-model dependency SATISFIED ', &
+              trim(itemNameList(i))
             call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
           endif
         else
           allDepStsfy = .FALSE.
           if (is%wrap%verbosity .gt. 1) then
-            write(tmpStr,'(a,a16,a)') trim(cname)//': ', &
-              trim(itemNameList(i)), &
-              ' inter-model initialization dependency NOT SATISFIED.'
+            write(tmpStr,'(A,A40,A)') trim(cname)//': ', &
+              'Inter-model dependency NOT SATISFIED ', &
+              trim(itemNameList(i))
             call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
           endif
         endif
@@ -971,7 +971,7 @@ module sample_cap_mod
     if (.NOT.allDepStsfy) then
 
       if (is%wrap%verbosity .gt. 0) then
-        write(tmpStr,'(a,a)') trim(cname)//': ', &
+        write(tmpStr,'(A,A)') trim(cname)//': ', &
           'All inter-model initialization dependencies NOT SATISFIED'
         call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
       endif
@@ -979,8 +979,8 @@ module sample_cap_mod
     else
 
       if (is%wrap%verbosity .gt. 0) then
-        write(tmpStr,'(a,a)') trim(cname)//': ', &
-          'all inter-model initialization dependencies SATISFIED'
+        write(tmpStr,'(A,A)') trim(cname)//': ', &
+          'All inter-model initialization dependencies SATISFIED'
         call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
       endif
 
