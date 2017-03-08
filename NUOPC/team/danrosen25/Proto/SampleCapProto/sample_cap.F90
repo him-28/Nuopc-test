@@ -711,39 +711,48 @@ module sample_cap_mod
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return ! bail out
 
-      if (NUOPC_IsConnected(importState, fieldName=stateName)) then
+      call ESMF_StateGet(importState, itemName=stateName, &
+        itemType=itemType, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
 
-        ! get Field from model by standard name
-        call model_field_get(trim(import_list(i)), field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) return ! bail out
+      if (itemType /= ESMF_STATEITEM_NOTFOUND) then
 
-        if (.NOT.ESMF_FieldIsCreated(field)) then
-          call ESMF_LogSetError(rcToCheck=ESMF_RC_OBJ_NOT_CREATED, &
-            msg=trim(import_list(i))//' has not been created.', &
+        if (NUOPC_IsConnected(importState, fieldName=stateName)) then
+
+          ! get Field from model by standard name
+          call model_field_get(trim(import_list(i)), field=field, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return ! bail out
+
+          if (.NOT.ESMF_FieldIsCreated(field)) then
+            call ESMF_LogSetError(rcToCheck=ESMF_RC_OBJ_NOT_CREATED, &
+              msg=trim(import_list(i))//' has not been created.', &
+              method=METHOD, file=__FILE__, rcToReturn=rc)
+              return ! bail out
+          endif
+
+          ! realize the connected Field using the just created Field
+          call NUOPC_Realize(importState, field=field, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return ! bail out
+
+        elseif (is%wrap%coupledForcing) then
+
+          call ESMF_LogSetError(rcToCheck=ESMF_RC_NOT_FOUND, &
+            msg=trim(import_list(i))//' missing coupled forcing connection', &
             method=METHOD, file=__FILE__, rcToReturn=rc)
-            return ! bail out
+            return ! bail out      
+
+        else
+
+          ! remove a not connected Field from State
+          call ESMF_StateRemove(importState, (/stateName/), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return ! bail out
+
         endif
 
-        ! realize the connected Field using the just created Field
-        call NUOPC_Realize(importState, field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) return ! bail out
-
-      elseif (is%wrap%coupledForcing) then
-
-        call ESMF_LogSetError(rcToCheck=ESMF_RC_NOT_FOUND, &
-          msg=trim(import_list(i))//' missing coupled forcing connection', &
-          method=METHOD, file=__FILE__, rcToReturn=rc)
-          return ! bail out      
-
-      else
-
-        ! remove a not connected Field from State
-        call ESMF_StateRemove(importState, (/stateName/), rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) return ! bail out
-      
       endif
 
     enddo
@@ -756,33 +765,42 @@ module sample_cap_mod
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return ! bail out
 
-      if (NUOPC_IsConnected(exportState, fieldName=stateName) &
-        .OR. is%wrap%realizeAllExport) then
+      call ESMF_StateGet(exportState, itemName=stateName, &
+        itemType=itemType, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
 
-        ! get Field from model by standard name
-        call model_field_get(trim(export_list(i)), field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) return ! bail out
+      if (itemType /= ESMF_STATEITEM_NOTFOUND) then
 
-        if (.NOT.ESMF_FieldIsCreated(field)) then
-          call ESMF_LogSetError(rcToCheck=ESMF_RC_OBJ_NOT_CREATED, &
-          msg=trim(export_list(i))//' has not been created.', &
-          method=METHOD, file=__FILE__, rcToReturn=rc)
-          return ! bail out
+        if (NUOPC_IsConnected(exportState, fieldName=stateName) &
+          .OR. is%wrap%realizeAllExport) then
+
+          ! get Field from model by standard name
+          call model_field_get(trim(export_list(i)), field=field, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return ! bail out
+
+          if (.NOT.ESMF_FieldIsCreated(field)) then
+            call ESMF_LogSetError(rcToCheck=ESMF_RC_OBJ_NOT_CREATED, &
+              msg=trim(export_list(i))//' has not been created.', &
+              method=METHOD, file=__FILE__, rcToReturn=rc)
+            return ! bail out
+          endif
+
+          ! realize the connected Field using the just created Field
+          call NUOPC_Realize(exportState, field=field, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return ! bail out
+      
+        else
+
+          ! remove a not connected Field from State
+          call ESMF_StateRemove(exportState, (/stateName/), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return ! bail out
+
         endif
 
-        ! realize the connected Field using the just created Field
-        call NUOPC_Realize(exportState, field=field, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) return ! bail out
-      
-      else
-
-        ! remove a not connected Field from State
-        call ESMF_StateRemove(exportState, (/stateName/), rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) return ! bail out
-      
       endif
 
     enddo
@@ -954,7 +972,7 @@ module sample_cap_mod
 
       if (is%wrap%verbosity .gt. 0) then
         write(tmpStr,'(a,a)') trim(cname)//': ', &
-          'all inter-model initialization dependencies NOT SATISFIED'
+          'All inter-model initialization dependencies NOT SATISFIED'
         call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
       endif
 
