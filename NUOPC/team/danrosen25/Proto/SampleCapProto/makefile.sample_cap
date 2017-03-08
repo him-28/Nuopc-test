@@ -1,0 +1,165 @@
+# GNU Makefile template for user ESMF application
+
+################################################################################
+################################################################################
+## This Makefile must be able to find the "esmf.mk" Makefile fragment in the  ##
+## 'include' line below. Following the ESMF User's Guide, a complete ESMF     ##
+## installation should ensure that a single environment variable "ESMFMKFILE" ##
+## is made available on the system. This variable should point to the         ##
+## "esmf.mk" file.                                                            ##
+##                                                                            ##
+## This example Makefile uses the "ESMFMKFILE" environment variable.          ##
+##                                                                            ##
+## If you notice that this Makefile cannot find variable ESMFMKFILE then      ##
+## please contact the person responsible for the ESMF installation on your    ##
+## system.                                                                    ##
+## As a work-around you can simply hardcode the path to "esmf.mk" in the      ##
+## include line below. However, doing so will render this Makefile a lot less ##
+## flexible and non-portable.                                                 ##
+################################################################################
+
+HR    := ========================================
+HR    := $(HR)$(HR)
+COMMA := ,
+DIR   := $(CURDIR)
+
+ifneq ($(origin ESMFMKFILE), environment)
+$(error Environment variable ESMFMKFILE was not set.)
+endif
+
+include $(ESMFMKFILE)
+include makefile.model
+
+CAP_OBJS      := sample_cap.o
+CAP_LIB       := libsample_cap.a
+CAP_MK        := sample_cap.mk
+CAP_DEP_FRONT := sample_cap_mod
+CAP_MODS      := sample_cap_mod.mod
+CAP_VERS      := version
+
+ifeq ($(DEBUG),on)
+ESMF_F90COMPILEOPTS += -g -traceback
+ESMF_CXXCOMPILEOPTS += -g -traceback
+ESMF_F90COMPILECPPFLAGS += -DDEBUG
+ESMF_CXXCOMPILECPPFLAGS += -DDEBUG
+endif
+
+################################################################################
+################################################################################
+
+# -----------------------------------------------------------------------------
+# Compiler Arguments
+# -----------------------------------------------------------------------------
+
+.SUFFIXES: .f90 .F90 .c .C
+
+%.o : %.f90
+	@echo $(HR)
+	@echo "Compiling $@"
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
+
+%.o : %.F90
+	@echo $(HR)
+	@echo "Compiling $@"
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
+        
+%.o : %.c
+	@echo $(HR)
+	@echo "Compiling $@"
+	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
+
+%.o : %.C
+	@echo $(HR)
+	@echo "Compiling $@"
+	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
+
+# -----------------------------------------------------------------------------
+# Build Targets
+# -----------------------------------------------------------------------------
+
+nuopc: $(CAP_LIB) nuopcinstall
+
+$(CAP_LIB): $(CAP_OBJS) $(MODEL_LIB)
+	@echo $(HR)
+	@echo "Building NUOPC Cap Library"
+	ar cruT $@ $^
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+
+$(CAP_OBJS): $(MODEL_LIB) $(MODEL_MODS)
+
+# -----------------------------------------------------------------------------
+# Install Library, Modules, and Makefile Fragment
+# -----------------------------------------------------------------------------
+
+ifndef DESTDIR
+DESTDIR := $(DIR)
+endif
+
+ifdef INSTDIR
+INSTPATH = $(abspath $(DESTDIR)/$(INSTDIR))
+else
+INSTPATH = $(abspath $(DESTDIR))
+endif
+
+nuopcinstall: $(INSTPATH) \
+  $(addprefix $(INSTPATH)/,$(CAP_MODS)) \
+  $(addprefix $(INSTPATH)/,$(CAP_LIB)) \
+  $(addprefix $(INSTPATH)/,$(CAP_MK)) \
+  $(addprefix $(INSTPATH)/,$(CAP_VERS))
+
+$(INSTPATH):
+	@echo $(HR)
+	@echo "Creating Installation Directory $@"
+	@mkdir -p $(INSTPATH)
+
+$(addprefix $(INSTPATH)/,$(CAP_MODS)): $(CAP_MODS)
+	@echo $(HR)
+	@echo "Installing Module Files"
+	@cp $(CAP_MODS) $(INSTPATH)
+
+$(addprefix $(INSTPATH)/,$(CAP_LIB)): $(CAP_LIB)
+	@echo $(HR)
+	@echo "Installing Library File"
+	@cp $(CAP_LIB) $(INSTPATH)
+
+$(addprefix $(INSTPATH)/,$(CAP_MK)): 
+	@echo $(HR)
+	@echo "Generating NUOPC Makefile Fragment"
+	@echo "# ESMF self-describing build dependency makefile fragment" > $@
+	@echo "" >> $@
+	@echo "ESMF_DEP_FRONT     = $(CAP_DEP_FRONT)" >> $@
+	@echo "ESMF_DEP_INCPATH   = $(INSTPATH)" >> $@
+	@echo "ESMF_DEP_CMPL_OBJS = " >> $@
+	@echo "ESMF_DEP_LINK_OBJS = $(INSTPATH)/$(CAP_LIB)" >> $@
+	@echo "ESMF_DEP_SHRD_PATH = " >> $@
+	@echo "ESMF_DEP_SHRD_LIBS = " >> $@
+	@echo $(HR)
+
+$(addprefix $(INSTPATH)/,$(CAP_VERS)):
+	@echo "Generating Version Information"
+	@echo "# NUOPC Cap Version" > $@
+	@if [ -d .svn ]; then \
+	  echo "SVN Repository" > $@; \
+	  svn info . | grep URL >> $@; \
+	  svn info . | grep "Last Changed Rev" >> $@; \
+	fi
+	@if [ -d .git ]; then \
+	  echo "Git Repository" > $@; \
+	  git show . | grep -m 1 "commit " >> $@; \
+	  git show . | grep -m 1 "Author: " >> $@; \
+	  git show . | grep -m 1 "Date: " >> $@; \
+	fi
+
+# -----------------------------------------------------------------------------
+# Clean Targets
+# -----------------------------------------------------------------------------
+.PHONY: nuopcclean
+
+nuopcclean: clean
+	@echo $(HR)
+	@echo "Removing NUOPC Files"
+	rm -f $(CAP_LIB) $(CAP_OBJS) $(CAP_MODS) $(CAP_MK) $(CAP_VERS)
+

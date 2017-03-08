@@ -1,0 +1,30 @@
+#! /bin/ksh --login
+
+#PBS -e err
+#PBS -o out
+#PBS -N SampleApp
+#PBS -A 
+#PBS -q debug
+#PBS -l select=1:ncpus=24
+#PBS -l walltime=00:30:00
+#PBS -W umask=027
+
+cd $PBS_O_WORKDIR
+
+set -x
+
+# Enable Fortran RTL core dumps for severe run time failures
+# export decfort_dump_flag=y
+
+# set resource usage limits
+ulimit -c unlimited #coredumpsize
+ulimit -s unlimited #stacksize
+ulimit -t unlimited #cputime
+ulimit -d unlimited #datasize
+ulimit -m unlimited #memoryuse
+
+echo "Model started:  " `date`
+aprun -n 24 ./sample_app.exe
+echo "Model ended:    " `date`
+
+exit
