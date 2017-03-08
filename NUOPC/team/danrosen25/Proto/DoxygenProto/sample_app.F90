@@ -1,4 +1,4 @@
-program mainApp
+program sampleApp
 
   !-----------------------------------------------------------------------------
   ! Generic ESMF Main
@@ -6,7 +6,7 @@ program mainApp
 
   use ESMF
 
-  use driver, only: &
+  use sample_driver_mod, only: &
     driver_SS => SetServices
 
   implicit none
@@ -21,7 +21,7 @@ program mainApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
     
-  call ESMF_LogWrite("mainApp STARTING", ESMF_LOGMSG_INFO, rc=rc)
+  call ESMF_LogWrite("Sample App STARTING", ESMF_LOGMSG_INFO, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
@@ -30,7 +30,7 @@ program mainApp
   !-----------------------------------------------------------------------------
   
   ! -> CREATE THE DRIVER
-  drvComp = ESMF_GridCompCreate(name="driver", rc=rc)
+  drvComp = ESMF_GridCompCreate(name="SAMPLE_DRIVER", rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
@@ -82,7 +82,7 @@ program mainApp
 
   !-----------------------------------------------------------------------------
   
-  call ESMF_LogWrite("mainApp FINISHED", ESMF_LOGMSG_INFO, rc=rc)
+  call ESMF_LogWrite("Sample App FINISHED", ESMF_LOGMSG_INFO, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &

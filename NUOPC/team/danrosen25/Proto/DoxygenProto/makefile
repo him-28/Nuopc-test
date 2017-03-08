@@ -18,11 +18,31 @@
 ## flexible and non-portable.                                                 ##
 ################################################################################
 
-all:
-	make -f makefile.nuopc nuopc
-	make -f makefile.app
+HR    := ========================================
+HR    := $(HR)$(HR)
+COMMA := ,
+DIR   := $(CURDIR)
 
-clean:
-	makk -f makefile.app clean
-	make -f makefile.nuopc nuopcclean
+all: cap app
+
+cap:
+	@echo $(HR)
+	@echo "Making Cap"
+	make -f makefile.sample_cap nuopc
+
+app: 
+	@echo $(HR)
+	@echo "Making Application"
+	make -f makefile.app COMP1_MK=sample_cap.mk
+
+clean: cleanapp cleancap
+
+cleanapp:
+	@echo $(HR)
+	@echo "Cleaning Application"
+	make -f makefile.app clean
+cleancap:
+	@echo $(HR)
+	@echo "Cleaning Cap"
+	make -f makefile.sample_cap nuopcclean
 

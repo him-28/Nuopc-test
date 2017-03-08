@@ -29,41 +29,79 @@ endif
 
 include $(ESMFMKFILE)
 
-APP_OBJS := mainApp.o driver.o
-APP_MODS := mainApp.mod driver.mod
-APP_EXE  := mainApp.exe
+DRIVER_OBJS := sample_driver.o
+DRIVER_MODS := sample_driver_mod.mod
 
-ifneq (,$(findstring $(COMMA)satm$(COMMA),$(COMP)))
-  include $(satm_mk)
-  DEP_FRONTS    := $(DEP_FRONTS) -DFRONT_COMP1=$(ESMF_DEP_FRONT)
-  DEP_INCS      := $(DEP_INCS) $(addprefix -I, $(ESMF_DEP_INCPATH))
-  DEP_CMPL_OBJS := $(DEP_CMPL_OBJS) $(ESMF_DEP_CMPL_OBJS)
-  DEP_LINK_OBJS := $(DEP_LINK_OBJS) $(ESMF_DEP_LINK_OBJS)
-  DEP_SHRD_PATH := $(DEP_SHRD_PATH) $(addprefix -L, $(ESMF_DEP_SHRD_PATH)) $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
-  DEP_SHRD_LIBS := $(DEP_SHRD_LIBS) $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
-endif
-ifneq (,$(findstring $(COMMA)xatm$(COMMA),$(COMP)))
-  include $(xatm_mk)
-  DEP_FRONTS    := $(DEP_FRONTS) -DFRONT_COMP2=$(ESMF_DEP_FRONT)
-  DEP_INCS      := $(DEP_INCS) $(addprefix -I, $(ESMF_DEP_INCPATH))
-  DEP_CMPL_OBJS := $(DEP_CMPL_OBJS) $(ESMF_DEP_CMPL_OBJS)
-  DEP_LINK_OBJS := $(DEP_LINK_OBJS) $(ESMF_DEP_LINK_OBJS)
-  DEP_SHRD_PATH := $(DEP_SHRD_PATH) $(addprefix -L, $(ESMF_DEP_SHRD_PATH)) $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
-  DEP_SHRD_LIBS := $(DEP_SHRD_LIBS) $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
-endif
-
+APP_OBJS := sample_app.o
+APP_EXE  := sample_app.exe
 
 # -----------------------------------------------------------------------------
-# Dependencies
+# Makefile fragments
 # -----------------------------------------------------------------------------
 
-mainApp.o: driver.o
+DEP_FRONTS    :=
+DEP_INCS      :=
+DEP_CMPL_OBJS :=
+DEP_LINK_OBJS :=
+DEP_SHRD_PATH :=
+DEP_SHRD_LIBS :=
+
+ifdef COMP1_MK
+  include $(COMP1_MK)
+  DEP_FRONTS    += -DCOMP1_MOD=$(ESMF_DEP_FRONT)
+  DEP_INCS      += $(addprefix -I, $(ESMF_DEP_INCPATH))
+  DEP_CMPL_OBJS += $(ESMF_DEP_CMPL_OBJS)
+  DEP_LINK_OBJS += $(ESMF_DEP_LINK_OBJS)
+  DEP_SHRD_PATH += $(addprefix -L, $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_PATH += $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_LIBS += $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
+endif
+ifdef COMP2_MK
+  include $(COMP2_MK)
+  DEP_FRONTS    += -DCOMP2_MOD=$(ESMF_DEP_FRONT)
+  DEP_INCS      += $(addprefix -I, $(ESMF_DEP_INCPATH))
+  DEP_CMPL_OBJS += $(ESMF_DEP_CMPL_OBJS)
+  DEP_LINK_OBJS += $(ESMF_DEP_LINK_OBJS)
+  DEP_SHRD_PATH += $(addprefix -L, $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_PATH += $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_LIBS += $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
+endif
+ifdef COMP3_MK
+  include $(COMP3_MK)
+  DEP_FRONTS    += -DCOMP3_MOD=$(ESMF_DEP_FRONT)
+  DEP_INCS      += $(addprefix -I, $(ESMF_DEP_INCPATH))
+  DEP_CMPL_OBJS += $(ESMF_DEP_CMPL_OBJS)
+  DEP_LINK_OBJS += $(ESMF_DEP_LINK_OBJS)
+  DEP_SHRD_PATH += $(addprefix -L, $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_PATH += $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_LIBS += $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
+endif
+ifdef COMP4_MK
+  include $(COMP4_MK)
+  DEP_FRONTS    += -DCOMP4_MOD=$(ESMF_DEP_FRONT)
+  DEP_INCS      += $(addprefix -I, $(ESMF_DEP_INCPATH))
+  DEP_CMPL_OBJS += $(ESMF_DEP_CMPL_OBJS)
+  DEP_LINK_OBJS += $(ESMF_DEP_LINK_OBJS)
+  DEP_SHRD_PATH += $(addprefix -L, $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_PATH += $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_LIBS += $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
+endif
+ifdef COMP5_MK
+  include $(COMP5_MK)
+  DEP_FRONTS    += -DCOMP5_MOD=$(ESMF_DEP_FRONT)
+  DEP_INCS      += $(addprefix -I, $(ESMF_DEP_INCPATH))
+  DEP_CMPL_OBJS += $(ESMF_DEP_CMPL_OBJS)
+  DEP_LINK_OBJS += $(ESMF_DEP_LINK_OBJS)
+  DEP_SHRD_PATH += $(addprefix -L, $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_PATH += $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_LIBS += $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
+endif
 
 ################################################################################
 ################################################################################
 
 # -----------------------------------------------------------------------------
-#  # Compiler Arguments
+# Compiler Arguments
 # -----------------------------------------------------------------------------
 
 .SUFFIXES: .f90 .F90 .c .C
@@ -71,37 +109,53 @@ mainApp.o: driver.o
 %.o : %.f90
 	@echo $(HR)
 	@echo "Compiling $@"
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREENOCPP) $<
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(DEP_FRONTS) $(DEP_INCS) $(ESMF_F90COMPILEFREENOCPP) $<
 
 %.o : %.F90
 	@echo $(HR)
-	@echo "Compiling $@"
-	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
+	@echo "Compiling $@ $(DEP_FRONTS) $(DEP_INCS) test"
+	$(ESMF_F90COMPILER) -c $(ESMF_F90COMPILEOPTS) $(ESMF_F90COMPILEPATHS) $(DEP_FRONTS) $(DEP_INCS) $(ESMF_F90COMPILEFREECPP) $(ESMF_F90COMPILECPPFLAGS) -DESMF_VERSION_MAJOR=$(ESMF_VERSION_MAJOR) $<
 
 %.o : %.c
 	@echo $(HR)
 	@echo "Compiling $@"
-	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
+	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(DEP_FRONTS) $(DEP_INCS) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
 
 %.o : %.C
 	@echo $(HR)
 	@echo "Compiling $@"
-	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
+	$(ESMF_CXXCOMPILER) -c $(ESMF_CXXCOMPILEOPTS) $(ESMF_CXXCOMPILEPATHSLOCAL) $(DEP_FRONTS) $(DEP_INCS) $(ESMF_CXXCOMPILEPATHS) $(ESMF_CXXCOMPILECPPFLAGS) $<
 
+# -----------------------------------------------------------------------------
+# Build Targets
 # -----------------------------------------------------------------------------
 
 all: $(APP_EXE)
 
-$(APP_EXE): $(APP_OBJS) libmodel.a
-	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
+$(APP_EXE): $(APP_OBJS) $(DRIVER_OBJS) $(DEP_LINK_OBJS)
+	@echo $(HR)
+	@echo "Building Executable"
+	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) -o $@ $^ $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) $(DEP_SHRD_PATH) $(DEP_SHRD_LIBS) $(ESMF_F90ESMFLINKLIBS)
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+
+$(APP_OBJS): $(DRIVER_OBJS)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info
 dust:
+	@echo $(HR)
+	@echo "Removing Output Files"
 	rm -f PET*.ESMF_LogFile *.nc
+
 clean:
-	rm -f $(APP_EXE) $(APP_OBJS) $(APP_MODS)
+	@echo $(HR)
+	@echo "Removing Application Files "
+	rm -f $(APP_EXE) $(APP_OBJS) $(APP_MODS) $(DRIVER_OBJS) $(DRIVER_MODS)
+
 distclean: dust clean
 
 info:

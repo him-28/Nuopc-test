@@ -40,23 +40,23 @@ module model_fld_mod
 
   type(model_field_type), dimension(6), target :: model_field_list = (/&
     model_field_type( &
-      standardName='import_field_1', &
-      stateName='import_1', units='Pa'), &
+      standardName='dummy_field_1', &
+      stateName='forcing_1', units='Pa'), &
     model_field_type( &
-      standardName='import_field_2', &
-      stateName='import_2', units='kg'), &
+      standardName='dummy_field_2', &
+      stateName='forcing_2', units='kg'), &
     model_field_type( &
-      standardName='import_field_3', &
-      stateName='import_3', units='W m-2'), &
+      standardName='dummy_field_3', &
+      stateName='forcing_3', units='W m-2'), &
     model_field_type( & 
-      standardName='export_field_1', &
-      stateName='export_1', units='m'), &
+      standardName='dummy_field_4', &
+      stateName='output_1', units='m'), &
     model_field_type( &
-      standardName='export_field_2', &
-      stateName='export_2', units='kg'), &
+      standardName='dummy_field_5', &
+      stateName='output_2', units='kg'), &
     model_field_type( &
-      standardName='export_field_3', &
-      stateName='export_3', units='m s-1') /)
+      standardName='dummy_field_6', &
+      stateName='output_3', units='m s-1') /)
 
   type(model_field_type), pointer :: forcing_1 => null()
   type(model_field_type), pointer :: forcing_2 => null()

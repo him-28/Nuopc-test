@@ -30,18 +30,12 @@ endif
 include $(ESMFMKFILE)
 include makefile.model
 
-CAP_OBJS      := doxygen_cap.o
-CAP_LIB       := libdoxygen_nuopc.a
-CAP_MK        := doxygen.mk
-CAP_DEP_FRONT := doxygen_cap_mod
-CAP_MODS      := doxygen_cap_mod.mod
+CAP_OBJS      := sample_cap.o
+CAP_LIB       := libsample_cap.a
+CAP_MK        := sample_cap.mk
+CAP_DEP_FRONT := sample_cap_mod
+CAP_MODS      := sample_cap_mod.mod
 CAP_VERS      := version
-
-# -----------------------------------------------------------------------------
-# Dependencies
-# -----------------------------------------------------------------------------
-
-$(CAP_OBJS): $(MODEL_LIB) $(MODEL_MODS)
 
 ################################################################################
 ################################################################################
@@ -81,7 +75,13 @@ nuopc: $(CAP_LIB) nuopcinstall
 $(CAP_LIB): $(CAP_OBJS) $(MODEL_LIB)
 	@echo $(HR)
 	@echo "Building NUOPC Cap Library"
-	ar cq $@ $^
+	ar cruT $@ $^
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+
+$(CAP_OBJS): $(MODEL_LIB) $(MODEL_MODS)
 
 # -----------------------------------------------------------------------------
 # Install Library, Modules, and Makefile Fragment

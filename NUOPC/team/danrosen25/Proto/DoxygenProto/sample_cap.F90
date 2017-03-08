@@ -19,7 +19,7 @@
 !! Sample External Link [Doxygen Documentation] 
 !! (http://www.doxygen.org/index.html)
 !!
-!! Sample Code Link [SetServices] (@ref doxygen_cap_mod::setservices)
+!! Sample Code Link [SetServices] (@ref sample_cap_mod::setservices)
 !!
 !! Sample Numbered List
 !! -# item 1
@@ -58,13 +58,13 @@
 !!
 !! Phase  |     Cap Subroutine                                      | Description
 !! -------|---------------------------------------------------------|-------------------------------------------------------------
-!! Init   | [InitializeP0] (@ref doxygen_cap_mod::InitializeP0)     | Set the Initialize Phase Definition (IPD). Configure model
-!! Init   | [InitializeP1] (@ref doxygen_cap_mod::InitializeP1)     | Initialize model.  Advertize import and export fields
-!! Init   | [InitializeP3] (@ref doxygen_cap_mod::InitializeP3)     | Realize import and export fields
-!! Init   | [DataInitialize] (@ref doxygen_cap_mod::DataInitialize) | Initialize data
-!! Init   | [SetClock] (@ref doxygen_cap_mod::SetClock)             | Set model clock during initialization
-!! Run    | [ModelAdvance] (@ref doxygen_cap_mod::ModelAdvance)     | Advances the model by a timestep
-!! Final  | [ModelFinalize] (@ref doxygen_cap_mod::ModelFinalize)   | Releases memory
+!! Init   | [InitializeP0] (@ref sample_cap_mod::InitializeP0)     | Set the Initialize Phase Definition (IPD). Configure model
+!! Init   | [InitializeP1] (@ref sample_cap_mod::InitializeP1)     | Initialize model.  Advertize import and export fields
+!! Init   | [InitializeP3] (@ref sample_cap_mod::InitializeP3)     | Realize import and export fields
+!! Init   | [DataInitialize] (@ref sample_cap_mod::DataInitialize) | Initialize data
+!! Init   | [SetClock] (@ref sample_cap_mod::SetClock)             | Set model clock during initialization
+!! Run    | [ModelAdvance] (@ref sample_cap_mod::ModelAdvance)     | Advances the model by a timestep
+!! Final  | [ModelFinalize] (@ref sample_cap_mod::ModelFinalize)   | Releases memory
 !!
 !! @section UnderlyingModelInterfaces Underlying Model Interfaces
 !!
@@ -77,23 +77,23 @@
 !! @subsection Initialization Initialization
 !!
 !! Description of the initialization phases and internal model calls.
-!! - [InitializeP0] (@ref doxygen_cap_mod::InitializeP0)
-!! - [InitializeP1] (@ref doxygen_cap_mod::InitializeP1)
-!! - [InitializeP3] (@ref doxygen_cap_mod::InitializeP3)
-!! - [DataInitialize] (@ref doxygen_cap_mod::DataInitialize)
-!! - [SetClock] (@ref doxygen_cap_mod::SetClock)
+!! - [InitializeP0] (@ref sample_cap_mod::InitializeP0)
+!! - [InitializeP1] (@ref sample_cap_mod::InitializeP1)
+!! - [InitializeP3] (@ref sample_cap_mod::InitializeP3)
+!! - [DataInitialize] (@ref sample_cap_mod::DataInitialize)
+!! - [SetClock] (@ref sample_cap_mod::SetClock)
 !!
 !! 
 !! @subsection Run Run
 !!
 !! Description of the run phase(s) and internal model calls.
-!! - [ModelAdvance] (@ref doxygen_cap_mod::ModelAdvance)
+!! - [ModelAdvance] (@ref sample_cap_mod::ModelAdvance)
 !!
 !!
 !! @subsection Finalization Finalization
 !!
 !! Description of the finalize phase and internal model calls.
-!! - [ModelFinalize] (@ref doxygen_cap_mod::ModelFinalize)
+!! - [ModelFinalize] (@ref sample_cap_mod::ModelFinalize)
 !!
 !!
 !! @section ModelFields Model Fields
@@ -146,7 +146,7 @@
 !! "DumpFields" has been set to "true". In this case the cap will write out NetCDF files
 !! with names "field_mdl_import_<fieldname>.nc" and "field_mdl_export_<fieldname>.nc".
 !! Additionally, calls will be made to the cap subroutine[dumpMomInternal]
-!! (@ref doxygen_cap_mod::dumpmominternal) to write out model internal fields to files
+!! (@ref sample_cap_mod::dumpmominternal) to write out model internal fields to files
 !! named "field_mdl_internal_<fieldname>.nc".  In all cases these NetCDF files will
 !! contain a time series of field data.
 !! 
@@ -200,9 +200,9 @@
 !!
 !!
 
-# define MODNAME "DOXYGEN_CAP"
+# define MODNAME "SAMPLE_CAP"
 
-module doxygen_cap_mod
+module sample_cap_mod
 
   !-----------------------------------------------------------------------------
   ! Sample Model Component
@@ -309,11 +309,6 @@ module doxygen_cap_mod
 
     call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Finalize, &
       specRoutine=ModelFinalize, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-
-    ! set Component name so it becomes identifiable in the output
-    call ESMF_GridCompSet(gcomp, name=MODNAME, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
@@ -538,18 +533,18 @@ module doxygen_cap_mod
 
     ! importable fields: typical ATM import fields
     call NUOPC_Advertise(importState, StandardNames=(/ &
-      "import_field_1                         ", &
-      "import_field_2                         ", &
-      "import_field_3                         "  &
+      "dummy_field_1                         ", &
+      "dummy_field_2                         ", &
+      "dummy_field_3                         "  &
       /), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
     ! exportable fields: typical ATM export fields
     call NUOPC_Advertise(exportState, StandardNames=(/ &
-      "export_field_1                         ", &
-      "export_field_2                         ", &
-      "export_field_3                         "  &
+      "dummy_field_4                         ", &
+      "dummy_field_5                         ", &
+      "dummy_field_6                         "  &
       /), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
@@ -1231,4 +1226,4 @@ module doxygen_cap_mod
 
   !-----------------------------------------------------------------------------
 
-end module doxygen_cap_mod
+end module sample_cap_mod
