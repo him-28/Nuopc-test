@@ -83,18 +83,47 @@
 !! - [DataInitialize] (@ref sample_cap_mod::DataInitialize)
 !! - [SetClock] (@ref sample_cap_mod::SetClock)
 !!
+!! During initialize phase 0 the runtime configuration is read in from a 
+!! configuration file and the initialization phase definition version is 
+!! set to IPDv03.
 !! 
+!! During initialize phase 1 the model is initialized [model_init] 
+!! (@ref model_drv::model_init) and the import and export fields are
+!! advertised. Import fields are not advertised is coupled forcing is off.
+!!
+!! During initialize phase 3 import and export fields are realized if they
+!! are connected through NUOPC.  Fields are retrieved from the [model fields]
+!! (@ref model_fld). These fields were created during [model_init] 
+!! (@ref model_drv::model_init). All export fields are realized 
+!! if realize all export fields is turned on.
+!!
+!! During data initialize this cap checks the timestamp of all import fields
+!! dependent on a coupled model.  Once all dependent import fields have been
+!! initialized this cap is marked initalized.
+!! 
+!! During set clock the the cap's time step is updated to the time step
+!! configured in initialize phase 0.  If the time step is 0 then the time step
+!! is set to the driver's timestep. Also, if the restart write interval time 
+!! step is not zero then the retart write interval is created.
+!!
 !! @subsection Run Run
 !!
 !! Description of the run phase(s) and internal model calls.
 !! - [ModelAdvance] (@ref sample_cap_mod::ModelAdvance)
 !!
+!! During model advance the model is advanced [model_run] 
+!! (@ref model_drv::model_run) and restart state files are written
+!! if the restart write tracker hits restart write interval.
 !!
 !! @subsection Finalization Finalization
 !!
 !! Description of the finalize phase and internal model calls.
 !! - [ModelFinalize] (@ref sample_cap_mod::ModelFinalize)
 !!
+!! During model finalize the model is finalized [model_finalize] 
+!! (@ref model_drv::model_finalize).  This destroys all of the [model fields]
+!! (@ref model_fld::model_fields_destroy).  Internal state memory is also
+!! released.
 !!
 !! @section ModelFields Model Fields
 !!
@@ -102,23 +131,23 @@
 !!
 !! @subsection ImportFields Import Fields 
 !!
-!! Standard Name   | Units  | Model Variable  | Description                                | Notes
-!! ----------------|--------|-----------------|--------------------------------------------|--------------------------------------
-!! import_field_1  | Pa     | internal_var_1  | field description for first import field   | |
-!! import_field_2  | kg     | internal_var_2  | field description for second import field  | |
-!! import_field_3  | W m-2  | internal_var_3  | field description for third import field   | field notes
+!! Import fields arelisted in the import_list parameter.
 !!
+!! Standard Name  | Units  | Model Variable  | Description                                | Notes
+!! ---------------|--------|-----------------|--------------------------------------------|--------------------------------------
+!! dummy_field_1  | Pa     | forcing_1       | field description for first import field   | |
+!! dummy_field_2  | kg     | forcing_2       | field description for second import field  | |
+!! dummy_field_3  | W m-2  | forcing_3       | field description for third import field   | field notes
 !!
 !! @subsection ExportField Export Fields
 !!
-!! Export fields are populated from the `model_sfc` parameter (type`model_public_type`)
-!! after the call to `update_model_model()`.
+!! Export fields are listed in the export_list parameter.
 !!
-!! Standard Name   | Units   | Model Variable  | Description                               | Notes
-!! ----------------|---------|-----------------|-------------------------------------------|---------------------------
-!! export_field_1  | m       | internal_var_4  | field description for first export field  | field notes
-!! export_field_2  | kg      | internal_var_5  | field description for second export field | |
-!! export_field_3  | m s-1   | internal_var_6  | field description for third export field  | field notes
+!! Standard Name  | Units   | Model Variable  | Description                               | Notes
+!! ---------------|---------|-----------------|-------------------------------------------|---------------------------
+!! dummy_field_1  | m       | output_1        | field description for first export field  | field notes
+!! dummy_field_2  | kg      | output_2        | field description for second export field | |
+!! dummy_field_3  | m s-1   | output_3        | field description for third export field  | field notes
 !!
 !! @subsection MemoryManagement Memory Management
 !!
@@ -127,29 +156,41 @@
 !! - Internal state wrapper data structure (single pointer)
 !! - Field memory allocation
 !!
-!!     type model_internalstate_type
-!!       integer(ESMF_KIND_I4) :: verbosity        = 1
-!!       integer(ESMF_KIND_I8) :: timeStepSeconds  = 3600
-!!       logical               :: coupled          = .FALSE.
-!!       logical               :: realizeAllExport = .FALSE.
-!!       integer(ESMF_KIND_I4) :: slice            = 1
+!! Internal State
+!!
+!!    type model_internalstate_type
+!!       integer                 :: verbosity        = 1
+!!       integer                 :: timeStepSeconds  = 0
+!!       logical                 :: coupledForcing   = .TRUE.
+!!       logical                 :: realizeAllExport = .FALSE.
+!!       integer                 :: restartSeconds   = 0
+!!       type(ESMF_TimeInterval) :: restartInterval
+!!       type(ESMF_TimeInterval) :: restartTracker
+!!       integer                 :: slice            = 1
 !!     end type
+!!
+!! Internal State Wrapper
 !!
 !!     type model_internalstate_wrapper
-!!        type(model_internalstate_type), pointer :: wrap
+!!       type(model_internalstate_type), pointer :: wrap
 !!     end type
 !!
+!! Field memory is allocated in the model.  The cap directly reference the
+!! fields created in [model_fields_create] 
+!! (@ref model_fld::model_fields_create).  These fields are destroyed in
+!! [model_fields_destroy] (@ref model_fld::model_fields_destroy).
 !!
 !! @subsection IO I/O
 !!
-!! The cap can optionally output coupling fields for diagnostic purposes if the ESMF attribute
-!! "DumpFields" has been set to "true". In this case the cap will write out NetCDF files
-!! with names "field_mdl_import_<fieldname>.nc" and "field_mdl_export_<fieldname>.nc".
-!! Additionally, calls will be made to the cap subroutine[dumpMomInternal]
-!! (@ref sample_cap_mod::dumpmominternal) to write out model internal fields to files
-!! named "field_mdl_internal_<fieldname>.nc".  In all cases these NetCDF files will
-!! contain a time series of field data.
 !! 
+!! The cap controls ESMF log output with the verbosity variable.  Verbosity
+!! is set by the model attributes.  The default verbsoity is 1.
+!!
+!! The cap controls the state restart write with the restartSeconds variable.
+!! RestartSeconds is set by the model attributes.  The default is 0, which 
+!! tell the model to never write state restart files.  Files are written as
+!! NetCDF files.  Each state file is written to its own file.
+!!
 !! @section Dependencies Dependencies
 !!
 !! Dependencies
@@ -161,34 +202,35 @@
 !!
 !! Environment Variables
 !! - ESMFMKFILE
-!! - DEBUG
 !! - Library dependency variables (i.e. NETCDF)
 !!
-!! Makefile Targets
-!! - all
-!! - install DESTDIR= INSTDIR=
-!! - clean
+!! NUOPC Makefile Targets
+!! - nuopc
+!! - nuopcclean
 !!
-!! Description of building and installing.
+!! The build system in [makefile.sample_cap] (@ref makefile.sample_cap) 
+!! wraps the models build system in [makefile.model] (@ref makefile.model)
+!! and adds the nuopc and nuopcclean targets.
 !!
-!! To build run:
-!!    $ make
+!! To build and install into the current directory run:
+!!    $ make -f makefile.sample_cap nuopc
 !!
-!! To install run:
-!!    $ make install
+!! To build and install into an alternative directory run:
+!!    $ make -f makefile.sample_cap nuopc DESTDIR=<DIR> INSTDIR=<SUBDIR>
 !!
+!! To build with debugging run:
+!!    $ make -f makefile.sample_cap nuopc DEBUG=on
 !!
 !! @section RuntimeConfiguration Runtime Configuration
 !!
-!! At runtime, the CAP cap can be configured by providing the CAP a
-!! configuration file or providing NUOPC attributes.
+!! At runtime, the cap reads attributes attached to the model.
 !!
-!! Configuration
-!! * `Verbosity` - Set the log output level. Default = 1
-!! * `TimeStepSeconds` - Set the model timestep. Default = Driver Timestep
-!! * `CoupledForcing` - Set this flag to determine forcing mode. Default = T
-!! * `RealizeAllExport` - Set this flag to realize all export fields. Default = F
-!! * `RestartInterval` - Set the restart write interval. Default = NONE
+!! Attributes
+!! * `verbosity` - Set the log output level. Default = 1
+!! * `time_step_seconds` - Set the model timestep. Default = Driver's Timestep
+!! * `coupled_forcing` - Set this flag to determine forcing mode. Default = T
+!! * `realize_all_export` - Set this flag to realize all export fields. Default = F
+!! * `restart_seconds` - Set the restart write interval. Default = NONE
 !! 
 !! @section Repository
 !! The CAP NUOPC cap is maintained in a GitHub repository:
@@ -236,6 +278,14 @@ module sample_cap_mod
   public SetServices
 
   CHARACTER(LEN=*), PARAMETER :: label_InternalState = 'InternalState'
+  CHARACTER(LEN=20), PARAMETER, DIMENSION(3) :: import_list = (/ &
+    "dummy_field_1       ", &
+    "dummy_field_2       ", &
+    "dummy_field_3       " /)
+  CHARACTER(LEN=20), PARAMETER, DIMENSION(3) :: export_list = (/ &
+    "dummy_field_4       ", &
+    "dummy_field_5       ", &
+    "dummy_field_6       " /)
 
   type model_internalstate_type
     integer                 :: verbosity        = 1
@@ -366,6 +416,10 @@ module sample_cap_mod
 
     if (configIsPresent) then
 
+      call ESMF_GridCompGet(gcomp, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out  else
+
       ! read and ingest free format component attributes
       attrFF = NUOPC_FreeFormatCreate(config, &
         label=trim(cname)//"_attributes::", relaxedflag=.true., rc=rc)
@@ -380,7 +434,7 @@ module sample_cap_mod
 
     endif
 
-    call ESMF_AttributeGet(gcomp, name="Verbosity", value=tmpStr, &
+    call ESMF_AttributeGet(gcomp, name="verbosity", value=tmpStr, &
       defaultValue="default", convention="NUOPC", purpose="Instance", &
       rc=rc)
     is%wrap%verbosity = ESMF_UtilString2Int(tmpStr, &
@@ -389,7 +443,7 @@ module sample_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
-    call ESMF_AttributeGet(gcomp, name="TimeStepSeconds", value=tmpStr, &
+    call ESMF_AttributeGet(gcomp, name="time_step_seconds", value=tmpStr, &
       defaultValue="default", convention="NUOPC", purpose="Instance", &
       rc=rc)
     is%wrap%timeStepSeconds = ESMF_UtilString2Int(tmpStr, &
@@ -398,21 +452,21 @@ module sample_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
-    call ESMF_AttributeGet(gcomp, name="CoupledForcing", value=tmpStr, &
+    call ESMF_AttributeGet(gcomp, name="coupled_forcing", value=tmpStr, &
       defaultValue="false", convention="NUOPC", purpose="Instance", &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
     is%wrap%coupledForcing= (trim(tmpStr)=="true")
 
-    call ESMF_AttributeGet(gcomp, name="RealizeAllExport", value=tmpStr, &
+    call ESMF_AttributeGet(gcomp, name="realize_all_export", value=tmpStr, &
       defaultValue="false", convention="NUOPC", purpose="Instance", &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
     is%wrap%realizeAllExport = (trim(tmpStr)=="true")
 
-    call ESMF_AttributeGet(gcomp, name="RestartSeconds", value=tmpStr, &
+    call ESMF_AttributeGet(gcomp, name="restart_seconds", value=tmpStr, &
       defaultValue="default", convention="NUOPC", purpose="Instance", &
       rc=rc)
     is%wrap%restartSeconds = ESMF_UtilString2Int(tmpStr, &
@@ -423,24 +477,27 @@ module sample_cap_mod
 
     if (is%wrap%verbosity .gt. 0) then
 
-      write (tmpStr, "(A,(A,I0))") trim(cname), &
-        ': Verbosity=',is%wrap%verbosity
+      write (tmpStr, "(A,A)") trim(cname)//': ', &
+        'Component Attributes'
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+      write (tmpStr, "(A,A20,I0)") trim(cname)//': ', &
+        'Verbosity: ',is%wrap%verbosity
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
-      write (tmpStr, "(A,(A,I0))") trim(cname), &
-        ': Time Step (seconds)=',is%wrap%timeStepSeconds
+      write (tmpStr, "(A,A20,I0)") trim(cname)//': ', &
+        'Time Step: ',is%wrap%timeStepSeconds
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
-      write (tmpStr, "(A,(A,L1))") trim(cname), &
-        ': Coupled Forcing=',is%wrap%coupledForcing
+      write (tmpStr, "(A,A20,L1)") trim(cname)//': ', &
+        'Coupled Forcing: ',is%wrap%coupledForcing
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
-      write (tmpStr, "(A,(A,L1))") trim(cname), &
-        ': Realize All Exports=',is%wrap%realizeAllExport
+      write (tmpStr, "(A,A20,L1)") trim(cname)//': ', &
+        'Realize All Exp: ',is%wrap%realizeAllExport
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
-      write (tmpStr, "(A,(A,I0))") trim(cname), &
-        ': Restart Interval (seconds)=',is%wrap%restartSeconds
+      write (tmpStr, "(A,A20,I0)") trim(cname)//': ', &
+        'Restart Interval: ',is%wrap%restartSeconds
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
     endif
@@ -472,8 +529,10 @@ module sample_cap_mod
     character(ESMF_MAXSTR)               :: cname
     type(model_internalstate_wrapper)    :: is
     integer                              :: stat
-    integer                              :: i, itemCount
-    character(ESMF_MAXSTR), allocatable  :: fieldNameList(:)
+    integer                              :: i
+    type(ESMF_StateItem_Flag)            :: itemType
+    character(len=20)                    :: stateName
+    character(len=10)                    :: units
     character(ESMF_MAXSTR)               :: tmpStr
 
 #ifdef DEBUG
@@ -497,87 +556,99 @@ module sample_cap_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
-    ! importable fields: typical ATM import fields
-    call NUOPC_Advertise(importState, StandardNames=(/ &
-      "dummy_field_1                         ", &
-      "dummy_field_2                         ", &
-      "dummy_field_3                         "  &
-      /), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
+    if (is%wrap%coupledForcing) then
 
-    ! exportable fields: typical ATM export fields
-    call NUOPC_Advertise(exportState, StandardNames=(/ &
-      "dummy_field_4                         ", &
-      "dummy_field_5                         ", &
-      "dummy_field_6                         "  &
-      /), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
+      do i=1, size(import_list)
+
+        ! get stateName and units from model by standard name
+        call model_field_get(trim(import_list(i)), &
+          stateName=stateName, units=units, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+
+        ! advertise import
+        call NUOPC_Advertise(importState, &
+          StandardName=trim(import_list(i)), &
+          Units=trim(units), &
+          name=trim(stateName), &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+
+      enddo
+
+    endif
+
+    do i=1, size(export_list)
+
+      ! get stateName and units from model by standard name
+      call model_field_get(trim(export_list(i)), &
+        stateName=stateName, units=units, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
+
+      ! advertise export
+      call NUOPC_Advertise(exportState, &
+        StandardName=trim(export_list(i)), &
+        Units=trim(units), &
+        name=trim(stateName), &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
+
+    enddo
 
     if (is%wrap%verbosity .gt. 0) then
 
-      ! retrieve import Fields in the importState
-      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-  
-      allocate(fieldNameList(itemCount), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-      call ESMF_StateGet(importState, itemNameList=fieldNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-
       ! Report advertised import fields
-      write(tmpStr,'(a,a,i0,a)') trim(cname)//': ', &
-        'List of advertised import fields(',itemCount,'):'
+      write(tmpStr,'(A,A)') trim(cname)//': ', &
+        'List of advertised import fields'
       call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      write(tmpStr,'(a,a5,a,a)') trim(cname)//': ', &
-        'index',' ','name'
+      write(tmpStr,'(A,A20,A,A10)') trim(cname)//': ', &
+        'standardName',' ','stateName'
       call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      do i=1, itemCount
-          write(tmpStr,'(a,i5,a,a)') TRIM(cname)//': ', &
-          i,' ',trim(fieldNameList(i))
-        call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+      do i=1, size(import_list)
+
+        call model_field_get(trim(import_list(i)), &
+          stateName=stateName, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call ESMF_StateGet(importState, itemName=stateName, &
+          itemType=itemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        if (itemType /= ESMF_STATEITEM_NOTFOUND) then
+          write(tmpStr,'(A,A20,A,A10)') TRIM(cname)//': ', &
+           trim(import_list(i)),' ',trim(stateName)
+          call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+        endif
+
       enddo
 
-      deallocate(fieldNameList, stat=stat)
-      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-        msg="Deallocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      ! retrieve export Fields in the importState
-      call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-  
-      allocate(fieldNameList(itemCount), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-      call ESMF_StateGet(exportState, itemNameList=fieldNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-
-      ! Report advertised import fields
-      write(tmpStr,'(a,a,i0,a)') trim(cname)//': ', &
-        'List of advertised export fields(',itemCount,'):'
+      ! Report advertised export fields
+      write(tmpStr,'(A,A)') trim(cname)//': ', &
+        'List of advertised export fields'
       call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      write(tmpStr,'(a,a5,a,a)') trim(cname)//': ', &
-        'index',' ','name'
+      write(tmpStr,'(A,A20,A,A10)') trim(cname)//': ', &
+        'standardName',' ','stateName'
       call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      do i=1, itemCount
-          write(tmpStr,'(a,i5,a,a)') TRIM(cname)//': ', &
-          i,' ',trim(fieldNameList(i))
-        call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+      do i=1, size(export_list)
+
+        call model_field_get(trim(export_list(i)), &
+          stateName=stateName, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call ESMF_StateGet(exportState, itemName=stateName, &
+          itemType=itemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        if (itemType /= ESMF_STATEITEM_NOTFOUND) then
+          write(tmpStr,'(A,A20,A,A10)') TRIM(cname)//': ', &
+           trim(export_list(i)),' ',trim(stateName)
+          call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+        endif
+
       enddo
-
-      deallocate(fieldNameList, stat=stat)
-      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-        msg="Deallocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
 
     endif
 
@@ -602,8 +673,9 @@ module sample_cap_mod
     character(ESMF_MAXSTR)               :: cname
     type(model_internalstate_wrapper)    :: is
     integer                              :: stat
-    character(ESMF_MAXSTR), allocatable  :: fieldNameList(:)
-    integer                              :: i, itemCount
+    integer                              :: i
+    type(ESMF_StateItem_Flag)            :: itemType
+    character(len=20)                    :: stateName
     type(ESMF_Field)                     :: field
     character(ESMF_MAXSTR)               :: tmpStr
 
@@ -632,29 +704,23 @@ module sample_cap_mod
     endif
 
     ! realize connected Fields in the importState
-    call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-  
-    allocate(fieldNameList(itemCount), stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-    call ESMF_StateGet(importState, itemNameList=fieldNameList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
+    do i=1, size(import_list)
 
-    do i=1, itemCount
-      if (NUOPC_IsConnected(importState, fieldName=fieldNameList(i))) then
+      ! get stateName from model by standard name
+      call model_field_get(trim(import_list(i)), stateName=stateName, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
+
+      if (NUOPC_IsConnected(importState, fieldName=stateName)) then
 
         ! get Field from model by standard name
-        call model_field_get(trim(fieldNameList(i)), field=field, rc=rc)
+        call model_field_get(trim(import_list(i)), field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return ! bail out
 
         if (.NOT.ESMF_FieldIsCreated(field)) then
           call ESMF_LogSetError(rcToCheck=ESMF_RC_OBJ_NOT_CREATED, &
-            msg=trim(fieldNameList(i))//' has not been created.', &
+            msg=trim(import_list(i))//' has not been created.', &
             method=METHOD, file=__FILE__, rcToReturn=rc)
             return ! bail out
         endif
@@ -667,14 +733,14 @@ module sample_cap_mod
       elseif (is%wrap%coupledForcing) then
 
         call ESMF_LogSetError(rcToCheck=ESMF_RC_NOT_FOUND, &
-          msg=trim(fieldNameList(i))//' missing coupled forcing connection', &
+          msg=trim(import_list(i))//' missing coupled forcing connection', &
           method=METHOD, file=__FILE__, rcToReturn=rc)
           return ! bail out      
 
       else
 
         ! remove a not connected Field from State
-        call ESMF_StateRemove(importState, (/fieldNameList(i)/), rc=rc)
+        call ESMF_StateRemove(importState, (/stateName/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return ! bail out
       
@@ -682,36 +748,25 @@ module sample_cap_mod
 
     enddo
 
-    deallocate(fieldNameList, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of state item list memory failed.", &
-      line=__LINE__, file=__FILE__)) return  ! bail out
+    ! realize connected Fields in the exportState
+    do i=1, size(export_list)
 
-    ! realize connected Fields in the exportState and data initialize
-    call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-  
-    allocate(fieldNameList(itemCount), stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-    call ESMF_StateGet(exportState, itemNameList=fieldNameList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
+      ! get stateName from model by standard name
+      call model_field_get(trim(export_list(i)), stateName=stateName, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
 
-    do i=1, itemCount
-      if (NUOPC_IsConnected(exportState, fieldName=fieldNameList(i)) &
+      if (NUOPC_IsConnected(exportState, fieldName=stateName) &
         .OR. is%wrap%realizeAllExport) then
 
         ! get Field from model by standard name
-        call model_field_get(trim(fieldNameList(i)), field=field, rc=rc)
+        call model_field_get(trim(export_list(i)), field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return ! bail out
 
         if (.NOT.ESMF_FieldIsCreated(field)) then
           call ESMF_LogSetError(rcToCheck=ESMF_RC_OBJ_NOT_CREATED, &
-          msg=trim(fieldNameList(i))//' has not been created.', &
+          msg=trim(export_list(i))//' has not been created.', &
           method=METHOD, file=__FILE__, rcToReturn=rc)
           return ! bail out
         endif
@@ -724,81 +779,65 @@ module sample_cap_mod
       else
 
         ! remove a not connected Field from State
-        call ESMF_StateRemove(exportState, (/fieldNameList(i)/), rc=rc)
+        call ESMF_StateRemove(exportState, (/stateName/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return ! bail out
       
       endif
-    enddo
 
-    deallocate(fieldNameList, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of state item list memory failed.", &
-      line=__LINE__, file=__FILE__)) return  ! bail out
+    enddo
 
     if (is%wrap%verbosity .gt. 0) then
 
-      ! retrieve import Fields in the importState
-      call ESMF_StateGet(importState, itemCount=itemCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-  
-      allocate(fieldNameList(itemCount), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-      call ESMF_StateGet(importState, itemNameList=fieldNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
+      ! Report realized import fields
+      write(tmpStr,'(A,A)') trim(cname)//': ', &
+        'List of realized import fields'
+      call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+      write(tmpStr,'(A,A20,A,A10)') trim(cname)//': ', &
+        'standardName',' ','stateName'
+      call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+      do i=1, size(import_list)
 
-      ! Report advertised import fields
-      write(tmpStr,'(a,a,i0,a)') trim(cname)//': ', &
-        'List of realized import fields(',itemCount,'):'
-      call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      write(tmpStr,'(a,a5,a,a)') trim(cname)//': ', &
-        'index',' ','name'
-      call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      do i=1, itemCount
-          write(tmpStr,'(a,i5,a,a)') TRIM(cname)//': ', &
-          i,' ',trim(fieldNameList(i))
-        call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+        call model_field_get(trim(import_list(i)), &
+          stateName=stateName, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call ESMF_StateGet(importState, itemName=stateName, &
+          itemType=itemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        if (itemType /= ESMF_STATEITEM_NOTFOUND) then
+          write(tmpStr,'(A,A20,A,A10)') TRIM(cname)//': ', &
+           trim(import_list(i)),' ',trim(stateName)
+          call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+        endif
+
       enddo
 
-      deallocate(fieldNameList, stat=stat)
-      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-        msg="Deallocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      ! retrieve export Fields in the importState
-      call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-  
-      allocate(fieldNameList(itemCount), stat=stat)
-      if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-        msg="Allocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-      call ESMF_StateGet(exportState, itemNameList=fieldNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return ! bail out
-
-      ! Report advertised import fields
-      write(tmpStr,'(a,a,i0,a)') trim(cname)//': ', &
-        'List of realized export fields(',itemCount,'):'
+      ! Report realized export fields
+      write(tmpStr,'(A,A)') trim(cname)//': ', &
+        'List of realized export fields'
       call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      write(tmpStr,'(a,a5,a,a)') trim(cname)//': ', &
-        'index',' ','name'
+      write(tmpStr,'(A,A20,A,A10)') trim(cname)//': ', &
+        'standardName',' ','stateName'
       call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
-      do i=1, itemCount
-          write(tmpStr,'(a,i5,a,a)') TRIM(cname)//': ', &
-          i,' ',trim(fieldNameList(i))
-        call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+      do i=1, size(export_list)
+
+        call model_field_get(trim(export_list(i)), &
+          stateName=stateName, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call ESMF_StateGet(exportState, itemName=stateName, &
+          itemType=itemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        if (itemType /= ESMF_STATEITEM_NOTFOUND) then
+          write(tmpStr,'(A,A20,A,A10)') TRIM(cname)//': ', &
+           trim(export_list(i)),' ',trim(stateName)
+          call ESMF_LogWrite(trim(tmpStr), ESMF_LOGMSG_INFO)
+        endif
+
       enddo
-
-      deallocate(fieldNameList, stat=stat)
-      if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-        msg="Deallocation of state item list memory failed.", &
-        line=__LINE__, file=__FILE__)) return  ! bail out
 
     endif
 
@@ -826,7 +865,7 @@ module sample_cap_mod
     logical                                :: allDepStsfy
     integer                                :: i
     integer                                :: itemCount
-    character(len=64),allocatable          :: itemNameList(:)
+    character(len=80),allocatable          :: itemNameList(:)
     type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
     type(ESMF_Field)                       :: field
     integer                                :: stat
@@ -1072,7 +1111,6 @@ module sample_cap_mod
     type(ESMF_Time)                   :: currTime, stopTime
     character(len=30)                 :: stopTimeStr
     type(ESMF_TimeInterval)           :: timeStep
-    character(len=80), allocatable    :: fieldNameList(:)
     integer                           :: i, itemCount
     type(ESMF_Field)                  :: field
 
@@ -1120,14 +1158,14 @@ module sample_cap_mod
 
       ! write out the Fields in the importState
       call NUOPC_Write(importState, &
-        fileNamePrefix=trim(cname)//"_"//trim(stopTimeStr)//"_", &
+        fileNamePrefix=trim(cname)//"_RSTRT_"//trim(stopTimeStr)//"_", &
         overwrite=.true., relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return ! bail out
 
       ! write out the Fields in the exportState
       call NUOPC_Write(exportState, &
-        fileNamePrefix=trim(cname)//"_"//trim(stopTimeStr)//"_", &
+        fileNamePrefix=trim(cname)//"_RSTRT_"//trim(stopTimeStr)//"_", &
         overwrite=.true., relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return ! bail out

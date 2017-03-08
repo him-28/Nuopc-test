@@ -151,10 +151,12 @@ module model_fld_mod
 #undef METHOD
 #define METHOD "model_field_get"
 
-  subroutine model_field_get(standardName,field,rc)
-    character(len=*), intent(in)  :: standardName
-    type(ESMF_Field), intent(out) :: field
-    integer, intent(out)          :: rc
+  subroutine model_field_get(standardName,field,stateName,units,rc)
+    character(len=*), intent(in)            :: standardName
+    character(len=*), intent(out), optional :: stateName
+    character(len=*), intent(out), optional :: units
+    type(ESMF_Field), intent(out), optional :: field
+    integer, intent(out)                    :: rc
 
     ! local variables
     integer :: i
@@ -174,7 +176,15 @@ module model_fld_mod
 
       if (standardName .eq. model_field_list(i)%ptr%standardName) then
         found = .TRUE.
-        field = model_field_list(i)%ptr%esmf_field
+        if (present(stateName)) then
+          stateName = model_field_list(i)%ptr%stateName
+        endif
+        if (present(units)) then
+          units = model_field_list(i)%ptr%units
+        endif
+        if (present(field)) then
+          field = model_field_list(i)%ptr%esmf_field
+        endif
         exit
       endif
 

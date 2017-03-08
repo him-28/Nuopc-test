@@ -2,21 +2,24 @@
 ####  Sample Run-Time Configuration File  #####
 ###############################################
 
+# DRIVER NAME #
+driver_name: DRIVER
+
 # SAMPLE_DRIVER #
-SAMPLE_DRIVER_component_list: SAMPLE_CAP
-SAMPLE_DRIVER_attributes::
-  Verbosity = max
-  TimeStepSeconds = 3600
-  StepCount = 6
+DRIVER_component_list: SAMPLE_CAP
+DRIVER_attributes::
+  verbosity = max
+  time_step_seconds = 3600
+  step_count = 3
 ::
 
 # SAMPLE_CAP #
-SAMPLE_CAP_mod:      sample_cap_mod
-SAMPLE_CAP_name:     SAMPLE_CAP
+SAMPLE_CAP_mod:  sample_cap_mod
+SAMPLE_CAP_name: CAP
 SAMPLE_CAP_attributes::
-  Verbosity = max
-  TimeStepSeconds = 1800
-  CoupledForcing = false
-  RealizeAllExport = false
-  RestartSeconds = 3600
+  verbosity = max
+  time_step_seconds = 1800
+  coupled_forcing = false
+  realize_all_export = true
+  restart_seconds = 3600
 ::

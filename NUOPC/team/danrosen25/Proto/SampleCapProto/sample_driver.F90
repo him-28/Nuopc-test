@@ -37,6 +37,7 @@ module sample_driver_mod
   public SetServices
 
   CHARACTER(LEN=*), PARAMETER :: label_InternalState = 'InternalState'
+  CHARACTER(LEN=*), PARAMETER :: defaultConfigFile   = 'sample.rc'
   CHARACTER(LEN=16), DIMENSION(10), PARAMETER :: CUSTOMFIELDLIST = (/ &
     "dummy_field_1", "dummy_field_2", &
     "dummy_field_3", "dummy_field_4", &
@@ -51,9 +52,10 @@ module sample_driver_mod
     "m",             "K"      /)
 
   type model_internalstate_type
-    integer  :: verbosity        = 1
-    integer  :: timeStepSeconds  = 3600
-    integer  :: stepCount        = 24
+    logical           :: defaultConfig    = .FALSE.
+    integer           :: verbosity        = 1
+    integer           :: timeStepSeconds  = 3600
+    integer           :: stepCount        = 24
   end type
 
   type model_internalstate_wrapper
@@ -107,6 +109,7 @@ module sample_driver_mod
     character(ESMF_MAXSTR)            :: dname
     integer                           :: stat
     type(model_internalstate_wrapper) :: is
+    logical                           :: configIsPresent
     type(ESMF_Config)                 :: config
     character(ESMF_MAXSTR)            :: tmpStr
     type(NUOPC_FreeFormat)            :: attrFF
@@ -142,16 +145,73 @@ module sample_driver_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
-    ! create, open, and set the config
-    config = ESMF_ConfigCreate(rc=rc)
+    ! log component modules built into executable
+    if (is%wrap%verbosity .gt. 0) then
+      write (tmpStr, "(A,A)") trim(dname)//': ', &
+        'Component Modules in Executable'
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+#ifdef COMP1_MOD
+      write (tmpStr, "(A,A20)") trim(dname)//': ', &
+        STR(COMP1_MOD)
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+#endif
+#ifdef COMP2_MOD
+      write (tmpStr, "(A,A20)") trim(dname)//': ', &
+        STR(COMP2_MOD)
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+#endif
+#ifdef COMP3_MOD
+      write (tmpStr, "(A,A20)") trim(dname)//': ', &
+        STR(COMP3_MOD)
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
+#endif
+#ifdef COMP4_MOD
+      write (tmpStr, "(A,A20)") trim(dname)//': ', &
+        STR(COMP4_MOD)
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
+#endif
+#ifdef COMP5_MOD
+      write (tmpStr, "(A,A20)") trim(dname)//': ', &
+        STR(COMP5_MOD)
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+#endif
+      endif
+
+    ! check driver for config
+    call ESMF_GridCompGet(driver, configIsPresent=configIsPresent, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
-    call ESMF_ConfigLoadFile(config, "sample.rc", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-    call ESMF_GridCompSet(driver, config=config, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
+
+    if (configIsPresent) then
+
+      is%wrap%defaultConfig = .FALSE.
+
+      call ESMF_GridCompGet(driver, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out  else
+
+    else
+
+      is%wrap%defaultConfig = .TRUE.
+
+      ! create config file
+      config = ESMF_ConfigCreate(rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
+
+      ! load the default config file
+      call ESMF_ConfigLoadFile(config, trim(defaultConfigFile), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
+
+      ! set the config file
+      call ESMF_GridCompSet(driver, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return ! bail out
+
+    endif
 
     ! read and ingest free format driver attributes
     attrFF = NUOPC_FreeFormatCreate(config, &
@@ -162,76 +222,6 @@ module sample_driver_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
     call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-
-    call ESMF_AttributeGet(driver, name="Verbosity", value=tmpStr, &
-      defaultValue="default", convention="NUOPC", purpose="Instance", &
-      rc=rc)
-    is%wrap%verbosity = ESMF_UtilString2Int(tmpStr, &
-      specialStringList=(/"default","none","max"/), &
-      specialValueList=(/is%wrap%verbosity,0,255/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-
-    call ESMF_AttributeGet(driver, name="TimeStepSeconds", value=tmpStr, &
-      defaultValue="default", convention="NUOPC", purpose="Instance", &
-      rc=rc)
-    is%wrap%timeStepSeconds = ESMF_UtilString2Int(tmpStr, &
-      specialStringList=(/"default"/), &
-      specialValueList=(/is%wrap%timeStepSeconds/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-
-    call ESMF_AttributeGet(driver, name="StepCount", value=tmpStr, &
-      defaultValue="default", convention="NUOPC", purpose="Instance", &
-      rc=rc)
-    is%wrap%stepCount = ESMF_UtilString2Int(tmpStr, &
-      specialStringList=(/"default"/), &
-      specialValueList=(/is%wrap%stepCount/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return ! bail out
-
-    if (is%wrap%verbosity .gt. 0) then
-
-      write (tmpStr, "(A,(A,I0))") trim(dname), &
-        ': Verbosity=',is%wrap%verbosity
-      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
-
-      write (tmpStr, "(A,(A,I0))") trim(dname), &
-        ': Time Step (seconds)=',is%wrap%timeStepSeconds
-      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
-
-      write (tmpStr, "(A,(A,I0))") trim(dname), &
-        ': Step Count=',is%wrap%stepCount
-      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
-
-    endif
-
-    ! set the driver clock
-    call ESMF_TimeSet(startTime, s = 0, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    call ESMF_TimeSet(stopTime, &
-      s=(is%wrap%timeStepSeconds * is%wrap%stepCount), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    call ESMF_TimeIntervalSet(timeStep, s=is%wrap%timeStepSeconds, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    internalClock = ESMF_ClockCreate(name=trim(dname)//" Clock", &
-      timeStep=timeStep, startTime=startTime, stopTime=stopTime, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    call ESMF_GridCompSet(driver, clock=internalClock, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
@@ -247,7 +237,60 @@ module sample_driver_mod
     call ESMF_ConfigGetAttribute(config, valueList=compList, &
       label=trim(dname)//"_component_list:", count=compListSize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, file=__FILE__)) return ! bail out
+
+    ! read and ingest free format driver attributes
+    attrFF = NUOPC_FreeFormatCreate(config, &
+      label=trim(dname)//"_attributes::", relaxedflag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
+    call NUOPC_CompAttributeIngest(driver, attrFF, addFlag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+    call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+
+    ! store attributes in internal state
+    call ESMF_AttributeGet(driver, name="verbosity", value=tmpStr, &
+      defaultValue="default", convention="NUOPC", purpose="Instance", rc=rc)
+    is%wrap%verbosity = ESMF_UtilString2Int(tmpStr, &
+      specialStringList=(/"default","none","max"/), &
+      specialValueList=(/is%wrap%verbosity,0,255/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+    call ESMF_AttributeGet(driver, name="time_step_seconds", value=tmpStr, &
+      defaultValue="default", convention="NUOPC", purpose="Instance", rc=rc)
+    is%wrap%timeStepSeconds = ESMF_UtilString2Int(tmpStr, &
+      specialStringList=(/"default"/), &
+      specialValueList=(/is%wrap%timeStepSeconds/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+    call ESMF_AttributeGet(driver, name="step_count", value=tmpStr, &
+      defaultValue="default", convention="NUOPC", purpose="Instance", rc=rc)
+    is%wrap%stepCount = ESMF_UtilString2Int(tmpStr, &
+      specialStringList=(/"default"/), &
+      specialValueList=(/is%wrap%stepCount/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+
+    ! log driver attributes
+    if (is%wrap%verbosity .gt. 0) then
+
+      write (tmpStr, "(A,A)") trim(dname)//': ', &
+        'Driver Attributes'
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+      write (tmpStr, "(A,A20,I0)") trim(dname)//': ', &
+        'Verbosity: ',is%wrap%verbosity
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+      write (tmpStr, "(A,A20,I0)") trim(dname)//': ', &
+        'Time Step: ',is%wrap%timeStepSeconds
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+      write (tmpStr, "(A,A20,I0)") trim(dname)//': ', &
+        'Step Count: ',is%wrap%stepCount
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
+    endif
 
     ! determine information for each component and add to the driver
     do i=1, compListSize
@@ -263,29 +306,6 @@ module sample_driver_mod
         default=trim(compList(i)), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return ! bail out
-
-      if (is%wrap%verbosity .gt. 0) then
-#ifdef COMP1_MOD
-        call ESMF_LogWrite(trim(dname)//": COMP1_MOD is "// &
-          STR(COMP1_MOD),ESMF_LOGMSG_INFO)
-#endif
-#ifdef COMP2_MOD
-        call ESMF_LogWrite(trim(dname)//": COMP2_MOD is "// &
-          STR(COMP2_MOD),ESMF_LOGMSG_INFO)
-#endif
-#ifdef COMP3_MOD
-        call ESMF_LogWrite(trim(dname)//": COMP3_MOD is "// &
-          STR(COMP3_MOD),ESMF_LOGMSG_INFO)
-#endif
-#ifdef COMP4_MOD
-        call ESMF_LogWrite(trim(dname)//": COMP4_MOD is "// &
-          STR(COMP4_MOD),ESMF_LOGMSG_INFO)
-#endif
-#ifdef COMP5_MOD
-        call ESMF_LogWrite(trim(dname)//": COMP5_MOD is "// &
-          STR(COMP5_MOD),ESMF_LOGMSG_INFO)
-#endif
-      endif
 
       select case (trim(compMod))
 #ifdef COMP1_MOD
@@ -336,11 +356,6 @@ module sample_driver_mod
           return ! bail out
       end select
 
-      if (is%wrap%verbosity .gt. 0) then
-        call ESMF_LogWrite(trim(dname)//": "//trim(compName)// &
-          " added to the components.",ESMF_LOGMSG_INFO)
-      endif
-
       ! read and ingest free format component attributes
       attrFF = NUOPC_FreeFormatCreate(config, &
         label=trim(compList(i))//"_attributes::", relaxedflag=.true., rc=rc)
@@ -355,10 +370,58 @@ module sample_driver_mod
 
     enddo
 
+    if (is%wrap%verbosity .gt. 0) then
+
+      write (tmpStr, "(A,A)") trim(dname)//': ', &
+        'Active Components'
+      call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
+      do i=1, compListSize
+
+        call ESMF_ConfigGetAttribute(config, compName, &
+          label=trim(compList(i))//"_name:", &
+          default=trim(compList(i)), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        write (tmpStr, "(A,A20)") trim(dname)//': ', &
+          trim(compName)
+        call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
+     enddo
+
+    endif
+
     deallocate(compList, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of component list memory failed.", &
       line=__LINE__, file=__FILE__)) return  ! bail out
+
+    ! set the driver clock
+    call ESMF_TimeSet(startTime, s = 0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    call ESMF_TimeSet(stopTime, &
+      s=(is%wrap%timeStepSeconds * is%wrap%stepCount), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    call ESMF_TimeIntervalSet(timeStep, s=is%wrap%timeStepSeconds, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    internalClock = ESMF_ClockCreate(name=trim(dname)//"_clock", &
+      timeStep=timeStep, startTime=startTime, stopTime=stopTime, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    call ESMF_GridCompSet(driver, clock=internalClock, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
 
     call CustomFieldSetup(driver, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -383,6 +446,7 @@ module sample_driver_mod
     character(ESMF_MAXSTR)            :: dname
     type(model_internalstate_wrapper) :: is
     integer                           :: i
+    character(ESMF_MAXSTR)            :: tmpStr
 
 #ifdef DEBUG
     call ESMF_LogWrite(MODNAME//": entered "//METHOD, ESMF_LOGMSG_INFO)
@@ -401,6 +465,15 @@ module sample_driver_mod
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
 
+      if (is%wrap%verbosity .gt. 0) then
+
+        write (tmpStr, "(A,A)") trim(dname)//': ', &
+          'Custom Dictionary Fields'
+        call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
+      endif
+
+
     do i=1, size(CUSTOMFIELDLIST)
 
       if (.NOT.NUOPC_FieldDictionaryHasEntry(trim(CUSTOMFIELDLIST(i)))) then
@@ -410,8 +483,11 @@ module sample_driver_mod
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return ! bail out
         if (is%wrap%verbosity .ge. 1) then
-          call ESMF_LogWrite(trim(dname)//": Added "// &
-            trim(CUSTOMFIELDLIST(i)), ESMF_LOGMSG_INFO)
+
+          write (tmpStr, "(A,A20,A10)") trim(dname)//': ', &
+            trim(CUSTOMFIELDLIST(i)),trim(CUSTOMUNITSLIST(i))
+          call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
+
         endif
       endif
 
