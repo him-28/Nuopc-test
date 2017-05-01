@@ -1,0 +1,130 @@
+ ! FERRET v6.96 Script
+ ! >ferret -gif -script ferret_NEMS_MED_shade.jnl data_file longitude_file 
+ !  latitude_file slice "(min_outlier),(min,max,step),(max_outlier)"
+ ! Author: Daniel Rosen
+ ! Organization: NESII/CIRES/NOAA
+ ! Email: daniel.rosen@noaa.gov
+ ! Date: 2017-04-26
+
+CANCEL MODE LOGO
+DEFINE SYMBOL usage USAGE: ferret -gif -script ferret_NEMS_MED_shade.jnl \
+data_file lon_file lat_file slice \"(min_ol),(min,max,step),(max_ol)\"
+
+! Read in command line arguments
+DEFINE SYMBOL datfile $1%missing% ! [field_med_from_cmp_field.nc]
+DEFINE SYMBOL lonfile $2%missing% ! [array_med_cmp_grid_coord1.nc]
+DEFINE SYMBOL latfile $3%missing% ! [array_med_cmp_grid_coord2.nc]
+DEFINE SYMBOL slice   $4%missing% ! [slice]
+DEFINE SYMBOL min_ol  $5%missing% ! [(min_outlier)]
+DEFINE SYMBOL levels  $6%missing% ! [(minimum,maximum,step)]
+DEFINE SYMBOL max_ol  $7%missing% ! [(max_outlier)]
+
+! Check Usage
+IF `"($datfile)" EQ "missing"` THEN
+ MESSAGE/ERROR ERROR: Missing Data File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($lonfile)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Longitutde File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($latfile)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Latitude File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($slice)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Slice
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($min_ol)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Minimum Outlier Value
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($levels)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Levels
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($max_ol)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Maximum Outlier Value
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+
+! Check Format
+IF `STRINDEX("($datfile)","field_med_") NE 1` THEN
+ MESSAGE/ERROR ERROR: Data file  must begin with field_med [($datfile)]
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRINDEX("($lonfile)","array_med") NE 1` THEN
+ MESSAGE/ERROR ERROR: Longitude file must begin with array_med [($lonfile)]
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRINDEX("($latfile)","array_med") NE 1` THEN
+ MESSAGE/ERROR ERROR: Latitude file must begin with array_med [($latfile)]
+ MESSAGE/ERROR ($usage) 
+ QUIT
+ENDIF
+IF `STRINDEX("($slice)","=") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Slice format must match VARIABLE=NUMBER [($slice)]
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+
+! Parse Data Filename
+DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
+DEFINE SYMBOL sub    `SUBSTRING("($datfile)",11,($ext)-11)`
+DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+DEFINE SYMBOL datcpl `SUBSTRING("($sub)",1,($fnd)-1)`
+DEFINE SYMBOL len    `STRLEN("($sub)")`
+DEFINE SYMBOL sub    `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+DEFINE SYMBOL datcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+DEFINE SYMBOL len    `STRLEN("($sub)")`
+DEFINE SYMBOL datfld `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+! Parse Longitude Filename
+DEFINE SYMBOL ext    `STRRINDEX("($lonfile)",".nc")`
+DEFINE SYMBOL sub    `SUBSTRING("($lonfile)",11,($ext)-11)`
+DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+DEFINE SYMBOL loncmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+DEFINE SYMBOL len    `STRLEN("($sub)")`
+DEFINE SYMBOL loncor `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+! Parse Latitude Filename
+DEFINE SYMBOL ext    `STRRINDEX("($latfile)",".nc")`
+DEFINE SYMBOL sub    `SUBSTRING("($latfile)",11,($ext)-11)`
+DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+DEFINE SYMBOL latcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+DEFINE SYMBOL len    `STRLEN("($sub)")`
+DEFINE SYMBOL latcor `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+! Parse Slice
+DEFINE SYMBOL len    `STRLEN("($slice)")`
+DEFINE SYMBOL fnd    `STRINDEX("($slice)","=")`
+DEFINE SYMBOL slicei `SUBSTRING("($slice)",($fnd)+1,($len)-($fnd)+1)`
+
+DEFINE SYMBOL outfile shade_MED_($datcpl)_($datcmp)_($datfld)_($slicei).gif
+DEFINE SYMBOL label  Mediator ($datcpl) ($datcmp) ($datfld) (($slicei))
+
+! Load grid file and compute output file label
+USE $1 ! Data File [field_med_from_cmp_field.nc]
+USE $2 ! Longitude Center [array_med_cmp_grid_coord1.nc]
+USE $3 ! Latitude Center [array_med_cmp_grid_coord2.nc]
+
+SET VARIABLE/TITLE="Longitude" lon_center[d=2]
+SET VARIABLE/TITLE="Latitude" lat_center[d=3]
+! Create SHADE plots for single level forcing variables
+
+SAY *** Plotting ($outfile) ($min_ol),($levels),($max_ol)***
+SET VARIABLE/BAD=-9999/TITLE="($datfld)" ($datfld)[d=1]; \
+SHADE/($slice)/LEVELS="($min_ol),($levels),($max_ol)"/\
+KEY=CONTINUOUS/TITLE="($label)" \
+($datfld)[d=1], lon_center[d=2], lat_center[d=3]; \
+FRAME/FILE=($outfile)
+
+QUIT
