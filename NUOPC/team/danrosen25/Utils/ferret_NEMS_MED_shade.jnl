@@ -1,24 +1,29 @@
  ! FERRET v6.96 Script
- ! >ferret -gif -script ferret_NEMS_MED_shade.jnl data_file longitude_file 
- !  latitude_file slice "(min_outlier),(min,max,step),(max_outlier)"
+ ! >ferret -gif -script ferret_LIS_HIST_Noah.3.3_output.jnl [LIS_HIST input file]
  ! Author: Daniel Rosen
  ! Organization: NESII/CIRES/NOAA
  ! Email: daniel.rosen@noaa.gov
- ! Date: 2017-04-26
+ ! Date: 2017-01-27
 
 CANCEL MODE LOGO
-DEFINE SYMBOL usage USAGE: ferret -gif -script ferret_NEMS_MED_shade.jnl \
-data_file lon_file lat_file slice \"(min_ol),(min,max,step),(max_ol)\"
+
+! Set Parameters
+DEFINE SYMBOL lonvar lon_center
+DEFINE SYMBOL latvar lat_center
 
 ! Read in command line arguments
-DEFINE SYMBOL datfile $1%missing% ! [field_med_from_cmp_field.nc]
-DEFINE SYMBOL lonfile $2%missing% ! [array_med_cmp_grid_coord1.nc]
-DEFINE SYMBOL latfile $3%missing% ! [array_med_cmp_grid_coord2.nc]
-DEFINE SYMBOL slice   $4%missing% ! [slice]
-DEFINE SYMBOL min_ol  $5%missing% ! [(min_outlier)]
-DEFINE SYMBOL levels  $6%missing% ! [(minimum,maximum,step)]
-DEFINE SYMBOL max_ol  $7%missing% ! [(max_outlier)]
+DEFINE SYMBOL varfile $1%missing% ! [variables.dat]
+DEFINE SYMBOL datfile $2%missing% ! [field_med_from_cmp_field.nc]
+DEFINE SYMBOL lonfile $3%missing% ! [array_med_cmp_grid_coord1.nc]
+DEFINE SYMBOL latfile $4%missing% ! [array_med_cmp_grid_coord2.nc]
+DEFINE SYMBOL slice   $5%missing% ! [slice]
 
+! Check Usage
+IF `"($varfile)" EQ "missing"` THEN
+ MESSAGE/ERROR ERROR: Missing Variable File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
 ! Check Usage
 IF `"($datfile)" EQ "missing"` THEN
  MESSAGE/ERROR ERROR: Missing Data File
@@ -40,21 +45,6 @@ IF `STRCMP("($slice)","missing") EQ 0` THEN
  MESSAGE/ERROR ($usage)
  QUIT
 ENDIF
-IF `STRCMP("($min_ol)","missing") EQ 0` THEN
- MESSAGE/ERROR ERROR: Missing Minimum Outlier Value
- MESSAGE/ERROR ($usage)
- QUIT
-ENDIF
-IF `STRCMP("($levels)","missing") EQ 0` THEN
- MESSAGE/ERROR ERROR: Missing Levels
- MESSAGE/ERROR ($usage)
- QUIT
-ENDIF
-IF `STRCMP("($max_ol)","missing") EQ 0` THEN
- MESSAGE/ERROR ERROR: Missing Maximum Outlier Value
- MESSAGE/ERROR ($usage)
- QUIT
-ENDIF
 
 ! Check Format
 IF `STRINDEX("($datfile)","field_med_") NE 1` THEN
@@ -69,14 +59,15 @@ IF `STRINDEX("($lonfile)","array_med") NE 1` THEN
 ENDIF
 IF `STRINDEX("($latfile)","array_med") NE 1` THEN
  MESSAGE/ERROR ERROR: Latitude file must begin with array_med [($latfile)]
- MESSAGE/ERROR ($usage) 
- QUIT
-ENDIF
-IF `STRINDEX("($slice)","=") EQ 0` THEN
- MESSAGE/ERROR ERROR: Slice format must match VARIABLE=NUMBER [($slice)]
  MESSAGE/ERROR ($usage)
  QUIT
 ENDIF
+
+! Load variable set
+FILE/COLUMNS=7/SKIP=1/FORM=delim\
+/VAR=names,titles,minvals,maxvals,steps,minoutliers,maxoutliers \
+$1
+LOAD/PERMANENT names
 
 ! Parse Data Filename
 DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
@@ -103,28 +94,57 @@ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
 DEFINE SYMBOL latcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
 DEFINE SYMBOL len    `STRLEN("($sub)")`
 DEFINE SYMBOL latcor `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
-! Parse Slice
-DEFINE SYMBOL len    `STRLEN("($slice)")`
-DEFINE SYMBOL fnd    `STRINDEX("($slice)","=")`
-DEFINE SYMBOL slicei `SUBSTRING("($slice)",($fnd)+1,($len)-($fnd)+1)`
 
-DEFINE SYMBOL outfile shade_MED_($datcpl)_($datcmp)_($datfld)_($slicei).gif
-DEFINE SYMBOL label  Mediator ($datcpl) ($datcmp) ($datfld) (($slicei))
+CANCEL SYMBOL ext
+CANCEL SYMBOL len
+CANCEL SYMBOL fnd
+CANCEL SYMBOL sub
 
-! Load grid file and compute output file label
-USE $1 ! Data File [field_med_from_cmp_field.nc]
-USE $2 ! Longitude Center [array_med_cmp_grid_coord1.nc]
-USE $3 ! Latitude Center [array_med_cmp_grid_coord2.nc]
+! Load Data
+USE $2
 
-SET VARIABLE/TITLE="Longitude" lon_center[d=2]
-SET VARIABLE/TITLE="Latitude" lat_center[d=3]
+! Load Coordinates
+USE $3
+SET VARIABLE/TITLE="Longitude" ($lonvar)[d=3]
+USE $4
+SET VARIABLE/TITLE="Latitude" ($latvar)[d=4]
+
+! Print datasets
+SHOW DATA/BRIEF
+
+DEFINE SYMBOL vari `ELEMENT_INDEX_STR("($datfld)",names[d=1])`
+IF ($vari) THEN
+ DEFINE SYMBOL varname `names[d=1,x=($vari)]`
+ELSE
+ MESSAGE/ERROR ERROR: Variable [($datfld)] missing in ($varfile)
+ QUIT
+ENDIF
+DEFINE SYMBOL vartitle `titles[d=1,x=($vari)]`
+DEFINE SYMBOL varlevels (`minoutliers[d=1,x=($vari)]`),\
+(`minvals[d=1,x=($vari)]`,`maxvals[d=1,x=($vari)]`,`steps[d=1,x=($vari)]`),\
+(`maxoutliers[d=1,x=($vari)]`)
+DEFINE SYMBOL varksize `($varname)[d=2],return=ksize`
+DEFINE SYMBOL varlsize `($varname)[d=2],return=lsize`
+DEFINE SYMBOL varunits "UNITS=`($varname)[d=2],return=units`"
+IF `($slice) GT ($varksize)` THEN
+IF `($slice) GT ($varlsize)` THEN
+ MESSAGE/ERROR ERROR: Variable slice is out of bounds [($slice)]
+ QUIT
+ELSE
+DEFINE SYMBOL varslice K=1/L=($slice)
+ENDIF
+ELSE
+DEFINE SYMBOL varslice K=($slice)/L=1
+ENDIF
+
+DEFINE SYMBOL outfile shade_MED_($datcpl)_($datcmp)_($datfld)_($slice).gif
+DEFINE SYMBOL label  Mediator ($datcpl) ($datcmp) ($datfld) ($varunits) (($slice))
+
 ! Create SHADE plots for single level forcing variables
-
-SAY *** Plotting ($outfile) ($min_ol),($levels),($max_ol)***
-SET VARIABLE/BAD=-9999/TITLE="($datfld)" ($datfld)[d=1]; \
-SHADE/($slice)/LEVELS="($min_ol),($levels),($max_ol)"/\
-KEY=CONTINUOUS/TITLE="($label)" \
-($datfld)[d=1], lon_center[d=2], lat_center[d=3]; \
+SAY *** Plotting ($varname) at ($varslice) scale ($varlevels) ***
+SET VARIABLE/BAD=-9999/TITLE="($vartitle)" ($varname)[d=2]
+SHADE/LEVELS="($varlevels)"/KEY=CONTINUOUS/($varslice)/TITLE="($label)"\
+ ($varname)[d=2], ($lonvar)[d=3], ($latvar)[d=4]
 FRAME/FILE=($outfile)
 
-QUIT
+exit
