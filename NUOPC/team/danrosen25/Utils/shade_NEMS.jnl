@@ -1,0 +1,185 @@
+ ! FERRET v6.96 Script
+ ! >ferret -gif -script [scales] [data] [longitude] [latitude] 
+ ! [variable] [slice/layer]
+ ! Author: Daniel Rosen
+ ! Organization: NESII/CIRES/NOAA
+ ! Email: daniel.rosen@noaa.gov
+ ! Date: 2017-05-10
+
+CANCEL MODE LOGO
+
+! Read in command line arguments
+DEFINE SYMBOL varfile $1%missing% ! [scales.dat]
+DEFINE SYMBOL datfile $2%missing% ! [field_med_from_cmp_field.nc]
+DEFINE SYMBOL lonfile $3%missing% ! [array_med_cmp_grid_coord1.nc]
+DEFINE SYMBOL latfile $4%missing% ! [array_med_cmp_grid_coord2.nc]
+DEFINE SYMBOL varname $5%missing% ! [variableName]
+DEFINE SYMBOL slice   $6%missing% ! [#]
+
+! Check Usage
+IF `"($varfile)" EQ "missing"` THEN
+ MESSAGE/ERROR ERROR: Missing Variable File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+! Check Usage
+IF `"($datfile)" EQ "missing"` THEN
+ MESSAGE/ERROR ERROR: Missing Data File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($lonfile)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Longitutde File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($latfile)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Latitude File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($varname)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Variable Name
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($slice)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Slice
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+
+IF `STRCMP("($latfile)","($lonfile)") EQ 0` THEN
+ DEFINE SYMBOL londat 3
+ DEFINE SYMBOL latdat 3
+ELSE
+ DEFINE SYMBOL londat 3
+ DEFINE SYMBOL latdat 4
+ENDIF
+
+! Determine longitude variable name
+IF `STRINDEX("($lonfile)","_grid_") GT 1` THEN
+ DEFINE SYMBOL lonvar lon_center
+ELSE
+ DEFINE SYMBOL lonvar lon
+ENDIF
+
+! Determine latitude variable name
+IF `STRINDEX("($latfile)","_grid_") GT 1` THEN
+ DEFINE SYMBOL latvar lat_center
+ELSE
+ DEFINE SYMBOL latvar lat
+ENDIF
+
+! Load variable set
+FILE/COLUMNS=7/SKIP=1/FORM=delim\
+/VAR=names,titles,minvals,maxvals,steps,minoutliers,maxoutliers \
+$1
+LOAD/PERMANENT names
+
+DEFINE SYMBOL vari 0
+REPEAT/RANGE=1:`names,return=size`/NAME=nctr ( \
+ DEFINE SYMBOL nindex `nctr`; \
+ IF `STRCMP(names[d=1,x=($nindex)],"($varname)") EQ 0` THEN \
+  DEFINE SYMBOL vari ($nindex) \
+ ENDIF \
+)
+
+! Parse Data Filename
+IF `STRINDEX("($datfile)","field_med_") EQ 1` THEN
+ DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
+ DEFINE SYMBOL sub    `SUBSTRING("($datfile)",7,($ext)-7)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL sub    `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp ($datcmp)_`UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL sub    `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp ($datcmp)_`UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL datfld `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ELSE
+ DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
+ DEFINE SYMBOL sub    `SUBSTRING("($datfile)",1,($ext)-1)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL datfld ($varname)
+ENDIF
+
+! Parse Longitude Filename
+IF `STRINDEX("($lonfile)","array_med_") EQ 1` THEN
+ DEFINE SYMBOL ext    `STRRINDEX("($lonfile)",".nc")`
+ DEFINE SYMBOL sub    `SUBSTRING("($lonfile)",11,($ext)-11)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL loncmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL loncor `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ELSE
+ DEFINE SYMBOL loncmp ($lonfile)
+ DEFINE SYMBOL loncor ($lonvar)
+ENDIF
+
+! Parse Latitude Filename
+IF `STRINDEX("($latfile)","array_med_") EQ 1` THEN
+ DEFINE SYMBOL ext    `STRRINDEX("($latfile)",".nc")`
+ DEFINE SYMBOL sub    `SUBSTRING("($latfile)",11,($ext)-11)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL latcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL latcor `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ELSE
+ DEFINE SYMBOL latcmp ($latfile)
+ DEFINE SYMBOL latcor ($latvar)
+ENDIF
+
+CANCEL SYMBOL ext
+CANCEL SYMBOL len
+CANCEL SYMBOL fnd
+CANCEL SYMBOL sub
+
+! Load Data
+USE $2
+
+! Load Coordinates
+USE $3
+USE $4
+SET VARIABLE/TITLE="Longitude" ($lonvar)[d=($londat)]
+SET VARIABLE/TITLE="Latitude" ($latvar)[d=($latdat)]
+
+IF `($vari) GT 0` THEN
+ DEFINE SYMBOL vartitle `titles[d=1,x=($vari)]`
+ DEFINE SYMBOL varlevels (`minoutliers[d=1,x=($vari)]`),\
+(`minvals[d=1,x=($vari)]`,`maxvals[d=1,x=($vari)]`,`steps[d=1,x=($vari)]`),\
+(`maxoutliers[d=1,x=($vari)]`) 
+ELSE
+ MESSAGE/ERROR ERROR: Variable [($varname)] missing in ($varfile)
+ QUIT
+ENDIF
+DEFINE SYMBOL varksize `($varname)[d=2],return=ksize`
+DEFINE SYMBOL varlsize `($varname)[d=2],return=lsize`
+DEFINE SYMBOL varunits "[`($varname)[d=2],return=units`]"
+IF `($slice) GT ($varksize)` THEN
+ IF `($slice) GT ($varlsize)` THEN
+  MESSAGE/ERROR ERROR: Variable slice is out of bounds [($slice)]
+  QUIT
+ ELSE
+  DEFINE SYMBOL varslice K=1/L=($slice)
+ ENDIF
+ELSE
+ DEFINE SYMBOL varslice K=($slice)/L=1
+ENDIF
+
+DEFINE SYMBOL plotfile shade_($datcmp)_($datfld)_($slice).gif
+DEFINE SYMBOL plottitle ($datcmp) ($vartitle) ($varunits) at ($slice)
+
+! Create SHADE plots for single level forcing variables
+SAY *** Plotting ($varname) at ($varslice) scale ($varlevels) ***
+SET VARIABLE/BAD=-9999/TITLE="($vartitle)" ($varname)[d=2]
+SHADE/LEVELS="($varlevels)"/KEY=CONTINUOUS/($varslice)/TITLE="($plottitle)"\
+ ($varname)[d=2], ($lonvar)[d=($londat)], ($latvar)[d=($latdat)]
+FRAME/FILE=($plotfile)
+
+EXIT
