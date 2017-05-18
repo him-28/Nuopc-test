@@ -1,0 +1,104 @@
+#!/bin/bash
+
+SCRIPT=shade_NEMS.jnl
+VARIABLES="variables.dat"
+
+FB_ATM_LON=array_med_atm_grid_coord1.nc
+FB_ATM_LAT=array_med_atm_grid_coord2.nc
+FB_LND_LON=array_med_lnd_grid_coord1.nc
+FB_LND_LAT=array_med_lnd_grid_coord2.nc
+FB_HYD_LON=array_med_hyd_grid_coord1.nc
+FB_HYD_LAT=array_med_hyd_grid_coord2.nc
+
+LIS_DATE=201504060000
+LIS_DOM=d01
+LIS_INDIR=LIS_INPUTS
+LIS_OUTDIR=LIS_OUTPUT/SURFACEMODEL
+LIS_FILE=LIS_HIST_$LIS_DATE.$LIS_DOM.nc
+LIS_LON=lis_input.t574r.nc
+LIS_LAT=lis_input.t574r.nc
+
+ln -sf $LIS_INDIR/$LIS_LON .
+ln -sf $LIS_INDIR/$LIS_LAT .
+ln -sf $LIS_OUTDIR/$LIS_FILE .
+
+function plot_fb {
+ if [ "$#" -lt 4 ]
+ then
+   echo "ERROR USAGE: $0 <FILE> <LON> <LAT> <FIELD>"
+   exit 1
+ fi
+
+ FILE="$1"
+ LON="$2"
+ LAT="$3"
+ FIELD="$4"
+ ferret -gif -script $SCRIPT $VARIABLES $FILE $LON $LAT $FIELD 1
+}
+
+function plot_lis {
+ if [ "$#" -lt 2 ]
+ then
+   echo "ERROR USAGE: $0 <FIELD> <LEVEL>"
+   exit 1
+ fi
+
+ FIELD="$1"
+ LEVEL="$2"
+ ferret -gif -script $SCRIPT $VARIABLES $LIS_FILE $LIS_LON $LIS_LAT $FIELD $LEVEL
+}
+
+# FBAtm_a
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_down_lw_flx"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_down_sw_flx"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_merid_wind_height_lowest"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_pres_height_surface"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_spec_humid_height_lowest"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_temp_height_lowest"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "inst_zonal_wind_height_lowest"
+plot_fb "mediator_FBAtm_a_restart.nc" $FB_ATM_LON $FB_ATM_LAT "mean_prec_rate"
+# FBLnd_l
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "liquid_water_content_of_soil_layer_1"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "liquid_water_content_of_soil_layer_2"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "liquid_water_content_of_soil_layer_3"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "liquid_water_content_of_soil_layer_4"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "moisture_content_of_soil_layer_1"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "moisture_content_of_soil_layer_2"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "moisture_content_of_soil_layer_3"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "moisture_content_of_soil_layer_4"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "subsurface_runoff_flux"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "surface_runoff_flux"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "temperature_of_soil_layer_1"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "temperature_of_soil_layer_2"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "temperature_of_soil_layer_3"
+plot_fb "mediator_FBLnd_l_restart.nc" $FB_LND_LON $FB_LND_LAT "temperature_of_soil_layer_4"
+# LIS HIST Output
+plot_lis "Qs_acc" 1
+plot_lis "Qsb_acc" 1
+plot_lis "SoilMoist_tavg" 1
+plot_lis "SoilMoist_tavg" 2
+plot_lis "SoilMoist_tavg" 3
+plot_lis "SoilMoist_tavg" 4
+plot_lis "SoilTemp_tavg" 1
+plot_lis "SoilTemp_tavg" 2
+plot_lis "SoilTemp_tavg" 3
+plot_lis "SoilTemp_tavg" 4
+plot_lis "SmLiqFrac_tavg" 1
+plot_lis "SmLiqFrac_tavg" 2
+plot_lis "SmLiqFrac_tavg" 3
+plot_lis "SmLiqFrac_tavg" 4
+plot_lis "Rainf_f_inst" 1
+plot_lis "Tair_f_tavg" 1
+plot_lis "Qair_f_tavg" 1
+plot_lis "Psurf_f_tavg" 1
+plot_lis "SWdown_f_tavg" 1
+plot_lis "LWdown_f_tavg" 1
+plot_lis "NWind_f_inst" 1
+plot_lis "EWind_f_inst" 1
+
+# Create compressed tar archive of all .gif files
+echo "*** Adding to plots.tar.gz ***"
+tar -cf plots_NEMS_5day.tar *.gif
+
+# echo "*** Removing FB_FROM_ATM FB_FROM_LND FB_TO_LND FB_TO_HYD ***"
+
