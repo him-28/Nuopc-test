@@ -1,37 +1,57 @@
 NAME,TITLE,MIN,MAX,STEP,MINOL,MAXOL
-"Psurf_f_tavg",            "Air Pressure", 47000,105000,1000,40000,110000
-"inst_pres_height_surface","Air Pressure", 47000,105000,1000,40000,110000
-"Tair_f_tavg",            "Air Temperature", 250,310,1,180,350
-"inst_temp_height_lowest","Air Temperature", 250,310,1,180,350
-"EWind_f_inst",                 "Eastward Wind", -30,30,1,-100,100
-"inst_zonal_wind_height_lowest","Eastward Wind", -30,30,1,-100,100
-"LWdown_f_tavg",   "Longwave Flux", 50,500,10,0,1000
-"inst_down_lw_flx","Longwave Flux", 50,500,10,0,1000
-"NWind_f_inst",                 "Northward Wind",-30,30,1,-100,100
-"inst_merid_wind_height_lowest","Northward Wind",-30,30,1,-100,100
-"Rainf_f_inst",  "Precipitation Flux",0.000000,0.000300,0.000005,0.0,1.0
-"mean_prec_rate","Precipitation Flux",0.000000,0.000300,0.000005,0.0,1.0
-"SWdown_f_tavg",   "Shortwave Flux",0,900,15,0,2000
-"inst_down_sw_flx","Shortwave Flux",0,900,15,0,2000
-"Qair_f_tavg",                  "Specific Humidity",0.000,0.020,0.0005,0.0,0.05
-"inst_spec_humid_height_lowest","Specific Humidity",0.000,0.020,0.0005,0.0,0.05
-"Qs_acc",             "Surface Runoff",0.000000,0.000009,0.00000015,0.000000,0.010000
-"surface_runoff_flux","Surface Runoff",0.000000,0.000009,0.00000015,0.000000,0.010000
-"Qsb_acc",               "Subsurface Runoff",0.000000,0.000100,0.00000200,0.000000,0.001000
-"subsurface_runoff_flux","Subsurface Runoff",0.000000,0.000100,0.00000200,0.000000,0.001000
-"SmLiqFrac_tavg",                      "Liquid Fraction of Soil Moisture",   0.100,0.300,0.004,0.000,0.500
-"liquid_water_content_of_soil_layer_1","Liquid Fraction of Soil Moisture L1",0.100,0.300,0.004,0.000,0.500
-"liquid_water_content_of_soil_layer_2","Liquid Fraction of Soil Moisture L2",0.170,0.230,0.001,0.000,0.500
-"liquid_water_content_of_soil_layer_3","Liquid Fraction of Soil Moisture L3",0.170,0.230,0.001,0.000,0.500
-"liquid_water_content_of_soil_layer_4","Liquid Fraction of Soil Moisture L4",0.170,0.230,0.001,0.000,0.500
-"SoilMoist_tavg",                  "Soil Moisture",   0.100,0.300,0.004,0.000,0.500
-"moisture_content_of_soil_layer_1","Soil Moisture L1",0.100,0.300,0.004,0.000,0.500
-"moisture_content_of_soil_layer_2","Soil Moisture L2",0.170,0.230,0.001,0.000,0.500
-"moisture_content_of_soil_layer_3","Soil Moisture L3",0.170,0.230,0.001,0.000,0.500
-"moisture_content_of_soil_layer_4","Soil Moisture L4",0.170,0.230,0.001,0.000,0.500
-"SoilTemp_tavg",              "Soil Temperature",   280,300,0.4,200,350
-"temperature_of_soil_layer_1","Soil Temperature L1",280,300,0.4,200,350
-"temperature_of_soil_layer_2","Soil Temperature L2",285,295,0.2,200,350
-"temperature_of_soil_layer_3","Soil Temperature L3",285,295,0.2,200,350
-"temperature_of_soil_layer_4","Soil Temperature L4",285,295,0.2,200,350
-
+"Psurf_f_tavg",            "Air Pressure","Pa", 47000,105000,1000,40000,110000
+"inst_pres_height_surface","Air Pressure","Pa", 47000,105000,1000,40000,110000
+"Tair_f_tavg",            "Air Temperature","K", 250,310,1,180,350
+"inst_temp_height_lowest","Air Temperature","K", 250,310,1,180,350
+"EWind_f_inst",                 "Eastward Wind","m s-1", -30,30,1,-100,100
+"inst_zonal_wind_height_lowest","Eastward Wind","m s-1", -30,30,1,-100,100
+"LWdown_f_tavg",   "Longwave Flux","W m-2", 50,500,10,0,1000
+"inst_down_lw_flx","Longwave Flux","W m-2", 50,500,10,0,1000
+"NWind_f_inst",                 "Northward Wind","m s-1",-30,30,1,-100,100
+"inst_merid_wind_height_lowest","Northward Wind","m s-1",-30,30,1,-100,100
+"Rainf_f_inst",  "Precipitation Flux","kg m-2 s-1",0.000000,0.000300,0.000005,0.0,1.0
+"mean_prec_rate","Precipitation Flux","kg m-2 s-1",0.000000,0.000300,0.000005,0.0,1.0
+"SWdown_f_tavg",   "Shortwave Flux","W m-2",0,900,15,0,2000
+"inst_down_sw_flx","Shortwave Flux","W m-2",0,900,15,0,2000
+"Qair_f_tavg",                  "Specific Humidity","kg kg-1",0.000,0.020,0.0005,0.0,0.05
+"inst_spec_humid_height_lowest","Specific Humidity","kg kg-1",0.000,0.020,0.0005,0.0,0.05
+"Qs_acc",             "Surface Runoff","m s-1",0.000000,0.000009,0.00000015,0.000000,0.010000
+"surface_runoff_flux","Surface Runoff","m s-1",0.000000,0.000009,0.00000015,0.000000,0.010000
+"infxsrt","Surface Runoff","m s-1",,0.000000,0.000009,0.00000015,0.000000,0.010000
+"Qsb_acc",               "Subsurface Runoff","m s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
+"subsurface_runoff_flux","Subsurface Runoff","m s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
+"soldrain",,"Subsurface Runoff","m s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
+"SmLiqFrac_tavg",                      "Liquid Fraction of Soil Moisture","m3 m-3",   0.100,0.300,0.004,0.000,0.500
+"liquid_water_content_of_soil_layer_1","Liquid Fraction of Soil Moisture L1","m3 m-3",0.100,0.300,0.004,0.000,0.500
+"liquid_water_content_of_soil_layer_2","Liquid Fraction of Soil Moisture L2","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"liquid_water_content_of_soil_layer_3","Liquid Fraction of Soil Moisture L3","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"liquid_water_content_of_soil_layer_4","Liquid Fraction of Soil Moisture L4","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"sh2ox1","Liquid Fraction of Soil Moisture L1","m3 m-3",0.100,0.300,0.004,0.000,0.500
+"sh2ox2","Liquid Fraction of Soil Moisture L2","m3 m-3",0.100,0.300,0.004,0.000,0.500
+"sh2ox3","Liquid Fraction of Soil Moisture L3","m3 m-3",0.100,0.300,0.004,0.000,0.500
+"sh2ox4","Liquid Fraction of Soil Moisture L4","m3 m-3",0.100,0.300,0.004,0.000,0.500
+"SoilMoist_tavg",                  "Soil Moisture","m3 m-3",   0.100,0.300,0.004,0.000,0.500
+"moisture_content_of_soil_layer_1","Soil Moisture L1","m3 m-3",0.100,0.300,0.004,0.000,0.500
+"moisture_content_of_soil_layer_2","Soil Moisture L2","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"moisture_content_of_soil_layer_3","Soil Moisture L3","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"moisture_content_of_soil_layer_4","Soil Moisture L4","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"smc1","Soil Moisture L1","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"smc2","Soil Moisture L2","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"smc3","Soil Moisture L3","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"smc4","Soil Moisture L4","m3 m-3",0.170,0.230,0.001,0.000,0.500
+"SoilTemp_tavg",              "Soil Temperature","K",   280,300,0.4,200,350
+"temperature_of_soil_layer_1","Soil Temperature L1","K",280,300,0.4,200,350
+"temperature_of_soil_layer_2","Soil Temperature L2","K",285,295,0.2,200,350
+"temperature_of_soil_layer_3","Soil Temperature L3","K",285,295,0.2,200,350
+"temperature_of_soil_layer_4","Soil Temperature L4","K",285,295,0.2,200,350
+"stc1","Soil Temperature L1","K",285,295,0.2,200,350
+"stc2","Soil Temperature L2","K",285,295,0.2,200,350
+"stc3","Soil Temperature L3","K",285,295,0.2,200,350
+"stc4","Soil Temperature L4","K",285,295,0.2,200,350
+"smcmax1","Soil Porosity","m3 m-3",0.000,0.500,0.010,0.000,1.000
+"smcref1","Soil Moisture Transpiration Threshold","m3 m-3",0.250,0.500,0.005,0.000,1.000
+"smcwlt1","Wilting Point","m3 m-3",0.000,0.500,0.010,0.000,1.000
+"hlink","Depth of Water in the Channel","m"
+"qlink1","Flow of Water in the Channel","m3 s-1"
+"streamflow","Streamflow","m3 s-1",0.000,6.000,0.100,-1.000,10.000
+"z_gwsubbas","Groundwater Baseflow","?"

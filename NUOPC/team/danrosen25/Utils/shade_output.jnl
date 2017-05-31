@@ -60,6 +60,10 @@ ENDIF
 ! Determine longitude variable name
 IF `STRINDEX("($lonfile)","_grid_") GT 1` THEN
  DEFINE SYMBOL lonvar lon_center
+ELIF `STRINDEX("($lonfile)","wrfinput") EQ 1` THEN
+ DEFINE SYMBOL lonvar XLONG
+ELIF `STRINDEX("($lonfile)","Fulldom") EQ 1` THEN
+ DEFINE SYMBOL lonvar LONGITUTDE
 ELSE
  DEFINE SYMBOL lonvar lon
 ENDIF
@@ -67,13 +71,17 @@ ENDIF
 ! Determine latitude variable name
 IF `STRINDEX("($latfile)","_grid_") GT 1` THEN
  DEFINE SYMBOL latvar lat_center
+ELIF `STRINDEX("($latfile)","wrfinput") EQ 1` THEN
+ DEFINE SYMBOL latvar XLAT
+ELIF `STRINDEX("($latfile)","Fulldom") EQ 1` THEN
+ DEFINE SYMBOL latvar LATITUDE
 ELSE
  DEFINE SYMBOL latvar lat
 ENDIF
 
 ! Load variable set
-FILE/COLUMNS=7/SKIP=1/FORM=delim\
-/VAR=names,titles,minvals,maxvals,steps,minoutliers,maxoutliers \
+FILE/COLUMNS=8/SKIP=1/FORM=delim\
+/VAR=names,titles,units,minvals,maxvals,steps,minoutliers,maxoutliers \
 $1
 LOAD/PERMANENT names
 
@@ -101,6 +109,15 @@ IF `STRINDEX("($datfile)","field_med_") EQ 1` THEN
  DEFINE SYMBOL datcmp ($datcmp)_`UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
  DEFINE SYMBOL len    `STRLEN("($sub)")`
  DEFINE SYMBOL datfld `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ELIF `STRINDEX("($datfile)","HYDRO_RST") EQ 1` THEN
+ DEFINE SYMBOL datcmp WRF-Hydro
+ DEFINE SYMBOL datfld ($varname)
+ELIF `STRINDEX("($datfile)","CHRTOUT") GT 0` THEN
+ DEFINE SYMBOL datcmp WRF-Hydro
+ DEFINE SYMBOL datfld ($varname)
+ELIF `STRINDEX("($datfile)","LIS_HIST") EQ 1` THEN
+ DEFINE SYMBOL datcmp LIS
+ DEFINE SYMBOL datfld ($varname)
 ELSE
  DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
  DEFINE SYMBOL sub    `SUBSTRING("($datfile)",1,($ext)-1)`
@@ -151,6 +168,7 @@ SET VARIABLE/TITLE="Latitude" ($latvar)[d=($latdat)]
 
 IF `($vari) GT 0` THEN
  DEFINE SYMBOL vartitle `titles[d=1,x=($vari)]`
+ DEFINE SYMBOL varunits `units[d=1,x=($vari)]`
  DEFINE SYMBOL varlevels (`minoutliers[d=1,x=($vari)]`),\
 (`minvals[d=1,x=($vari)]`,`maxvals[d=1,x=($vari)]`,`steps[d=1,x=($vari)]`),\
 (`maxoutliers[d=1,x=($vari)]`) 
@@ -160,7 +178,6 @@ ELSE
 ENDIF
 DEFINE SYMBOL varksize `($varname)[d=2],return=ksize`
 DEFINE SYMBOL varlsize `($varname)[d=2],return=lsize`
-DEFINE SYMBOL varunits "[`($varname)[d=2],return=units`]"
 IF `($slice) GT ($varksize)` THEN
  IF `($slice) GT ($varlsize)` THEN
   MESSAGE/ERROR ERROR: Variable slice is out of bounds [($slice)]

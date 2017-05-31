@@ -1,0 +1,127 @@
+ ! FERRET v6.96 Script
+ ! >ferret -gif -script [scales] [data] [variable] [slice/layer]
+ ! Author: Daniel Rosen
+ ! Organization: NESII/CIRES/NOAA
+ ! Email: daniel.rosen@noaa.gov
+ ! Date: 2017-05-10
+
+CANCEL MODE LOGO
+
+! Read in command line arguments
+DEFINE SYMBOL varfile $1%missing% ! [scales.dat]
+DEFINE SYMBOL datfile $2%missing% ! [field_med_from_cmp_field.nc]
+DEFINE SYMBOL varname $3%missing% ! [variableName]
+DEFINE SYMBOL slice   $4%missing% ! [#]
+
+! Check Usage
+IF `"($varfile)" EQ "missing"` THEN
+ MESSAGE/ERROR ERROR: Missing Variable File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+! Check Usage
+IF `"($datfile)" EQ "missing"` THEN
+ MESSAGE/ERROR ERROR: Missing Data File
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($varname)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Variable Name
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+IF `STRCMP("($slice)","missing") EQ 0` THEN
+ MESSAGE/ERROR ERROR: Missing Slice
+ MESSAGE/ERROR ($usage)
+ QUIT
+ENDIF
+
+! Load variable set
+FILE/COLUMNS=8/SKIP=1/FORM=delim\
+/VAR=names,titles,units,minvals,maxvals,steps,minoutliers,maxoutliers \
+$1
+LOAD/PERMANENT names
+
+DEFINE SYMBOL vari 0
+REPEAT/RANGE=1:`names,return=size`/NAME=nctr ( \
+ DEFINE SYMBOL nindex `nctr`; \
+ IF `STRCMP(names[d=1,x=($nindex)],"($varname)") EQ 0` THEN \
+  DEFINE SYMBOL vari ($nindex) \
+ ENDIF \
+)
+
+! Parse Data Filename
+IF `STRINDEX("($datfile)","field_med_") EQ 1` THEN
+ DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
+ DEFINE SYMBOL sub    `SUBSTRING("($datfile)",7,($ext)-7)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL sub    `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp ($datcmp)_`UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL sub    `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp ($datcmp)_`UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL len    `STRLEN("($sub)")`
+ DEFINE SYMBOL datfld `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
+ELIF `STRINDEX("($datfile)","HYDRO_RST") EQ 1`
+ DEFINE SYMBOL datcmp WRF-Hydro
+ DEFINE SYMBOL datfld ($varname)
+ELIF `STRINDEX("($datfile)","CHRTOUT") GT 0`
+ DEFINE SYMBOL datcmp WRF-Hydro
+ DEFINE SYMBOL datfld ($varname)
+ELIF `STRINDEX("($datfile)","LIS_HIST") EQ 1`
+ DEFINE SYMBOL datcmp LIS
+ DEFINE SYMBOL datfld ($varname)
+ELSE
+ DEFINE SYMBOL ext    `STRRINDEX("($datfile)",".nc")`
+ DEFINE SYMBOL sub    `SUBSTRING("($datfile)",1,($ext)-1)`
+ DEFINE SYMBOL fnd    `STRINDEX("($sub)","_")`
+ DEFINE SYMBOL datcmp `UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
+ DEFINE SYMBOL datfld ($varname)
+ENDIF
+
+CANCEL SYMBOL ext
+CANCEL SYMBOL len
+CANCEL SYMBOL fnd
+CANCEL SYMBOL sub
+
+! Load Data
+USE $2
+
+IF `($vari) GT 0` THEN
+ DEFINE SYMBOL vartitle `titles[d=1,x=($vari)]`
+ DEFINE SYMBOL varunits `units[d=1,x=($vari)]`
+ELSE
+ MESSAGE/ERROR ERROR: Variable [($varname)] missing in ($varfile)
+ QUIT
+ENDIF
+DEFINE SYMBOL varjsize `($varname)[d=2],return=jsize`
+DEFINE SYMBOL varksize `($varname)[d=2],return=ksize`
+DEFINE SYMBOL varlsize `($varname)[d=2],return=lsize`
+IF `($slice) GT ($varjsize) GT 1` THEN
+ IF `($slice) GT ($varksize) GT 1` THEN
+  IF `($slice) GT ($varlsize) GT 1` THEN
+   MESSAGE/ERROR ERROR: Variable slice is out of bounds [($slice)]
+   QUIT
+  ELSE
+   DEFINE SYMBOL varslice J=1/K=1/L=($slice)
+  ENDIF
+ ELSE
+  DEFINE SYMBOL varslice J=1/K=($slice)/L=1
+ELSE
+ DEFINE SYMBOL varslice J=($slice)/K=1/L=1
+ENDIF
+
+DEFINE SYMBOL plotfile plot_($datcmp)_($datfld)_($slice).gif
+DEFINE SYMBOL plottitle ($datcmp) ($vartitle) ($varunits) at ($slice)
+
+! Create Plot for single level forcing variables
+SAY *** Plotting ($varname) at ($varslice) ***
+SET VARIABLE/BAD=-9999/TITLE="($vartitle)" ($varname)[d=2]
+PLOT/($varslice)/TITLE="($plottitle)" ($varname)[d=2]
+FRAME/FILE=($plotfile)
+
+EXIT
