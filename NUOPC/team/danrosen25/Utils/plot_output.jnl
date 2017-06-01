@@ -7,6 +7,8 @@
 
 CANCEL MODE LOGO
 
+DEFINE SYMBOL usage ferret -gif -script [scales] [data] [variable] [slice/layer]
+
 ! Read in command line arguments
 DEFINE SYMBOL varfile $1%missing% ! [scales.dat]
 DEFINE SYMBOL datfile $2%missing% ! [field_med_from_cmp_field.nc]
@@ -66,13 +68,13 @@ IF `STRINDEX("($datfile)","field_med_") EQ 1` THEN
  DEFINE SYMBOL datcmp ($datcmp)_`UPCASE(SUBSTRING("($sub)",1,($fnd)-1))`
  DEFINE SYMBOL len    `STRLEN("($sub)")`
  DEFINE SYMBOL datfld `SUBSTRING("($sub)",($fnd)+1,($len)-($fnd)+1)`
-ELIF `STRINDEX("($datfile)","HYDRO_RST") EQ 1`
+ELIF `STRINDEX("($datfile)","HYDRO_RST") EQ 1` THEN
  DEFINE SYMBOL datcmp WRF-Hydro
  DEFINE SYMBOL datfld ($varname)
-ELIF `STRINDEX("($datfile)","CHRTOUT") GT 0`
+ELIF `STRINDEX("($datfile)","CHRTOUT") GT 0` THEN
  DEFINE SYMBOL datcmp WRF-Hydro
  DEFINE SYMBOL datfld ($varname)
-ELIF `STRINDEX("($datfile)","LIS_HIST") EQ 1`
+ELIF `STRINDEX("($datfile)","LIS_HIST") EQ 1` THEN
  DEFINE SYMBOL datcmp LIS
  DEFINE SYMBOL datfld ($varname)
 ELSE
@@ -111,6 +113,7 @@ IF `($slice) GT ($varjsize) GT 1` THEN
   ENDIF
  ELSE
   DEFINE SYMBOL varslice J=1/K=($slice)/L=1
+ ENDIF
 ELSE
  DEFINE SYMBOL varslice J=($slice)/K=1/L=1
 ENDIF

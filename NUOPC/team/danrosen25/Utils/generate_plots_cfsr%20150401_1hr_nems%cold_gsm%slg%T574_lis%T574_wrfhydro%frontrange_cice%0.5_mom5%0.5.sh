@@ -1,8 +1,26 @@
 #!/bin/bash
 
+module load ferret
+
 SHADE="shade_output.jnl"
 PLOT="plot_output.jnl"
 VARIABLES="variables.dat"
+
+if [ ! -r $SHADE ]
+then
+ echo "ERROR MISSING FILE: $SHADE"
+ exit 1
+fi
+if [ ! -r $PLOT ]
+then
+ echo "ERROR MISSING FILE: $PLOT"
+ exit 1
+fi
+if [ ! -r $VARIABLES ]
+then
+ echo "ERROR MISSING FILE: $VARIABLES"
+ exit 1
+fi
 
 MED_SLICE=4
 MED_ATM_LON="array_med_atm_grid_coord1.nc"
@@ -47,8 +65,8 @@ WRFHYDRO_RTLAT="Fulldom_hires_hydrofile_ohd_new_basns_w_cal_params_full_domain.n
 ln -sf $LIS_INDIR/$LIS_LON .
 ln -sf $LIS_INDIR/$LIS_LAT .
 ln -sf $LIS_OUTDIR/$LIS_FILE .
-ln -sf $WRFHYDRO_DOMDIR/$WRFHYDRO_LSMLON
-ln -sf $WRFHYDRO_DOMDIR/$WRFHYDRO_LSMLAT
+ln -sf $WRFHYDRO_DOMDIR/$WRFHYDRO_LSMLON ${WRFHYDRO_LSMLON}.nc
+ln -sf $WRFHYDRO_DOMDIR/$WRFHYDRO_LSMLAT ${WRFHYDRO_LSMLAT}.nc
 ln -sf $WRFHYDRO_DOMDIR/$WRFHYDRO_RTLON
 ln -sf $WRFHYDRO_DOMDIR/$WRFHYDRO_RTLAT
 

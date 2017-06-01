@@ -8,6 +8,8 @@
 
 CANCEL MODE LOGO
 
+DEFINE SYMBOL usage ferret -gif -script [scales] [data] [longitude] [latitude] [variable] [slice/layer]
+
 ! Read in command line arguments
 DEFINE SYMBOL varfile $1%missing% ! [scales.dat]
 DEFINE SYMBOL datfile $2%missing% ! [field_med_from_cmp_field.nc]
@@ -63,7 +65,7 @@ IF `STRINDEX("($lonfile)","_grid_") GT 1` THEN
 ELIF `STRINDEX("($lonfile)","wrfinput") EQ 1` THEN
  DEFINE SYMBOL lonvar XLONG
 ELIF `STRINDEX("($lonfile)","Fulldom") EQ 1` THEN
- DEFINE SYMBOL lonvar LONGITUTDE
+ DEFINE SYMBOL lonvar LONGITUDE
 ELSE
  DEFINE SYMBOL lonvar lon
 ENDIF
@@ -191,6 +193,10 @@ ENDIF
 
 DEFINE SYMBOL plotfile shade_($datcmp)_($datfld)_($slice).gif
 DEFINE SYMBOL plottitle ($datcmp) ($vartitle) ($varunits) at ($slice)
+
+IF `"($varname)" EQ "streamflow"` THEN 
+ SET MEMORY/SIZE=100
+ENDIF
 
 ! Create SHADE plots for single level forcing variables
 SAY *** Plotting ($varname) at ($varslice) scale ($varlevels) ***

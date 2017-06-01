@@ -15,12 +15,12 @@ NAME,TITLE,MIN,MAX,STEP,MINOL,MAXOL
 "inst_down_sw_flx","Shortwave Flux","W m-2",0,900,15,0,2000
 "Qair_f_tavg",                  "Specific Humidity","kg kg-1",0.000,0.020,0.0005,0.0,0.05
 "inst_spec_humid_height_lowest","Specific Humidity","kg kg-1",0.000,0.020,0.0005,0.0,0.05
-"Qs_acc",             "Surface Runoff","m s-1",0.000000,0.000009,0.00000015,0.000000,0.010000
+"Qs_acc",             "Surface Runoff","kg m-2 s-1",0.000000,0.000009,0.00000015,0.000000,0.010000
 "surface_runoff_flux","Surface Runoff","m s-1",0.000000,0.000009,0.00000015,0.000000,0.010000
-"infxsrt","Surface Runoff","m s-1",,0.000000,0.000009,0.00000015,0.000000,0.010000
-"Qsb_acc",               "Subsurface Runoff","m s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
+"infxsrt","Surface Runoff","mm",0.000000,0.000009,0.00000015,0.000000,0.010000
+"Qsb_acc",               "Subsurface Runoff","kg m-2 s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
 "subsurface_runoff_flux","Subsurface Runoff","m s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
-"soldrain",,"Subsurface Runoff","m s-1",0.000000,0.000100,0.00000200,0.000000,0.001000
+"soldrain","Subsurface Runoff","mm",0.000000,0.000100,0.00000200,0.000000,0.001000
 "SmLiqFrac_tavg",                      "Liquid Fraction of Soil Moisture","m3 m-3",   0.100,0.300,0.004,0.000,0.500
 "liquid_water_content_of_soil_layer_1","Liquid Fraction of Soil Moisture L1","m3 m-3",0.100,0.300,0.004,0.000,0.500
 "liquid_water_content_of_soil_layer_2","Liquid Fraction of Soil Moisture L2","m3 m-3",0.170,0.230,0.001,0.000,0.500
