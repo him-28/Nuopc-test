@@ -1,0 +1,7 @@
+ The performance tool, perf_tool.py, can be used to config, build and run a model with many PETs and find the NUOPC overhead. The tool can also plot the NUOPC overhead.
+
+An example 
+============
+
+python3 ./perf_tool.py --configure-script="./config_script.sh" --build-script="./build_script.sh" --exe="/home/user/NUOPCProtos/AtmOcnProto/esmApp" --nodes=5 --pet-start=1 --pet-end=6 --pet-stride=2 --batch-system="default" --out="gnuplot" --verbose=1 |& tee run_log.txt
+

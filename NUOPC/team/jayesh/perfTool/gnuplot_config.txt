@@ -1,0 +1,6 @@
+set term png;
+set output "overhead.png";
+set title "NUOPC Overhead";
+set xlabel "npets";
+set ylabel "Overhead (microseconds)";
+plot 'tracedata.txt' with linespoints;

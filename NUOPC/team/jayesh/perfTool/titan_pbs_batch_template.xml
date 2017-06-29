@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<batch_system_info>
+  <!-- Batch system header (if needed) -->
+  <!-- NUOPC_PERF_TOOL_NNODES will be replaced
+       by the tool with the number of nodes
+       requested by the user
+  -->
+  <batch_system_header>
+#!/bin/tcsh
+#PBS -A cli113
+#PBS -N NUOPC_perftool_test
+#PBS -j oe
+#PBS -l walltime=01:00:00,nodes=NUOPC_PERF_TOOL_NNODES
+  </batch_system_header>
+  <!-- The mpiexec command used by the batch system
+       NUOPC_PERF_TOOL_NPETS will be replaced by the 
+          number of PETs by the perf tool
+       NUOPC_PERF_TOOL_APP_EXE will be replaced by
+          the full path of the application executable
+  -->
+  <mpiexec_command> aprun -n NUOPC_PERF_TOOL_NPETS NUOPC_PERF_TOOL_APP_EXE </mpiexec_command>
+  <batch_submit_command> qsub </batch_submit_command>
+</batch_system_info>
