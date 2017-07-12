@@ -20,6 +20,10 @@ class TraceAnalyzer(object):
     #   'region2' : {...} }
     self._overall_regstats = {}
 
+    # Per trace Overall NUOPC run overhead PET stats
+    # {0:{'call_overhead_sum':S, 'call_count':N}}
+    self._overall_nuopc_run_overhead = {}
+
     # dictionary of per trace call stacks, keyed on PET number
     self._callstacks = {}
 
@@ -59,9 +63,14 @@ class TraceAnalyzer(object):
     self.print_trace()
 
   def read_trace(self, trace_dir_name):
+    REGEX_NUOPC_RUN_REGNAME = r"^NUOPC_ModelBase:Run$"
+    REGEX_COMP_ADVANCE_REGNAME = r"^((?!NUOPC).)*ModelAdvance$"
+    self._overall_nuopc_run_overhead = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
+
     npets = 0
     self._petstats = {}
     self._overall_regstats = {}
+    self._overall_nuopc_run_overhead = {}
     self._callstacks = {}
     traces = TraceCollection()
     trace_handle = traces.add_trace(trace_dir_name, "ctf")
@@ -100,15 +109,16 @@ class TraceAnalyzer(object):
         stats = self._petstats.get(pet)
         if stats is None:
           stats = {}
-          self._petstats[pet] = stats
 
         statsReg = stats.get(regname)
         if statsReg is None:
           statsReg = {'min':sys.maxsize, 'max':-1, 'count':0, 'sum':0}
-          stats[regname] = statsReg
 
         statsReg['count'] = statsReg['count'] + 1
         statsReg['sum'] = statsReg['sum'] + total_time
+
+        stats[regname] = statsReg
+        self._petstats[pet] = stats
 
         if total_time < statsReg['min']:
           statsReg['min'] = total_time
@@ -130,6 +140,22 @@ class TraceAnalyzer(object):
         overall_regstat['sum'] = overall_regstat['sum'] + total_time
         overall_regstat['count'] = overall_regstat['count'] + 1
 
+        pet_overall_nuopc_run_overhead = self._overall_nuopc_run_overhead.get(pet)
+        if pet_overall_nuopc_run_overhead is None:
+          pet_overall_nuopc_run_overhead = {'call_overhead_sum':0, 'call_count':0}
+
+        #NUOPC avg run overhead = Max (Sum (NUOPC_ModelBase:Run) - Sum(Component Model Advance routines) ) / Number of calls to NUOPC_ModelBase:Run
+        if re.search(REGEX_NUOPC_RUN_REGNAME,regname): 
+          #print(regname, " is a NUOPC run region: ", total_time, " : ", pet, "\n")
+          pet_overall_nuopc_run_overhead['call_overhead_sum'] = pet_overall_nuopc_run_overhead['call_overhead_sum'] + total_time
+          pet_overall_nuopc_run_overhead['call_count'] = pet_overall_nuopc_run_overhead['call_count'] + 1
+
+        if re.search(REGEX_COMP_ADVANCE_REGNAME,regname): 
+          #print(regname, " is a Comp advance region: ", total_time, " : ", pet, "\n")
+          pet_overall_nuopc_run_overhead['call_overhead_sum'] = pet_overall_nuopc_run_overhead['call_overhead_sum'] - total_time
+
+        self._overall_nuopc_run_overhead[pet] = pet_overall_nuopc_run_overhead
+
 
     # compute averages
     for p in self._petstats.keys(): # list of PETs
@@ -138,13 +164,21 @@ class TraceAnalyzer(object):
         statsReg = stats[r]
         statsReg['avg'] = statsReg['sum'] / statsReg['count']
     
-    # compute total average overhead
-    total_avg_overhead = 0
-    for r in self._overall_regstats.keys():
-      sts = self._overall_regstats[r]
-      total_avg_overhead += (sts["sum"]/sts["count"])/1000
+    # compute max NUOPC run overhead
+    max_overhead = 0
+    max_pet_overhead_sum = 0
+    max_pet_overhead_count = 0
+    for p in self._overall_nuopc_run_overhead.keys():
+      pet_overall_nuopc_run_overhead = self._overall_nuopc_run_overhead[p]
+      #print("Overhead ", pet_overall_nuopc_run_overhead['call_overhead_sum'], " : ", pet_overall_nuopc_run_overhead['call_count'], " : ", p)
+      if pet_overall_nuopc_run_overhead['call_overhead_sum'] > max_pet_overhead_sum:
+        max_pet_overhead_sum = pet_overall_nuopc_run_overhead['call_overhead_sum']
+        max_pet_overhead_count = pet_overall_nuopc_run_overhead['call_count']
 
-    return (npets, total_avg_overhead)
+    if max_pet_overhead_count > 0:
+      max_overhead = (max_pet_overhead_sum / max_pet_overhead_count)/1000
+
+    return (npets, max_overhead)
 
   def print_trace(self):
     # print table
