@@ -35,12 +35,12 @@ class TraceAnalyzer(object):
 
   def read_all_trace(self, trace_dir_name):
     regex = r"(.*)_npets_([0-9]+)"
-    for trace_dir_name in glob.glob("./traceout_npets_*"):
-      if re.search(regex, trace_dir_name): 
-        match = re.search(regex, trace_dir_name)
+    for trace_dir_name in glob.glob("./traceout*"):
+      #if re.search(regex, trace_dir_name): 
+      #  match = re.search(regex, trace_dir_name)
         #npets = int(match.group(2))
-        npets, time_overhead = self.read_trace(trace_dir_name)
-        self._total_avg_overhead.append((npets,time_overhead))
+      npets, time_overhead = self.read_trace(trace_dir_name)
+      self._total_avg_overhead.append((npets,time_overhead))
         #print(str(npets) + "\t" + str(time_overhead))
     # Sort by npets
     self._total_avg_overhead = sorted(self._total_avg_overhead, key=itemgetter(0))
