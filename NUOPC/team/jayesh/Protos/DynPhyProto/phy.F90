@@ -330,6 +330,9 @@ module PHY
 #endif
     rc = ESMF_SUCCESS
     
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionEnter("PHY:ModelGet")
+#endif
     ! query the Component for its clock, importState and exportState
     call NUOPC_ModelGet(model, modelClock=clock, importState=importState, &
       exportState=exportState, rc=rc)
@@ -338,6 +341,9 @@ module PHY
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionExit("PHY:ModelGet")
+#endif
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
     ! Because of the way that the internal Clock was set by default,
@@ -387,13 +393,25 @@ module PHY
       file=__FILE__)) &
       return  ! bail out    
     if (itemType==ESMF_STATEITEM_FIELD) then
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_StateGet")
+#endif
       call ESMF_StateGet(exportState, field=field, itemName="PHYEX", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out    
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_StateGet")
+#endif
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_FieldFill")
+#endif
       call ESMF_FieldFill(field, dataFillScheme="sincos", member=5, step=step, &
         rc=rc)
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_FieldFill")
+#endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -402,18 +420,30 @@ module PHY
     ! write out the Fields in the importState
     status=ESMF_FILESTATUS_OLD
     if (step==1) status=ESMF_FILESTATUS_REPLACE
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_WriteImport")
+#endif
     call NUOPC_Write(importState, fileNamePrefix="field_phy_import_adv_", &
       timeslice=step, status=status, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_WriteImport")
+#endif
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_WriteExport")
+#endif
     call NUOPC_Write(exportState, fileNamePrefix="field_phy_export_adv_", &
       timeslice=step, status=status, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_WriteExport")
+#endif
     ! increment step counter
     step=step+1
 

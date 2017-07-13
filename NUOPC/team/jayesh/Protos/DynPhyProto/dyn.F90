@@ -390,6 +390,9 @@ module DYN
 #endif
     rc = ESMF_SUCCESS
     
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionEnter("DYN:ModelGet")
+#endif
     ! query the Component for its clock, importState and exportState
     call NUOPC_ModelGet(model, modelClock=clock, importState=importState, &
       exportState=exportState, rc=rc)
@@ -398,6 +401,9 @@ module DYN
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionExit("DYN:ModelGet")
+#endif
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
     ! Because of the way that the internal Clock was set by default,
@@ -422,18 +428,30 @@ module DYN
     ! write out the Fields in the importState
     status=ESMF_FILESTATUS_OLD
     if (step==1) status=ESMF_FILESTATUS_REPLACE
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_WriteImport")
+#endif
     call NUOPC_Write(importState, fileNamePrefix="field_dyn_import_adv_", &
       timeslice=step, status=status, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_WriteImport")
+#endif
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_WriteExport")
+#endif
     call NUOPC_Write(exportState, fileNamePrefix="field_dyn_export_adv_", &
       timeslice=step, status=status, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_WriteExport")
+#endif
     ! increment step counter
     step=step+1
 
