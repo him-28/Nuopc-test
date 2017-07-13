@@ -200,7 +200,7 @@ class TraceAnalyzer(object):
         print(row)
 
     print("\n")
-    print(("="*28 + " OVERALL STATISTICS FOR REGIONS (times in microseconds) " + "="*26).format(p))        
+    print(("="*28 + " OVERALL STATISTICS FOR REGIONS (times in microseconds) " + "="*26))        
     col_headers = ["Region", "Min (incl)", "Min PET", "Max (incl)", "Max PET", "Avg (incl)"]
     print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12}".format(*col_headers))
     print("="*100)
