@@ -128,6 +128,8 @@ module PHY
     ! exportable field: PHYEX
     call NUOPC_Advertise(exportState, StandardName="PHYEX", &
       TransferOfferField="can provide", SharePolicyField="share", rc=rc)
+    !call NUOPC_Advertise(exportState, StandardName="PHYEX", &
+    !  rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -322,6 +324,10 @@ module PHY
     type(ESMF_FileStatus_Flag)    :: status
     type(ESMF_StateItem_Flag)     :: itemType
 
+#define NUOPC_TRACE
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionEnter("PHY:ModelAdvance")
+#endif
     rc = ESMF_SUCCESS
     
     ! query the Component for its clock, importState and exportState
@@ -411,6 +417,9 @@ module PHY
     ! increment step counter
     step=step+1
 
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionExit("PHY:ModelAdvance")
+#endif
   end subroutine
 
 end module

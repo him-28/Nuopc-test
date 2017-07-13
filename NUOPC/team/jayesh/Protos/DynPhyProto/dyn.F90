@@ -117,6 +117,8 @@ module DYN
     ! importable field: PHYEX
     call NUOPC_Advertise(importState, StandardName="PHYEX", &
       SharePolicyField="share", rc=rc)
+    !call NUOPC_Advertise(importState, StandardName="PHYEX", &
+    !  rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -382,6 +384,10 @@ module DYN
     integer, save                 :: step=1
     type(ESMF_FileStatus_Flag)    :: status
 
+#define NUOPC_TRACE
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionEnter("DYN:ModelAdvance")
+#endif
     rc = ESMF_SUCCESS
     
     ! query the Component for its clock, importState and exportState
@@ -431,6 +437,9 @@ module DYN
     ! increment step counter
     step=step+1
 
+#ifdef NUOPC_TRACE
+    call ESMF_TraceRegionExit("DYN:ModelAdvance")
+#endif
   end subroutine
 
 end module
