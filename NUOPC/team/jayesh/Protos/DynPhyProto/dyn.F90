@@ -161,7 +161,7 @@ module DYN
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/100, 100/), &
+    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/512, 512/), &
       minCornerCoord=(/0._ESMF_KIND_R8, -50._ESMF_KIND_R8/), &
       maxCornerCoord=(/360._ESMF_KIND_R8, 90._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &

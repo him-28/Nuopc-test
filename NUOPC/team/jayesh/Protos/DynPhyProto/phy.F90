@@ -155,7 +155,7 @@ module PHY
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/1000, 100/), &
+    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/1024, 512/), &
       minCornerCoord=(/0._ESMF_KIND_R8, -20._ESMF_KIND_R8/), &
       maxCornerCoord=(/360._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
