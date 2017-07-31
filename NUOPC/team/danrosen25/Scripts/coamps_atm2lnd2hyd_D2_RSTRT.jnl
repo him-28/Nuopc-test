@@ -1,0 +1,276 @@
+ ! NOAA/PMEL TMAP
+ ! FERRET v7 (optimized)
+ ! Darwin 15.6.0 64-bit - 07/26/16
+ !  5-Jul-17 22:39     
+
+CANCEL MODE LOGO
+
+DEFINE SYMBOL prefix = atm2lnd2hyd
+DEFINE SYMBOL atmImpOn = 0
+DEFINE SYMBOL lndImpOn = 0
+DEFINE SYMBOL hydImpOn = 0
+DEFINE SYMBOL atmExpOn = 1
+DEFINE SYMBOL lndExpOn = 1
+DEFINE SYMBOL hydExpOn = 0
+DEFINE SYMBOL domain = D2
+DEFINE SYMBOL filestr = 12
+DEFINE SYMBOL fileinc = 12
+
+LET atmImp_files = {                              \
+"ATM_RSTRT_IMP_2011-08-26T12:00:00_($domain).nc", \
+"ATM_RSTRT_IMP_2011-08-27T00:00:00_($domain).nc", \
+"ATM_RSTRT_IMP_2011-08-27T12:00:00_($domain).nc", \
+"ATM_RSTRT_IMP_2011-08-28T00:00:00_($domain).nc", \
+"ATM_RSTRT_IMP_2011-08-28T12:00:00_($domain).nc", \
+"ATM_RSTRT_IMP_2011-08-29T00:00:00_($domain).nc"  \
+}
+
+LET lndImp_files = {                              \
+"LND_RSTRT_IMP_2011-08-26T12:00:00_($domain).nc", \
+"LND_RSTRT_IMP_2011-08-27T00:00:00_($domain).nc", \
+"LND_RSTRT_IMP_2011-08-27T12:00:00_($domain).nc", \
+"LND_RSTRT_IMP_2011-08-28T00:00:00_($domain).nc", \
+"LND_RSTRT_IMP_2011-08-28T12:00:00_($domain).nc", \
+"LND_RSTRT_IMP_2011-08-29T00:00:00_($domain).nc"  \
+}
+
+LET hydImp_files = {                              \
+}
+
+LET atmExp_files = {                              \
+"ATM_RSTRT_EXP_2011-08-26T12:00:00_($domain).nc", \
+"ATM_RSTRT_EXP_2011-08-27T00:00:00_($domain).nc", \
+"ATM_RSTRT_EXP_2011-08-27T12:00:00_($domain).nc", \
+"ATM_RSTRT_EXP_2011-08-28T00:00:00_($domain).nc", \
+"ATM_RSTRT_EXP_2011-08-28T12:00:00_($domain).nc", \
+"ATM_RSTRT_EXP_2011-08-29T00:00:00_($domain).nc"  \
+}
+
+LET lndExp_files = {                              \
+"LND_RSTRT_EXP_2011-08-26T12:00:00_($domain).nc", \
+"LND_RSTRT_EXP_2011-08-27T00:00:00_($domain).nc", \
+"LND_RSTRT_EXP_2011-08-27T12:00:00_($domain).nc", \
+"LND_RSTRT_EXP_2011-08-28T00:00:00_($domain).nc", \
+"LND_RSTRT_EXP_2011-08-28T12:00:00_($domain).nc", \
+"LND_RSTRT_EXP_2011-08-29T00:00:00_($domain).nc"  \
+}
+
+LET hydExp_files = {                              \
+}
+
+LET atmImp_fields = { \
+"albed",              \
+"lheat",              \
+"q1",                 \
+"qg",                 \
+"sh2o1",              \
+"sh2o2",              \
+"sh2o3",              \
+"sh2o4",              \
+"sheat",              \
+"smc1",               \
+"smc2",               \
+"smc3",               \
+"smc4",               \
+"sncovr",             \
+"snowd",              \
+"stc1",               \
+"stc2",               \
+"stc3",               \
+"stc4",               \
+"t1"                  \
+}
+
+LET lndImp_fields = { \
+"ewind_f",            \
+"lwdown_f",           \
+"nwind_f",            \
+"psurf_f",            \
+"qair_f",             \
+"rainf_f",            \
+"swdown_f",           \
+"swnet_f",            \
+"tair_f"              \
+}
+
+Let hydImp_fields = {                      \
+}
+
+Let atmExp_fields = { \
+"lwdown",             \
+"psurf",              \
+"rrt",                \
+"sfcshm",             \
+"sfctmp",             \
+"solflx",             \
+"swdown",             \
+"uutrue",             \
+"vvtrue"              \
+}
+
+Let lndExp_fields = { \
+"albedo_snwff",       \
+"avgsurft",           \
+"effmixratio",        \
+"qg",                 \
+"qh",                 \
+"qle",                \
+"smfracl1",           \
+"smfracl2",           \
+"smfracl3",           \
+"smfracl4",           \
+"smliqfracl1",        \
+"smliqfracl2",        \
+"smliqfracl3",        \
+"smliqfracl4",        \
+"snowcover",          \
+"snowdepth",          \
+"soiltempl1",         \
+"soiltempl2",         \
+"soiltempl3",         \
+"soiltempl4"          \
+}
+
+Let hydExp_fields = {                      \
+}
+
+!  Create SHADE plots for ATM import.
+IF `($atmImpOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`atmImp_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `atmImp_files[i=($fileindex)]`; \
+SAY ATM Import ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`atmImp_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `atmImp_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_AtmImp_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+!  Create SHADE plots for ATM export.
+IF `($atmExpOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`atmExp_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `atmExp_files[i=($fileindex)]`; \
+SAY ATM Export ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`atmExp_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `atmExp_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_AtmExp_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+!  Create SHADE plots for LND import.
+IF `($lndImpOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`lndImp_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `lndImp_files[i=($fileindex)]`; \
+SAY LND Import ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`lndImp_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `lndImp_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_LndImp_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+!  Create SHADE plots for LND export.
+IF `($lndExpOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`lndExp_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `lndExp_files[i=($fileindex)]`; \
+SAY LND Export ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`lndExp_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `lndExp_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_LndExp_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+!  Create SHADE plots for HYD import.
+IF `($hydImpOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`hydImp_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `hydImp_files[i=($fileindex)]`; \
+SAY HYD Import ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`hydImp_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `hydImp_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_HydImp_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+!  Create SHADE plots for HYD export.
+IF `($hydExpOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`hydExp_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `hydExp_files[i=($fileindex)]`; \
+SAY HYD Export ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`hydExp_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `hydExp_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_HydExp_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+EXIT
+

@@ -1,0 +1,257 @@
+ ! NOAA/PMEL TMAP
+ ! FERRET v7 (optimized)
+ ! Darwin 15.6.0 64-bit - 07/26/16
+ !  5-Jul-17 22:39     
+
+CANCEL MODE LOGO
+
+DEFINE SYMBOL prefix = atm2lnd2hyd_0_5
+DEFINE SYMBOL lisHistOn = 1
+DEFINE SYMBOL lisRstOn = 0
+DEFINE SYMBOL hydroRstOn = 1
+DEFINE SYMBOL hydroChrtOn = 1
+DEFINE SYMBOL domain = D3
+DEFINE SYMBOL lisDom = d03
+DEFINE SYMBOL hydroDom = DOMAIN3
+DEFINE SYMBOL chrtDom = GRID3
+DEFINE SYMBOL filestr = 12
+DEFINE SYMBOL fileinc = 12
+DEFINE SYMBOL chrtCoord = fulldom_hires_hydrofile.hyccap.lis.d03.nc
+
+LET lisHist_files = {                  \
+"LIS_HIST_201108261200.($lisDom).nc",  \
+"LIS_HIST_201108270000.($lisDom).nc",  \
+"LIS_HIST_201108271200.($lisDom).nc",  \
+"LIS_HIST_201108280000.($lisDom).nc",  \
+"LIS_HIST_201108281200.($lisDom).nc",  \
+"LIS_HIST_201108290000.($lisDom).nc"   \
+}
+
+LET lisRst_files = {                  \
+"LIS_RST_NOAH33_201108261200.($lisDom).nc",  \
+"LIS_RST_NOAH33_201108270000.($lisDom).nc",  \
+"LIS_RST_NOAH33_201108271200.($lisDom).nc",  \
+"LIS_RST_NOAH33_201108280000.($lisDom).nc",  \
+"LIS_RST_NOAH33_201108281200.($lisDom).nc",  \
+"LIS_RST_NOAH33_201108290000.($lisDom).nc"   \
+}
+
+LET hydroRst_files = {                    \
+"HYDRO_RST.2011-08-26_12:00_($hydroDom)", \
+"HYDRO_RST.2011-08-27_00:00_($hydroDom)", \
+"HYDRO_RST.2011-08-27_12:00_($hydroDom)", \
+"HYDRO_RST.2011-08-28_00:00_($hydroDom)", \
+"HYDRO_RST.2011-08-28_12:00_($hydroDom)", \
+"HYDRO_RST.2011-08-29_00:00_($hydroDom)"  \
+}
+
+LET hydroChrt_files = {            \
+"201108261200.CHRTOUT_($chrtDom)", \
+"201108270000.CHRTOUT_($chrtDom)", \
+"201108271200.CHRTOUT_($chrtDom)", \
+"201108280000.CHRTOUT_($chrtDom)", \
+"201108281200.CHRTOUT_($chrtDom)", \
+"201108290000.CHRTOUT_($chrtDom)"  \
+}
+
+LET lisHist_fields = { \
+"Qs_acc",          \
+"Qsb_acc",         \
+"Rainf_f_inst",    \
+"Tair_f_tavg",     \
+"Qair_f_tavg",     \
+"Psurf_f_tavg",    \
+"SWdown_f_tavg",   \
+"LWdown_f_tavg",   \
+"NWind_f_inst",    \
+"EWind_f_inst"     \
+}
+
+LET lisRst_fields = { \
+"T1",                 \
+"CMC",                \
+"SNOWH",              \
+"SNEQV",              \
+"CM",                 \
+"CH",                 \
+"Z0",                 \
+"EMISS",              \
+"ALBEDO",             \
+"SNOTIME1",           \
+"Q1"                  \
+}
+
+LET lisHistSoil_fields = { \
+"SoilMoist_inst",   \
+"SoilTemp_tavg",    \
+"SmLiqFrac_tavg"    \
+}
+
+LET lisRstSoil_fields = { \
+"STC",                    \
+"SMC",                    \
+"SH2O"                    \
+}
+
+Let hydroRst_fields = { \
+"stc1",              \
+"stc2",              \
+"stc3",              \
+"stc4",              \
+"smc1",              \
+"smc2",              \
+"smc3",              \
+"smc4",              \
+"sh2ox1",            \
+"sh2ox2",            \
+"sh2ox3",            \
+"sh2ox4",            \
+"infxsrt",           \
+"soldrain",          \
+"sfcheadrt"          \
+}
+
+LET hydroChrt_fields = { \
+"streamflow"             \
+}
+
+! Create SHADE plots for single level LIS output variables
+IF `($lisHistOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`lisHist_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `lisHist_files[i=($fileindex)]`; \
+SAY LIS HIST ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`lisHist_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `lisHist_fields[i=($fieldindex)]`; \
+SHADE ($field); \
+FRAME/FILE=($prefix)_LisHist_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+! Create SHADE plots for multi level LIS output variables
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`lisHist_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `lisHist_files[i=($fileindex)]`; \
+SAY LIS HIST SOIL ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`lisHistSoil_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `lisHistSoil_fields[i=($fieldindex)]`; \
+REPEAT/RANGE=1:`($field),return=ksize`:1/NAME=soillevelctr ( \
+DEFINE SYMBOL soillevel `soillevelctr`; \
+SHADE/K=($soillevel) ($field); \
+FRAME/FILE=($prefix)_LisHist_($field)_($soillevel)_($fileind).($domain).gif \
+); ); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+! Create SHADE plots for single level LIS output variables
+IF `($lisRstOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`lisRst_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `lisRst_files[i=($fileindex)]`; \
+SAY LIS RESTART ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`lisRst_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `lisRst_fields[i=($fieldindex)]`; \
+PLOT ($field); \
+FRAME/FILE=($prefix)_LisRst_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+! Create SHADE plots for multi level LIS output variables
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`lisRst_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `lisRst_files[i=($fileindex)]`; \
+SAY LIS RESTART SOIL ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`lisRstSoil_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `lisRstSoil_fields[i=($fieldindex)]`; \
+REPEAT/RANGE=1:`($field),return=jsize`:1/NAME=soillevelctr ( \
+DEFINE SYMBOL soillevel `soillevelctr`; \
+PLOT/J=($soillevel) ($field); \
+FRAME/FILE=($prefix)_LisRst_($field)_($soillevel)_($fileind).($domain).gif \
+); ); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+! Create SHADE plots for HYDRO RESTART variables
+IF `($hydroRstOn) GT 0` THEN
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`hydroRst_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `hydroRst_files[i=($fileindex)]`; \
+SAY HYDRO RESTART ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`hydroRst_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `hydroRst_fields[i=($fieldindex)]`; \
+SHADE ignore0(($field)); \
+FRAME/FILE=($prefix)_HydroRst_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 1; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+! Create SHADE plots for HYDRO CHRT output
+IF `($hydroChrtOn) GT 0` THEN
+
+SET MEMORY/SIZE=300
+USE ($chrtCoord)
+
+DEFINE SYMBOL fileind ($filestr)
+
+REPEAT/RANGE=1:`hydroChrt_files,return=isize`:1/NAME=filectr ( \
+DEFINE SYMBOL fileindex `filectr`; \
+DEFINE SYMBOL file `hydroChrt_files[i=($fileindex)]`; \
+SAY HYDRO CHRT ($file) @ ($fileind); \
+USE ($file); \
+REPEAT/RANGE=1:`hydroChrt_fields,return=isize`:1/NAME=fieldctr ( \
+DEFINE SYMBOL fieldindex `fieldctr`; \
+DEFINE SYMBOL field `hydroChrt_fields[i=($fieldindex)]`; \
+SHADE/LEVELS="(0)(0,300,5)(999999)" ignore0(($field)[d=2]), \
+LONGITUDE[d=1], LATITUDE[d=1]; \
+FRAME/FILE=($prefix)_HydroChrt_($field)_($fileind).($domain).gif \
+); \
+CANCEL DATA 2; \
+DEFINE SYMBOL fileind `($fileind) + ($fileinc)`; \
+IF `STRLEN("($fileind)") LT 2` THEN DEFINE SYMBOL fileind 0($fileind) ENDIF; \
+)
+
+ENDIF
+
+EXIT
+
