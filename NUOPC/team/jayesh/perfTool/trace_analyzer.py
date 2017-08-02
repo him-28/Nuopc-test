@@ -7,6 +7,8 @@ from babeltrace import *
 
 class TraceAnalyzer(object):
   def __init__(self, exe_dir_name):
+    if exe_dir_name is None:
+      exe_dir_name = "."
     self.exe_dir_name = exe_dir_name
     # dictionary of per trace statistics, keyed on PET number
     #
@@ -33,9 +35,10 @@ class TraceAnalyzer(object):
     # Read all the traces in the directory, exe_dir_name
     self.read_all_trace(exe_dir_name)
 
-  def read_all_trace(self, trace_dir_name):
+  def read_all_trace(self, exe_dir_name):
     regex = r"(.*)_npets_([0-9]+)"
-    for trace_dir_name in glob.glob("./traceout*"):
+    #print("Searching for traces in "+ exe_dir_name.strip())
+    for trace_dir_name in glob.glob(exe_dir_name+"/traceout*"):
       #if re.search(regex, trace_dir_name): 
       #  match = re.search(regex, trace_dir_name)
         #npets = int(match.group(2))
@@ -67,6 +70,7 @@ class TraceAnalyzer(object):
     REGEX_COMP_ADVANCE_REGNAME = r"^((?!NUOPC).)*ModelAdvance$"
     self._overall_nuopc_run_overhead = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
 
+    #print("Reading trace in "+trace_dir_name)
     npets = 0
     self._petstats = {}
     self._overall_regstats = {}
