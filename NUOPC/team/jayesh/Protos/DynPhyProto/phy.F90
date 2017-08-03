@@ -155,9 +155,9 @@ module PHY
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/1024, 512/), &
-      minCornerCoord=(/0._ESMF_KIND_R8, -20._ESMF_KIND_R8/), &
-      maxCornerCoord=(/360._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
+    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/512, 512/), &
+      minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
+      maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -311,8 +311,15 @@ module PHY
   end subroutine
 
   !-----------------------------------------------------------------------------
-
   subroutine ModelAdvance(model, rc)
+    type(ESMF_GridComp)  :: model
+    integer, intent(out) :: rc
+
+    rc = ESMF_SUCCESS
+
+  end subroutine
+
+  subroutine ModelAdvance_old(model, rc)
     type(ESMF_GridComp)  :: model
     integer, intent(out) :: rc
     
