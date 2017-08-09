@@ -67,11 +67,16 @@ class TraceAnalyzer(object):
 
   def read_trace(self, trace_dir_name):
     REGEX_NUOPC_RUN_REGNAME = r"^NUOPC_ModelBase:Run$"
+    NUOPC_GRIDCOMP_CALLTHROUGH_REGNAME = "NUOPC_Driver:GridComp:Callthrough"
+    GRIDCOMP_CALLTHROUGH_COST_REGNAME_PREFIX = "Callthrough_Cost:"
     REGEX_COMP_ADVANCE_REGNAME = r"^((?!NUOPC).)*ModelAdvance$"
     self._overall_nuopc_run_overhead = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
 
     #print("Reading trace in "+trace_dir_name)
     npets = 0
+    # dict of latest grid comp callthrough tstamps keyed on PET number
+    latest_gridcomp_callthrough_tstamp = {}
+    gridcomp_callthrough_cost_regname = ""
     self._petstats = {}
     self._overall_regstats = {}
     self._overall_nuopc_run_overhead = {}
@@ -87,6 +92,7 @@ class TraceAnalyzer(object):
         pet = event["pet"]
         regname = event["name"]
 
+        #print(str(pet) + ": ENTER:" + regname)
         if self._callstacks.get(pet) is None:
           self._callstacks[pet] = []  #new stack
 
@@ -94,11 +100,51 @@ class TraceAnalyzer(object):
         callstack.append((ts, regname))
         if(pet >= npets):
           npets = pet + 1
+
+        if regname == NUOPC_GRIDCOMP_CALLTHROUGH_REGNAME:
+          if latest_gridcomp_callthrough_tstamp.get(pet) is None:
+            latest_gridcomp_callthrough_tstamp[pet] = -1
+          #print(str(pet) + ": ENTER:" + regname + ":" + str(latest_gridcomp_callthrough_tstamp[pet]))
+          if latest_gridcomp_callthrough_tstamp[pet] != -1:
+            raise RuntimeError("Recursive calls to gridcomp callthrough (not handled right now)")
+          
+          latest_gridcomp_callthrough_tstamp[pet] = ts
+
+        if re.search(REGEX_COMP_ADVANCE_REGNAME,regname): 
+          if latest_gridcomp_callthrough_tstamp.get(pet) is None:
+            raise RuntimeError("Unhandled gridcomp callthrough (No gridcomp calls)")
+
+          if latest_gridcomp_callthrough_tstamp[pet] == -1:
+            raise RuntimeError("Unhandled gridcomp callthrough (No gridcomp calls in stack)")
+
+          total_time = ts - latest_gridcomp_callthrough_tstamp[pet]
+
+          gridcomp_callthrough_cost_regname = GRIDCOMP_CALLTHROUGH_COST_REGNAME_PREFIX + regname
+          overall_regstat = self._overall_regstats.get(gridcomp_callthrough_cost_regname)
+          if overall_regstat is None:
+            overall_regstat = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
+          if total_time < overall_regstat['min']:
+            overall_regstat['min'] = total_time
+            overall_regstat['min_pet'] = pet
+
+          if total_time > overall_regstat['max']:
+            overall_regstat['max'] = total_time
+            overall_regstat['max_pet'] = pet
+
+          overall_regstat['sum'] = overall_regstat['sum'] + total_time
+          overall_regstat['count'] = overall_regstat['count'] + 1
+          self._overall_regstats[gridcomp_callthrough_cost_regname] = overall_regstat
                     
       elif event.name == "region_exit":
         ts = event.timestamp
         pet = event["pet"]
         regname = event["name"]
+
+        #print(str(pet) + ":EXIT:" + regname + ":" + str(latest_gridcomp_callthrough_tstamp))
+        if regname == NUOPC_GRIDCOMP_CALLTHROUGH_REGNAME:
+          if latest_gridcomp_callthrough_tstamp.get(pet) is None:
+            raise RuntimeError("Inconsistent callthrough stack in trace.")
+          latest_gridcomp_callthrough_tstamp[pet] = -1
 
         callstack = self._callstacks[pet]
         if callstack is None:
