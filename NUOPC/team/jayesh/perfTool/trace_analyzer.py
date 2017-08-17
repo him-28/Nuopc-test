@@ -254,16 +254,12 @@ class TraceAnalyzer(object):
     col_headers = ["Region", "Min (incl)", "Min PET", "Max (incl)", "Max PET", "Avg (incl)"]
     print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12}".format(*col_headers))
     print("="*100)
-    total_avg_overhead = 0
     sorted_overall_regstats = sorted(self._overall_regstats.items())
     for regItem in sorted_overall_regstats:
       sts = regItem[1]
       row = "{:<40} {:<12.3f} {:<8} {:<12.3f} {:<8} {:<12.3f}".format(
              regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], (sts["sum"]/sts["count"])/1000)
       print(row)
-      total_avg_overhead += (sts["sum"]/sts["count"])/1000
-
-    print("Total Avg NUOPC overhead (in microseconds) = ", total_avg_overhead)
 
 
 #######################################
