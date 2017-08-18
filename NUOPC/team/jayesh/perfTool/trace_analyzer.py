@@ -306,7 +306,7 @@ def parse_cmd_line():
   logger.debug("Parsing command line")
   parser = argparse.ArgumentParser(description='Reading command line args')
   parser.add_argument('--trace-dir',required=True,help="(required) Directory, named traceout*,  containing the trace files")
-  parser.add_argument('--print-statistics',default=False,help="Print statistics to stdout")
+  parser.add_argument('--print-statistics',type=str,default="none",required=False,help="Print statistics to stdout (none, all)")
   parser.add_argument('--out',required=False, default=False,help="(required) Output processor for the data (stdout, gnuplot, sqldb) ")
   parser.add_argument('--verbose',default=False,help="Enable verbose logging ")
   args = parser.parse_args()
@@ -325,7 +325,7 @@ def _main_func():
   if(args.out == "stdout"):
     print(tr_analyzer.get_tot_avg_overhead_str())
 
-  if(args.print_statistics):
+  if(args.print_statistics != "none"):
     tr_analyzer.print_statistics()
 
 ################################
