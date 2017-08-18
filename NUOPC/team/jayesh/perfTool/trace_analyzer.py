@@ -18,7 +18,7 @@ class TraceAnalyzer(object):
     self._petstats = {}
 
     # Per trace Overall region stats
-    # { 'region1' : {'min':X, 'min_pet':PET_X, 'max':Y, 'max_pet':PET_Y, 'sum':S, 'count':N},
+    # { 'region1' : {'min':X, 'min_pet':PET_X, 'max':Y, 'max_pet':PET_Y, 'sum':S, 'count':N, 'avg_overall_min_pet':A, 'overall_min_pet':PET_A},
     #   'region2' : {...} }
     self._overall_regstats = {}
 
@@ -120,6 +120,25 @@ class TraceAnalyzer(object):
           total_time = ts - latest_gridcomp_callthrough_tstamp[pet]
 
           gridcomp_callthrough_cost_regname = GRIDCOMP_CALLTHROUGH_COST_REGNAME_PREFIX + regname
+          stats = self._petstats.get(pet)
+          if stats is None:
+            stats = {}
+
+          statsReg = stats.get(gridcomp_callthrough_cost_regname)
+          if statsReg is None:
+            statsReg = {'min':sys.maxsize, 'max':-1, 'count':0, 'sum':0}
+
+          statsReg['count'] = statsReg['count'] + 1
+          statsReg['sum'] = statsReg['sum'] + total_time
+
+          stats[gridcomp_callthrough_cost_regname] = statsReg
+          self._petstats[pet] = stats
+
+          if total_time < statsReg['min']:
+            statsReg['min'] = total_time
+          if total_time > statsReg['max']:
+            statsReg['max'] = total_time
+
           overall_regstat = self._overall_regstats.get(gridcomp_callthrough_cost_regname)
           if overall_regstat is None:
             overall_regstat = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
@@ -213,7 +232,25 @@ class TraceAnalyzer(object):
       for r in stats.keys(): # list of regions
         statsReg = stats[r]
         statsReg['avg'] = statsReg['sum'] / statsReg['count']
-    
+
+    # compute average for the slowest PET
+    for r in self._overall_regstats:
+      overall_regstat = self._overall_regstats[r]
+      sum_overall_min_pet = 0
+      count_overall_min_pet = 1
+      overall_min_pet = 0
+      for p in self._petstats.keys(): # list of PETs
+        stats = self._petstats[p]
+        if stats.get(r) is not None:
+          statsReg = stats[r]
+          if statsReg['sum'] > sum_overall_min_pet:
+            sum_overall_min_pet = statsReg['sum']
+            count_overall_min_pet = statsReg['count']
+            overall_min_pet = p
+
+      overall_regstat['avg_overall_min_pet'] = sum_overall_min_pet / count_overall_min_pet
+      overall_regstat['overall_min_pet'] = overall_min_pet
+
     # compute max NUOPC run overhead
     max_overhead = 0
     max_pet_overhead_sum = 0
@@ -251,14 +288,14 @@ class TraceAnalyzer(object):
 
     print("\n")
     print(("="*28 + " OVERALL STATISTICS FOR REGIONS (times in microseconds) " + "="*26))        
-    col_headers = ["Region", "Min (incl)", "Min PET", "Max (incl)", "Max PET", "Avg (incl)"]
-    print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12}".format(*col_headers))
+    col_headers = ["Region", "Min", "\"Min PET\"", "Max", "\"Max PET\"", "Avg (Overall min PET)", "\"Overall min PET\""]
+    print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12} {:<8}".format(*col_headers))
     print("="*100)
     sorted_overall_regstats = sorted(self._overall_regstats.items())
     for regItem in sorted_overall_regstats:
       sts = regItem[1]
-      row = "{:<40} {:<12.3f} {:<8} {:<12.3f} {:<8} {:<12.3f}".format(
-             regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], (sts["sum"]/sts["count"])/1000)
+      row = "{:<40} {:<12.3f} {:<8} {:<12.3f} {:<8} {:<12.3f} {:<8}".format(
+             regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], sts["avg_overall_min_pet"]/1000, sts["overall_min_pet"]) 
       print(row)
 
 
