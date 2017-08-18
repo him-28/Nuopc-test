@@ -307,7 +307,7 @@ def parse_cmd_line():
   parser = argparse.ArgumentParser(description='Reading command line args')
   parser.add_argument('--trace-dir',required=True,help="(required) Directory, named traceout*,  containing the trace files")
   parser.add_argument('--print-statistics',default=False,help="Print statistics to stdout")
-  parser.add_argument('--out',required=True,help="(required) Output processor for the data (stdout, gnuplot, sqldb) ")
+  parser.add_argument('--out',required=False, default=False,help="(required) Output processor for the data (stdout, gnuplot, sqldb) ")
   parser.add_argument('--verbose',default=False,help="Enable verbose logging ")
   args = parser.parse_args()
   return args
