@@ -65,6 +65,42 @@ class TraceAnalyzer(object):
   def print_statistics(self, opt="none"):
     self.print_trace(opt)
 
+  def update_per_pet_stats(self, pet, regname, total_time):
+    stats = self._petstats.get(pet)
+    if stats is None:
+      stats = {}
+
+    statsReg = stats.get(regname)
+    if statsReg is None:
+      statsReg = {'min':sys.maxsize, 'max':-1, 'count':0, 'sum':0}
+
+    statsReg['count'] = statsReg['count'] + 1
+    statsReg['sum'] = statsReg['sum'] + total_time
+
+    if total_time < statsReg['min']:
+      statsReg['min'] = total_time
+    if total_time > statsReg['max']:
+      statsReg['max'] = total_time
+
+    stats[regname] = statsReg
+    self._petstats[pet] = stats
+
+  def update_overall_pet_stats(self, pet, regname, total_time):
+    overall_regstat = self._overall_regstats.get(regname)
+    if overall_regstat is None:
+      overall_regstat = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
+    if total_time < overall_regstat['min']:
+      overall_regstat['min'] = total_time
+      overall_regstat['min_pet'] = pet
+
+    if total_time > overall_regstat['max']:
+      overall_regstat['max'] = total_time
+      overall_regstat['max_pet'] = pet
+
+    overall_regstat['sum'] = overall_regstat['sum'] + total_time
+    overall_regstat['count'] = overall_regstat['count'] + 1
+    self._overall_regstats[regname] = overall_regstat
+
   def read_trace(self, trace_dir_name):
     REGEX_NUOPC_RUN_REGNAME = r"^NUOPC_ModelBase:Run$"
     NUOPC_GRIDCOMP_CALLTHROUGH_REGNAME = "NUOPC_Driver:GridComp:Callthrough"
@@ -120,39 +156,8 @@ class TraceAnalyzer(object):
           total_time = ts - latest_gridcomp_callthrough_tstamp[pet]
 
           gridcomp_callthrough_cost_regname = GRIDCOMP_CALLTHROUGH_COST_REGNAME_PREFIX + regname
-          stats = self._petstats.get(pet)
-          if stats is None:
-            stats = {}
-
-          statsReg = stats.get(gridcomp_callthrough_cost_regname)
-          if statsReg is None:
-            statsReg = {'min':sys.maxsize, 'max':-1, 'count':0, 'sum':0}
-
-          statsReg['count'] = statsReg['count'] + 1
-          statsReg['sum'] = statsReg['sum'] + total_time
-
-          stats[gridcomp_callthrough_cost_regname] = statsReg
-          self._petstats[pet] = stats
-
-          if total_time < statsReg['min']:
-            statsReg['min'] = total_time
-          if total_time > statsReg['max']:
-            statsReg['max'] = total_time
-
-          overall_regstat = self._overall_regstats.get(gridcomp_callthrough_cost_regname)
-          if overall_regstat is None:
-            overall_regstat = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
-          if total_time < overall_regstat['min']:
-            overall_regstat['min'] = total_time
-            overall_regstat['min_pet'] = pet
-
-          if total_time > overall_regstat['max']:
-            overall_regstat['max'] = total_time
-            overall_regstat['max_pet'] = pet
-
-          overall_regstat['sum'] = overall_regstat['sum'] + total_time
-          overall_regstat['count'] = overall_regstat['count'] + 1
-          self._overall_regstats[gridcomp_callthrough_cost_regname] = overall_regstat
+          self.update_per_pet_stats(pet, gridcomp_callthrough_cost_regname, total_time)
+          self.update_overall_pet_stats(pet, gridcomp_callthrough_cost_regname, total_time)
                     
       elif event.name == "region_exit":
         ts = event.timestamp
@@ -175,40 +180,9 @@ class TraceAnalyzer(object):
 
         total_time = ts - popped[0]
 
-        stats = self._petstats.get(pet)
-        if stats is None:
-          stats = {}
-
-        statsReg = stats.get(regname)
-        if statsReg is None:
-          statsReg = {'min':sys.maxsize, 'max':-1, 'count':0, 'sum':0}
-
-        statsReg['count'] = statsReg['count'] + 1
-        statsReg['sum'] = statsReg['sum'] + total_time
-
-        stats[regname] = statsReg
-        self._petstats[pet] = stats
-
-        if total_time < statsReg['min']:
-          statsReg['min'] = total_time
-        if total_time > statsReg['max']:
-          statsReg['max'] = total_time
+        self.update_per_pet_stats(pet, regname, total_time)
+        self.update_overall_pet_stats(pet, regname, total_time)
                     
-        overall_regstat = self._overall_regstats.get(regname)
-        if overall_regstat is None:
-          overall_regstat = {'min':sys.maxsize, 'min_pet':-1, 'max':-1, 'max_pet':-1, 'sum':0, 'count':0}
-        self._overall_regstats[regname] = overall_regstat
-        if total_time < overall_regstat['min']:
-          overall_regstat['min'] = total_time
-          overall_regstat['min_pet'] = pet
-
-        if total_time > overall_regstat['max']:
-          overall_regstat['max'] = total_time
-          overall_regstat['max_pet'] = pet
-
-        overall_regstat['sum'] = overall_regstat['sum'] + total_time
-        overall_regstat['count'] = overall_regstat['count'] + 1
-
         pet_overall_nuopc_run_overhead = self._overall_nuopc_run_overhead.get(pet)
         if pet_overall_nuopc_run_overhead is None:
           pet_overall_nuopc_run_overhead = {'call_overhead_sum':0, 'call_count':0}
