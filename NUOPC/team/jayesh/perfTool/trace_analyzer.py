@@ -311,7 +311,7 @@ def parse_cmd_line():
   parser.add_argument('--trace-dir',required=True,help="(required) Directory, named traceout*,  containing the trace files")
   parser.add_argument('--print-statistics',type=str,default="none",required=False,help="Print statistics to stdout (none, all, pet, overall)")
   parser.add_argument('--out',required=False, default=False,help="(required) Output processor for the data (stdout, gnuplot, sqldb) ")
-  parser.add_argument('--verbose',default=False,help="Enable verbose logging ")
+  parser.add_argument('--verbose',required=False,action='store_true',help="Enable verbose logging ")
   args = parser.parse_args()
   return args
 
