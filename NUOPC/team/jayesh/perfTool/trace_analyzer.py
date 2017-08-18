@@ -18,7 +18,7 @@ class TraceAnalyzer(object):
     self._petstats = {}
 
     # Per trace Overall region stats
-    # { 'region1' : {'min':X, 'min_pet':PET_X, 'max':Y, 'max_pet':PET_Y, 'sum':S, 'count':N, 'avg_overall_min_pet':A, 'overall_min_pet':PET_A},
+    # { 'region1' : {'min':X, 'min_pet':PET_X, 'max':Y, 'max_pet':PET_Y, 'sum':S, 'count':N, 'avg_overall_max_pet':A, 'overall_max_pet':PET_A},
     #   'region2' : {...} }
     self._overall_regstats = {}
 
@@ -237,20 +237,20 @@ class TraceAnalyzer(object):
     # compute average for the slowest PET
     for r in self._overall_regstats:
       overall_regstat = self._overall_regstats[r]
-      sum_overall_min_pet = 0
-      count_overall_min_pet = 1
-      overall_min_pet = 0
+      sum_overall_max_pet = 0
+      count_overall_max_pet = 1
+      overall_max_pet = 0
       for p in self._petstats.keys(): # list of PETs
         stats = self._petstats[p]
         if stats.get(r) is not None:
           statsReg = stats[r]
-          if statsReg['sum'] > sum_overall_min_pet:
-            sum_overall_min_pet = statsReg['sum']
-            count_overall_min_pet = statsReg['count']
-            overall_min_pet = p
+          if statsReg['sum'] > sum_overall_max_pet:
+            sum_overall_max_pet = statsReg['sum']
+            count_overall_max_pet = statsReg['count']
+            overall_max_pet = p
 
-      overall_regstat['avg_overall_min_pet'] = sum_overall_min_pet / count_overall_min_pet
-      overall_regstat['overall_min_pet'] = overall_min_pet
+      overall_regstat['avg_overall_max_pet'] = sum_overall_max_pet / count_overall_max_pet
+      overall_regstat['overall_max_pet'] = overall_max_pet
 
     # compute max NUOPC run overhead
     # FIXME: Currently not used (retained for future use)
@@ -298,14 +298,14 @@ class TraceAnalyzer(object):
 
     if opt == "overall" or opt == "all" :
       print(("="*28 + " OVERALL STATISTICS FOR REGIONS (times in microseconds) " + "="*26))        
-      col_headers = ["Region", "Min", "\"Min PET\"", "Max", "\"Max PET\"", "Avg (Overall min PET)", "\"Overall min PET\""]
+      col_headers = ["Region", "Min", "\"Min PET\"", "Max", "\"Max PET\"", "Avg (Overall max PET)", "\"Overall max PET\""]
       print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12} {:<8}".format(*col_headers))
       print("="*100)
       sorted_overall_regstats = sorted(self._overall_regstats.items())
       for regItem in sorted_overall_regstats:
         sts = regItem[1]
         row = "{:<40} {:<12.3f} {:<8} {:<12.3f} {:<8} {:<12.3f} {:<8}".format(
-               regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], sts["avg_overall_min_pet"]/1000, sts["overall_min_pet"]) 
+               regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], sts["avg_overall_max_pet"]/1000, sts["overall_max_pet"]) 
         print(row)
 
 
