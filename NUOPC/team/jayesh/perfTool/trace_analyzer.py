@@ -62,8 +62,8 @@ class TraceAnalyzer(object):
 
     return tot_avg_overhead_str
 
-  def print_statistics(self):
-    self.print_trace()
+  def print_statistics(self, opt="none"):
+    self.print_trace(opt)
 
   def read_trace(self, trace_dir_name):
     REGEX_NUOPC_RUN_REGNAME = r"^NUOPC_ModelBase:Run$"
@@ -267,36 +267,39 @@ class TraceAnalyzer(object):
 
     return (npets, max_overhead)
 
-  def print_trace(self):
+  def print_trace(self, opt):
     # print table
-    for p in self._petstats.keys():
+    if opt == "pet" or opt == "all":
+      for p in self._petstats.keys():
+        print("\n")
+        print(("="*28 + " STATISTICS FOR PET {} (times in microseconds) " + "="*26).format(p))        
+        col_headers = ["Region", "Count", "Total (incl)", "Min (incl)", "Max (incl)", "Avg (incl)"]
+        print("{:<40} {:<8} {:<12} {:<12} {:<12} {:<12}".format(*col_headers))
+        print("="*100)
+
+        # sort based on highest total time
+        stats = self._petstats[p]
+        sortedRegs = sorted(stats.items(), key=lambda i: i[1]['sum'], reverse=True)
+
+        for regItem in sortedRegs:
+          sts = regItem[1]
+          row = "{:<40} {:<8} {:<12.3f} {:<12.3f} {:<12.3f} {:<12.3f}".format(
+                 regItem[0], sts["count"], sts["sum"]/1000, sts["min"]/1000, sts["max"]/1000, sts["avg"]/1000)
+          print(row)
+
       print("\n")
-      print(("="*28 + " STATISTICS FOR PET {} (times in microseconds) " + "="*26).format(p))        
-      col_headers = ["Region", "Count", "Total (incl)", "Min (incl)", "Max (incl)", "Avg (incl)"]
-      print("{:<40} {:<8} {:<12} {:<12} {:<12} {:<12}".format(*col_headers))
+
+    if opt == "overall" or opt == "all" :
+      print(("="*28 + " OVERALL STATISTICS FOR REGIONS (times in microseconds) " + "="*26))        
+      col_headers = ["Region", "Min", "\"Min PET\"", "Max", "\"Max PET\"", "Avg (Overall min PET)", "\"Overall min PET\""]
+      print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12} {:<8}".format(*col_headers))
       print("="*100)
-
-      # sort based on highest total time
-      stats = self._petstats[p]
-      sortedRegs = sorted(stats.items(), key=lambda i: i[1]['sum'], reverse=True)
-
-      for regItem in sortedRegs:
+      sorted_overall_regstats = sorted(self._overall_regstats.items())
+      for regItem in sorted_overall_regstats:
         sts = regItem[1]
-        row = "{:<40} {:<8} {:<12.3f} {:<12.3f} {:<12.3f} {:<12.3f}".format(
-               regItem[0], sts["count"], sts["sum"]/1000, sts["min"]/1000, sts["max"]/1000, sts["avg"]/1000)
+        row = "{:<40} {:<12.3f} {:<8} {:<12.3f} {:<8} {:<12.3f} {:<8}".format(
+               regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], sts["avg_overall_min_pet"]/1000, sts["overall_min_pet"]) 
         print(row)
-
-    print("\n")
-    print(("="*28 + " OVERALL STATISTICS FOR REGIONS (times in microseconds) " + "="*26))        
-    col_headers = ["Region", "Min", "\"Min PET\"", "Max", "\"Max PET\"", "Avg (Overall min PET)", "\"Overall min PET\""]
-    print("{:<40} {:<12} {:<8} {:<12} {:<8} {:<12} {:<8}".format(*col_headers))
-    print("="*100)
-    sorted_overall_regstats = sorted(self._overall_regstats.items())
-    for regItem in sorted_overall_regstats:
-      sts = regItem[1]
-      row = "{:<40} {:<12.3f} {:<8} {:<12.3f} {:<8} {:<12.3f} {:<8}".format(
-             regItem[0], sts["min"]/1000, sts["min_pet"], sts["max"]/1000, sts["max_pet"], sts["avg_overall_min_pet"]/1000, sts["overall_min_pet"]) 
-      print(row)
 
 
 #######################################
@@ -306,7 +309,7 @@ def parse_cmd_line():
   logger.debug("Parsing command line")
   parser = argparse.ArgumentParser(description='Reading command line args')
   parser.add_argument('--trace-dir',required=True,help="(required) Directory, named traceout*,  containing the trace files")
-  parser.add_argument('--print-statistics',type=str,default="none",required=False,help="Print statistics to stdout (none, all)")
+  parser.add_argument('--print-statistics',type=str,default="none",required=False,help="Print statistics to stdout (none, all, pet, overall)")
   parser.add_argument('--out',required=False, default=False,help="(required) Output processor for the data (stdout, gnuplot, sqldb) ")
   parser.add_argument('--verbose',default=False,help="Enable verbose logging ")
   args = parser.parse_args()
@@ -326,7 +329,7 @@ def _main_func():
     print(tr_analyzer.get_tot_avg_overhead_str())
 
   if(args.print_statistics != "none"):
-    tr_analyzer.print_statistics()
+    tr_analyzer.print_statistics(args.print_statistics)
 
 ################################
 
