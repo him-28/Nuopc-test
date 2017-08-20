@@ -4,6 +4,7 @@ program esmApp
   ! Generic ESM application driver
   !-----------------------------------------------------------------------------
 
+  use mpi
   use ESMF
   use NUOPC
   use ESM, only: esmSS => SetServices
@@ -12,7 +13,13 @@ program esmApp
 
   integer                 :: rc, urc
   type(ESMF_GridComp)     :: esmComp
+  double precision :: start_time, end_time, dtime
+  integer :: rank, sz
   
+  call MPI_Init(rc)
+  call MPI_Comm_rank(MPI_COMM_WORLD, rank, rc)
+  call MPI_Comm_size(MPI_COMM_WORLD, sz, rc)
+  start_time = MPI_Wtime()
   ! Initialize ESMF
   call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -98,6 +105,16 @@ program esmApp
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
   ! Finalize ESMF
-  call ESMF_Finalize()
+  call ESMF_Finalize(endflag=ESMF_END_KEEPMPI, rc=rc)
+
+  end_time = MPI_Wtime()
+  dtime = end_time - start_time
+  if(rank == 0) then
+    call MPI_Reduce(MPI_IN_PLACE, dtime, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, rc)
+    print *, sz, " procs: Took ", dtime, " s"
+  else
+    call MPI_Reduce(dtime, dtime, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, rc)
+  end if
+  call MPI_Finalize(rc)
   
 end program  
