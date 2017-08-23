@@ -1,7 +1,7 @@
-module DYN
+module PHY
 
   !-----------------------------------------------------------------------------
-  ! DYN Component.
+  ! PHY Component.
   !-----------------------------------------------------------------------------
 
   use ESMF
@@ -69,7 +69,7 @@ module DYN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -114,30 +114,22 @@ module DYN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! importable field: PHYEX
-    !call NUOPC_Advertise(importState, StandardName="PHYEX", &
-    !  SharePolicyField="share", rc=rc)
-    call NUOPC_Advertise(importState, StandardName="PHYEX", &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 #endif
     
 #define WITHEXPORTFIELDS
 #ifdef WITHEXPORTFIELDS
-    ! exportable field: air_pressure_at_sea_level
+    ! exportable field: precipitation_flux
     call NUOPC_Advertise(exportState, &
-      StandardName="air_pressure_at_sea_level", name="pmsl", rc=rc)
+      StandardName="precipitation_flux", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
-    ! exportable field: surface_net_downward_shortwave_flux
-    call NUOPC_Advertise(exportState, &
-      StandardName="surface_net_downward_shortwave_flux", name="rsns", rc=rc)
+    ! exportable field: PHYEX
+    !call NUOPC_Advertise(exportState, StandardName="PHYEX", &
+    !  TransferOfferField="can provide", SharePolicyField="share", rc=rc)
+    call NUOPC_Advertise(exportState, StandardName="PHYEX", &
+      rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -155,13 +147,15 @@ module DYN
     integer, intent(out) :: rc
     
     ! local variables    
-    type(ESMF_Grid)         :: gridIn
-    type(ESMF_Grid)         :: gridOut
+    type(ESMF_Grid)           :: gridIn
+    type(ESMF_Grid)           :: gridOut
+    type(ESMF_Field)          :: field
+    type(ESMF_StateItem_Flag) :: itemType
     
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/512, 512/), &
+    gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/2048, 2048/), &
       minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
@@ -181,29 +175,21 @@ module DYN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! importable field: PHYEX
-    call NUOPC_Realize(importState, grid=gridIn, &
-      fieldName="PHYEX", &
-      selection="realize_connected_remove_others", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 #endif
 
 #ifdef WITHEXPORTFIELDS
-    ! exportable field: air_pressure_at_sea_level
+    ! exportable field: precipitation_flux
     call NUOPC_Realize(exportState, grid=gridOut, &
-      fieldName="pmsl", &
+      fieldName="precipitation_flux", &
       selection="realize_connected_remove_others", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! exportable field: surface_net_downward_shortwave_flux
+    ! exportable field: PHYEX
     call NUOPC_Realize(exportState, grid=gridOut, &
-      fieldName="rsns", &
-      selection="realize_connected_remove_others", rc=rc)
+      fieldName="PHYEX", &
+      selection="realize_connected+provide_remove_others", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -217,13 +203,12 @@ module DYN
   subroutine DataInitialize(model, rc)
     type(ESMF_GridComp)   :: model
     integer, intent(out)  :: rc
-    
+
     ! local variables
     type(ESMF_Clock)          :: clock
     type(ESMF_State)          :: importState, exportState
     type(ESMF_Time)           :: time
     type(ESMF_Field)          :: field
-    logical                   :: neededCurrent
     character(len=160)        :: msgString
     type(ESMF_StateItem_Flag) :: itemType
 
@@ -236,7 +221,7 @@ module DYN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+
     ! get the current time out of the clock
     call ESMF_ClockGet(clock, currTime=time, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -246,7 +231,7 @@ module DYN
 
 #if 1
     call ESMF_TimePrint(time, &
-      preString="DYN DataInitialize time: ", unit=msgString, rc=rc)
+      preString="PHY DataInitialize time: ", unit=msgString, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -258,68 +243,20 @@ module DYN
       return  ! bail out
 #endif
 
-    neededCurrent = NUOPC_IsAtTime(importState, time, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out    
-#if 0
-    ! get a handle on the imported SST field
-    call ESMF_StateGet(importState, itemName="sst", &
+    call ESMF_StateGet(exportState, itemName="precipitation_flux", &
       itemType=itemType, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out    
     if (itemType==ESMF_STATEITEM_FIELD) then
-      call ESMF_StateGet(importState, field=field, itemName="sst", rc=rc)
+      call ESMF_StateGet(exportState, field=field, &
+        itemName="precipitation_flux", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
-        return  ! bail out
-      ! check SST field if at the correct time
-      neededCurrent = NUOPC_IsAtTime(field, time, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-    else
-      neededCurrent=.true.
-    endif
-#endif
-
-    if (neededCurrent) then
-      ! indicate that data initialization is complete (breaking out of init-loop)
-      call NUOPC_CompAttributeSet(model, &
-        name="InitializeDataComplete", value="true", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-    endif
-
-    ! write out the Fields in the importState
-    call NUOPC_Write(importState, fileNamePrefix="field_dyn_import_datainit_", &
-      status=ESMF_FILESTATUS_REPLACE, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-      
-    ! data initialize the exported fields
-    call ESMF_StateGet(exportState, itemName="pmsl", &
-      itemType=itemType, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out    
-    if (itemType==ESMF_STATEITEM_FIELD) then
-      call ESMF_StateGet(exportState, field=field, itemName="pmsl", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-      call ESMF_FieldFill(field, dataFillScheme="sincos", member=2, rc=rc)
+        return  ! bail out    
+      call ESMF_FieldFill(field, dataFillScheme="sincos", member=4, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -331,19 +268,19 @@ module DYN
         return  ! bail out
     endif
     
-    call ESMF_StateGet(exportState, itemName="rsns", &
+    call ESMF_StateGet(exportState, itemName="PHYEX", &
       itemType=itemType, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out    
     if (itemType==ESMF_STATEITEM_FIELD) then
-      call ESMF_StateGet(exportState, field=field, itemName="rsns", rc=rc)
+      call ESMF_StateGet(exportState, field=field, itemName="PHYEX", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
-        return  ! bail out
-      call ESMF_FieldFill(field, dataFillScheme="sincos", member=3, rc=rc)
+        return  ! bail out    
+      call ESMF_FieldFill(field, dataFillScheme="sincos", member=5, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -354,17 +291,18 @@ module DYN
         file=__FILE__)) &
         return  ! bail out
     endif
-
-    ! write out the Fields in the importState
-    call NUOPC_Write(exportState, fileNamePrefix="field_dyn_export_datainit_", &
-      status=ESMF_FILESTATUS_REPLACE, relaxedFlag=.true., rc=rc)
+    
+    ! indicate that data initialization is complete (breaking out of init-loop)
+    call NUOPC_CompAttributeSet(model, &
+      name="InitializeDataComplete", value="true", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
-    ! must explicitly set time stamp on all export fields
-    call NUOPC_UpdateTimestamp(exportState, clock, rc=rc)
+
+    ! write out the Fields in the importState
+    call NUOPC_Write(exportState, fileNamePrefix="field_phy_export_datainit_", &
+      status=ESMF_FILESTATUS_REPLACE, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -389,16 +327,18 @@ module DYN
     type(ESMF_Clock)              :: clock
     type(ESMF_State)              :: importState, exportState
     integer, save                 :: step=1
+    type(ESMF_Field)              :: field
     type(ESMF_FileStatus_Flag)    :: status
+    type(ESMF_StateItem_Flag)     :: itemType
 
 #define NUOPC_TRACE
 #ifdef NUOPC_TRACE
-    call ESMF_TraceRegionEnter("DYN:ModelAdvance")
+    call ESMF_TraceRegionEnter("PHY:ModelAdvance")
 #endif
     rc = ESMF_SUCCESS
     
 #ifdef NUOPC_TRACE
-    call ESMF_TraceRegionEnter("DYN:ModelGet")
+    call ESMF_TraceRegionEnter("PHY:ModelGet")
 #endif
     ! query the Component for its clock, importState and exportState
     call NUOPC_ModelGet(model, modelClock=clock, importState=importState, &
@@ -409,7 +349,7 @@ module DYN
       return  ! bail out
 
 #ifdef NUOPC_TRACE
-    call ESMF_TraceRegionExit("DYN:ModelGet")
+    call ESMF_TraceRegionExit("PHY:ModelGet")
 #endif
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
@@ -419,7 +359,7 @@ module DYN
     ! for this call of the ModelAdvance() routine.
     
     call ESMF_ClockPrint(clock, options="currTime", &
-      preString="------>Advancing DYN from: ", rc=rc)
+      preString="------>Advancing PHY from: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -432,13 +372,65 @@ module DYN
       file=__FILE__)) &
       return  ! bail out
 
+    ! update the export fields with data
+    call ESMF_StateGet(exportState, itemName="precipitation_flux", &
+      itemType=itemType, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out    
+    if (itemType==ESMF_STATEITEM_FIELD) then
+      call ESMF_StateGet(exportState, field=field, &
+        itemName="precipitation_flux", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out    
+      call ESMF_FieldFill(field, dataFillScheme="sincos", member=4, step=step, &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    call ESMF_StateGet(exportState, itemName="PHYEX", &
+      itemType=itemType, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out    
+    if (itemType==ESMF_STATEITEM_FIELD) then
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_StateGet")
+#endif
+      call ESMF_StateGet(exportState, field=field, itemName="PHYEX", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out    
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_StateGet")
+#endif
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionEnter("PHY:PHYEX_FieldFill")
+#endif
+      call ESMF_FieldFill(field, dataFillScheme="sincos", member=5, step=step, &
+        rc=rc)
+#ifdef NUOPC_TRACE
+      call ESMF_TraceRegionExit("PHY:PHYEX_FieldFill")
+#endif
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
     ! write out the Fields in the importState
     status=ESMF_FILESTATUS_OLD
     if (step==1) status=ESMF_FILESTATUS_REPLACE
 #ifdef NUOPC_TRACE
       call ESMF_TraceRegionEnter("PHY:PHYEX_WriteImport")
 #endif
-    call NUOPC_Write(importState, fileNamePrefix="field_dyn_import_adv_", &
+    call NUOPC_Write(importState, fileNamePrefix="field_phy_import_adv_", &
       timeslice=step, status=status, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -450,7 +442,7 @@ module DYN
 #ifdef NUOPC_TRACE
       call ESMF_TraceRegionEnter("PHY:PHYEX_WriteExport")
 #endif
-    call NUOPC_Write(exportState, fileNamePrefix="field_dyn_export_adv_", &
+    call NUOPC_Write(exportState, fileNamePrefix="field_phy_export_adv_", &
       timeslice=step, status=status, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -463,7 +455,7 @@ module DYN
     step=step+1
 
 #ifdef NUOPC_TRACE
-    call ESMF_TraceRegionExit("DYN:ModelAdvance")
+    call ESMF_TraceRegionExit("PHY:ModelAdvance")
 #endif
   end subroutine
 

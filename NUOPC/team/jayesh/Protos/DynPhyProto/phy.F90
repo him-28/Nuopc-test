@@ -126,10 +126,10 @@ module PHY
       file=__FILE__)) &
       return  ! bail out
     ! exportable field: PHYEX
-    call NUOPC_Advertise(exportState, StandardName="PHYEX", &
-      TransferOfferField="can provide", SharePolicyField="share", rc=rc)
     !call NUOPC_Advertise(exportState, StandardName="PHYEX", &
-    !  rc=rc)
+    !  TransferOfferField="can provide", SharePolicyField="share", rc=rc)
+    call NUOPC_Advertise(exportState, StandardName="PHYEX", &
+      rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
