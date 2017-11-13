@@ -79,16 +79,16 @@ module OCN
     rc = ESMF_SUCCESS
 
     ! add nested import states
-    call NUOPC_AddNamespace(importState, &
-      domain="Nest2", &
+    call NUOPC_AddNestedState(importState, &
+      CplSet="Nest2", &
       nestedStateName="NestedStateImp_N2", &
       nestedState=NStateImp2, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_AddNamespace(importState, &
-      domain="Nest3", &
+    call NUOPC_AddNestedState(importState, &
+      CplSet="Nest3", &
       nestedStateName="NestedStateImp_N3", &
       nestedState=NStateImp3, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -97,16 +97,16 @@ module OCN
       return  ! bail out
 
     ! add nested export states
-    call NUOPC_AddNamespace(exportState, &
-      domain="Nest2", &
+    call NUOPC_AddNestedState(exportState, &
+      CplSet="Nest2", &
       nestedStateName="NestedStateExp_N2", &
       nestedState=NStateExp2, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_AddNamespace(exportState, &
-      domain="Nest3", &
+    call NUOPC_AddNestedState(exportState, &
+      CplSet="Nest3", &
       nestedStateName="NestedStateExp_N3", &
       nestedState=NStateExp3, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
