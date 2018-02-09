@@ -1,0 +1,104 @@
+  !-----------------------------------------------------------------------------
+
+  subroutine fieldPrintMinMax(field, vm, rc)
+    type(ESMF_Field), intent(in) :: field
+    type(ESMF_VM),    intent(in) :: vm
+    integer, intent(out) :: rc
+
+    ! local variables
+    real(ESMF_KIND_R8), pointer :: fp1d(:), fp2d(:,:), fp3d(:,:,:), fp4d(:,:,:,:)
+    real(ESMF_KIND_R8)          :: fieldMaxValue, fieldMinValue, maxValue, minValue
+    real(ESMF_KIND_R8)          :: globalMaxValue(1), globalMinValue(1)
+    integer                     :: localDe, localDeCount, localPet, rank
+    character(len=ESMF_MAXSTR)  :: fieldName
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_FieldGet(field, rank=rank, localDeCount=localDeCount, &
+      name=fieldName, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_VMGet(vm, localPet=localPet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail
+
+    fieldMinValue = huge(1.0_ESMF_KIND_R8)
+    fieldMaxValue = -fieldMinValue
+
+    do localDe = 0, localDeCount - 1
+      select case(rank)
+        case(1)
+          call ESMF_FieldGet(field, localDe=localDe, farrayPtr=fp1d, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          minValue = minval(fp1d)
+          maxValue = maxval(fp1d)
+        case(2)
+          call ESMF_FieldGet(field, localDe=localDe, farrayPtr=fp2d, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          minValue = minval(fp2d)
+          maxValue = maxval(fp2d)
+        case(3)
+          call ESMF_FieldGet(field, localDe=localDe, farrayPtr=fp3d, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          minValue = minval(fp3d)
+          maxValue = maxval(fp3d)
+        case(4)
+          call ESMF_FieldGet(field, localDe=localDe, farrayPtr=fp4d, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          minValue = minval(fp4d)
+          maxValue = maxval(fp4d)
+        case default
+          call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+            msg="Field rank not implemented.", &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)
+          return ! bail out
+      end select
+      fieldMinValue = min(fieldMinValue, minValue)
+      fieldMaxValue = max(fieldMaxValue, maxValue)
+      write(6,'(a,":",i0,2x,"DE: ",i0,2x,a," - checking  - min/max = ",2g16.6)') 'PET', &
+         localPet, localDe, trim(fieldName), minValue, maxValue
+    end do
+
+    globalMinValue(1) = 0._ESMF_KIND_R8
+    globalMaxValue(1) = 0._ESMF_KIND_R8
+
+    call ESMF_VMReduce(vm, (/ fieldMinValue /), globalMinValue, 1, &
+      reduceflag=ESMF_REDUCE_MIN, rootPet=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMReduce(vm, (/ fieldMaxValue /), globalMaxValue, 1, &
+      reduceflag=ESMF_REDUCE_MAX, rootPet=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail
+
+    if (localPet == 0) then
+       write(6,'(a,":",a," - checking  - min/max = ",2g16.6)') 'Field', &
+         trim(fieldName), globalMinValue, globalMaxValue
+    end if
+
+  end subroutine fieldPrintMinMax
+
+  !-----------------------------------------------------------------------------
