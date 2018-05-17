@@ -13,6 +13,9 @@ Build:
     installation.
   - Enable/Disable domain decomposition synchronization in atm.F90 and ocn.F90
     DECOMPSYNC or DECOMPSYNC_disabled
+  - Enable/Disable memory copy in con.F90. Memory copy will fail if DECOMPSYNC
+    is diabled because the grid and grid distribution must match.
+    MEMCOPY or MEMCOPY_disabled
   - gmake
   
 Execution:

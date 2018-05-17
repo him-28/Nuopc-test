@@ -1,7 +1,7 @@
     ! Disabling the following macro, e.g. renaming to DECOMPSYNC_disable,
     ! will result in a model component that desynchronizes the domain
     ! decomposition.
-#define DECOMPSYNC 
+#define DECOMPSYNC
     ! Disabling the following macro, e.g. renaming to WITHIMPORTFIELDS_disable,
     ! will result in a model component that does not advertise any importable
     ! Fields. Use this if you want to drive the model independently.
