@@ -16,13 +16,13 @@
 
 cd $PBS_O_WORKDIR
 
-set -x
-
 # Load modules and setup runtime environment
 #module use MODULE_FOLDER
 #module load MODULE
+#module list
 
-export np=$PBS_NP
+export NP=$PBS_NP
+export RUNDIR=`pwd`
 
 # Enable FORTRAN RTL core dumps for severe run time failures
 #export decfort_dump_flag=y
@@ -41,9 +41,29 @@ ulimit -t unlimited #cputime
 ulimit -d unlimited #datasize
 ulimit -m unlimited #memoryuse
 
-echo "Model started:  " `date`
 # Run application using MPI
-mpirun -n 256 ./esmApp runconfig.memcopy
-echo "Model ended:    " `date`
+mkdir -p $RUNDIR/nosync
+cd $RUNDIR/nosync
+echo "Model started nosync:  " `date`
+mpirun -n 256 ../esmApp ../runconfig.nosync > run.log 2>&1
+echo "Model ended nosync:    " `date`
+
+mkdir -p $RUNDIR/sync
+cd $RUNDIR/sync
+echo "Model started sync:  " `date`
+mpirun -n 256 ../esmApp ../runconfig.sync > run.log 2>&1
+echo "Model ended sync:    " `date`
+
+mkdir -p $RUNDIR/memcopy
+cd $RUNDIR/memcopy
+echo "Model started memcopy:  " `date`
+mpirun -n 256 ../esmApp ../runconfig.memcopy > run.log 2>&1
+echo "Model ended memcopy:    " `date`
+
+mkdir -p $RUNDIR/error
+cd $RUNDIR/error
+echo "Model started error:  " `date`
+mpirun -n 256 ../esmApp ../runconfig.error > run.log 2>&1
+echo "Model ended error:    " `date`
 
 exit
