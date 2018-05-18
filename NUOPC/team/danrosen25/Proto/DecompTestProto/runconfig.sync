@@ -1,0 +1,3 @@
+Verbosity: high
+SyncDecomp: true
+MemCopy: false

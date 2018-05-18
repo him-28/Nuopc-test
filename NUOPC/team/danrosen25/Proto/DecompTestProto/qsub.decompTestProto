@@ -43,7 +43,7 @@ ulimit -m unlimited #memoryuse
 
 echo "Model started:  " `date`
 # Run application using MPI
-mpirun -n 256 ./esmApp
+mpirun -n 256 ./esmApp runconfig.memcopy
 echo "Model ended:    " `date`
 
 exit

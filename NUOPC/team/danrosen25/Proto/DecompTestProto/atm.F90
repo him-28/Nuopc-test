@@ -1,8 +1,3 @@
-    ! Disabling the following macro, e.g. renaming to DECOMPSYNC_disable,
-    ! will result in a model component that desynchronizes the domain
-    ! decomposition.
-#define DECOMPSYNC
-
 module ATM
 
   !-----------------------------------------------------------------------------
@@ -626,29 +621,50 @@ module ATM
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
     
-    ! local variables    
-    type(ESMF_Field)        :: field
-    type(ESMF_DistGrid)     :: distGrid
-    type(ESMF_Grid)         :: gridIn
-    type(ESMF_Grid)         :: gridOut
+    ! local variables
+    character(len=ESMF_MAXSTR) :: cName
+    logical                    :: syncdecomp
+    character(len=ESMF_MAXSTR) :: logMsg
+    type(ESMF_Field)           :: field
+    type(ESMF_DistGrid)        :: distGrid
+    type(ESMF_Grid)            :: gridIn
+    type(ESMF_Grid)            :: gridOut
     
     rc = ESMF_SUCCESS
+
+    call ESMF_GridCompGet(model, name=cName, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call IsSyncDecomp(model, syncdecomp=syncdecomp, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
  
-#ifdef DECOMPSYNC   
-    distGrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
-      deBlockList=blockList_sync, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#else
-    distGrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
-      deBlockList=blockList_noSync, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
+    if (syncdecomp) then
+      write (logMsg,"(A,A)") trim(cName)//": ", &
+        " model attribute SyncDecomp: true"
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+      distGrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
+        deBlockList=blockList_sync, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      write (logMsg,"(A,A)") trim(cName)//": ", &
+        " model attribute SyncDecomp: false"
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+      distGrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
+        deBlockList=blockList_noSync, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
 
     ! create a Grid object for Fields
     gridIn = ESMF_GridCreate(distgrid=distgrid, rc=rc)
@@ -934,8 +950,9 @@ module ATM
 
   !-----------------------------------------------------------------------------
 
-  logical function IsSyncDecomp(model, rc)
+  subroutine IsSyncDecomp(model, syncdecomp, rc)
     type(ESMF_GridComp)  :: model
+    logical              :: syncdecomp
     integer, intent(out) :: rc
 
     ! local variables
@@ -951,12 +968,12 @@ module ATM
 
     select case (attrString)
     case ('true','TRUE','True','t','T','1' )
-      IsSyncDecomp = .true.
+      syncdecomp = .true.
     case default
-      IsSyncDecomp = .false.
+      syncdecomp = .false.
     endselect
 
-  end function
+  end subroutine
 
   !-----------------------------------------------------------------------------
 

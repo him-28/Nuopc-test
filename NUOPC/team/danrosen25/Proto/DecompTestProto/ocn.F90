@@ -1,8 +1,3 @@
-    ! Disabling the following macro, e.g. renaming to DECOMPSYNC_disable,
-    ! will result in a model component that desynchronizes the domain
-    ! decomposition.
-#define DECOMPSYNC
-
 module OCN
 
   !-----------------------------------------------------------------------------
@@ -633,30 +628,51 @@ module OCN
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
     
-    ! local variables    
-    type(ESMF_TimeInterval) :: stabilityTimeStep
-    type(ESMF_Field)        :: field
-    type(ESMF_Grid)         :: gridIn
-    type(ESMF_Grid)         :: gridOut
-    type(ESMF_DistGrid)     :: distgrid
+    ! local variables
+    character(len=ESMF_MAXSTR) :: cName
+    logical                    :: syncdecomp
+    character(len=ESMF_MAXSTR) :: logMsg
+    type(ESMF_TimeInterval)    :: stabilityTimeStep
+    type(ESMF_Field)           :: field
+    type(ESMF_Grid)            :: gridIn
+    type(ESMF_Grid)            :: gridOut
+    type(ESMF_DistGrid)        :: distgrid
     
     rc = ESMF_SUCCESS
 
-#ifdef DECOMPSYNC   
-    distgrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
-      deBlockList=blockList_sync, rc=rc)
+    call ESMF_GridCompGet(model, name=cName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#else
-    distgrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
-      deBlockList=blockList_noSync, rc=rc)
+
+    call IsSyncDecomp(model, syncdecomp=syncdecomp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#endif
+
+    if (syncdecomp) then
+      write (logMsg,"(A,A)") trim(cName)//": ", &
+        " model attribute SyncDecomp: true"
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+      distgrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
+        deBlockList=blockList_sync, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      write (logMsg,"(A,A)") trim(cName)//": ", &
+        " model attribute SyncDecomp: false"
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+      distgrid = ESMF_DistGridCreate(minIndex=(/1, 1/), maxIndex=(/628, 628/), &
+        deBlockList=blockList_noSync, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
 
     ! create a Grid object for Fields
     gridIn = ESMF_GridCreate(distgrid=distgrid, rc=rc)
@@ -985,5 +1001,34 @@ module OCN
       return  ! bail out
 
   end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  subroutine IsSyncDecomp(model, syncdecomp, rc)
+    type(ESMF_GridComp)  :: model
+    logical              :: syncdecomp
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR) :: attrString
+
+    ! get MemCopy attribute
+    call ESMF_AttributeGet(model, name='SyncDecomp', value=attrString, &
+      defaultValue="true", convention='NUOPC', purpose='Instance', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    select case (attrString)
+    case ('true','TRUE','True','t','T','1' )
+      syncdecomp = .true.
+    case default
+      syncdecomp = .false.
+    endselect
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
 
 end module

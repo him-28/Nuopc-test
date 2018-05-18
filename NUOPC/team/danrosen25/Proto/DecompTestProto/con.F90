@@ -1,8 +1,3 @@
-    ! Disabling the following macro, e.g. renaming to MEMCOPY_disable,
-    ! will result in a model component that executes FieldBundleRedist 
-    ! instead of locally copying memory.
-#define MEMCOPY
-
 module CON
 
   !-----------------------------------------------------------------------------
@@ -24,17 +19,6 @@ module CON
   
   public SetServices
 
-  CHARACTER(LEN=*), PARAMETER :: label_InternalState = 'InternalState'
-
-  type type_InternalStateStruct
-    type(ESMF_Field), allocatable :: srcFieldList(:)
-    type(ESMF_Field), allocatable :: dstFieldList(:)
-  end type
-
-  type type_InternalState
-    type(type_InternalStateStruct), pointer :: wrap
-  end type
- 
   !-----------------------------------------------------------------------------
   contains
   !-----------------------------------------------------------------------------
@@ -85,34 +69,26 @@ module CON
     integer, intent(out) :: rc
     
     ! local variables
-    type(type_InternalState)      :: is
+    character(len=ESMF_MAXSTR)    :: cName
+    logical                       :: memcopy
     type(ESMF_FieldBundle)        :: srcFields, dstFields
     type(ESMF_RouteHandle)        :: rh
-    integer                       :: stat
+    character(len=ESMF_MAXSTR)    :: logMsg
 
     rc = ESMF_SUCCESS
-    
-#ifdef MEMCOPY
-    ! allocate memory for internal state and set it in the component
-    allocate(is%wrap, stat=stat)
-    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-      msg='Allocation of internal state memory failed.', &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 
-    call ESMF_UserCompSetInternalState(connector, label_InternalState, is, rc)
+    call ESMF_CplCompGet(connector, name=cName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    call PROTO_FieldListStore(connector=connector, rc=rc)
+    call IsMemCopy(connector, memcopy=memcopy, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#else
+
     call NUOPC_ConnectorGet(connector, srcFields=srcFields, &
       dstFields=dstFields, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -120,19 +96,34 @@ module CON
       file=__FILE__)) &
       return  ! bail out
 
-    ! specialize with Redist, instead of the default Regrid
-    call ESMF_FieldBundleRedistStore(srcFields, dstFields, &
-      routehandle=rh, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_ConnectorSet(connector, rh=rh, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
+    if (memcopy) then
+      ! check the fields for grid and distgrid consistency
+      write (logMsg,"(A,A)") trim(cName)//": ", &
+        " connector attribute MemCopy: true"
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+      call PROTO_FieldBundleCheck(srcFields=srcFields, &
+        dstFields=dstFields, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      ! specialize with Redist, instead of the default Regrid
+      write (logMsg,"(A,A)") trim(cName)//": ", &
+        " connector attribute MemCopy: false"
+      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+      call ESMF_FieldBundleRedistStore(srcFields, dstFields, &
+        routehandle=rh, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_ConnectorSet(connector, rh=rh, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
  
   end subroutine
   
@@ -143,51 +134,48 @@ module CON
     integer, intent(out) :: rc
     
     ! local variables
-    character(len=ESMF_MAXSTR)    :: cName
-    type(ESMF_RouteHandle)        :: rh
+    logical                       :: memcopy
     type(ESMF_FieldBundle)        :: dstFields, srcFields
-    character(len=ESMF_MAXSTR)    :: logMsg
+    type(ESMF_RouteHandle)        :: rh
 
     rc = ESMF_SUCCESS
 
-#ifdef MEMCOPY
-    ! execute memcopy
-!    call ESMF_CplCompGet(connector, name=cName, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!    write (logMsg,"(A,A)") trim(cName)//": ", &
-!      " calling FieldBundleMemCopy"
-!    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
-    call PROTO_FieldBundleMemCopy(connector, rc=rc)
+    call IsMemCopy(connector, memcopy=memcopy, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#else
-    ! execute rh
-!    call ESMF_CplCompGet(connector, name=cName, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!    write (logMsg,"(A,A)") trim(cName)//": ", &
-!      " calling FieldBundleRedist"
-!    call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
+
     call NUOPC_ConnectorGet(connector, srcFields=srcFields, &
       dstFields=dstFields, rh=rh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_FieldBundleRedist(srcFields, dstFields, &
-      routehandle=rh, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
+
+    if (memcopy) then
+      ! execute memcopy
+      call PROTO_FieldBundleMemCopy(srcFields=srcFields, dstFields=dstFields, &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      ! execute rh
+      call NUOPC_ConnectorGet(connector, srcFields=srcFields, &
+        dstFields=dstFields, rh=rh, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call ESMF_FieldBundleRedist(srcFields, dstFields, &
+        routehandle=rh, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
  
   end subroutine
 
@@ -199,67 +187,48 @@ module CON
     integer, intent(out) :: rc
     
     ! local variables
-    type(type_InternalState)      :: is
+    logical                       :: memcopy
     type(ESMF_RouteHandle)        :: rh
 
     rc = ESMF_SUCCESS
 
-#ifdef MEMCOPY
-    ! Get internal state
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(connector, label_InternalState, is, rc)
+    call IsMemCopy(connector, memcopy=memcopy, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    deallocate(is%wrap%dstFieldList)
-    deallocate(is%wrap%srcFieldList)
-    deallocate(is%wrap)
-#else
-    call NUOPC_ConnectorGet(connector, rh=rh, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+
+    if (memcopy) then
+    else
+      call NUOPC_ConnectorGet(connector, rh=rh, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
       
-   ! release rh
-    call ESMF_FieldBundleRegridRelease(rh, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
+     ! release rh
+      call ESMF_FieldBundleRegridRelease(rh, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
       
   end subroutine
 
   !-----------------------------------------------------------------------------
 
-  subroutine PROTO_FieldListStore(connector, rc)
-    type(ESMF_CplComp), intent(in) :: connector
-    integer, intent(out)           :: rc
+  subroutine PROTO_FieldBundleCheck(srcFields, dstFields, rc)
+    type(ESMF_FieldBundle), intent(in) :: srcFields
+    type(ESMF_FieldBundle), intent(in) :: dstFields
+    integer, intent(out)               :: rc
 
     ! local variables
-    type(type_InternalState) :: is
-    type(ESMF_FieldBundle)   :: srcFields, dstFields
-    integer                  :: srcFieldCount, dstFieldCount
-    integer                  :: fIndex
+    integer                       :: srcFieldCount, dstFieldCount
+    type(ESMF_Field), allocatable :: srcFieldList(:), dstFieldList(:)
+    integer                       :: fIndex
 
     rc = ESMF_SUCCESS
-
-    ! Get internal state
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(connector, label_InternalState, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call NUOPC_ConnectorGet(connector, srcFields=srcFields, &
-      dstFields=dstFields, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 
     ! get src field list count
     call ESMF_FieldBundleGet(srcFields, fieldCount=srcFieldCount, rc=rc)
@@ -276,60 +245,53 @@ module CON
 
     if (srcFieldCount .ne. dstFieldCount) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="MEMCOPY INCOMPATIBILITY DETECTED: field counts must match.", &
+        msg="MEMCOPY INCOMPATIBILITY DETECTED: "// &
+            "field counts must match", &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
       return  ! bail out
     endif
 
-    allocate(is%wrap%srcFieldList(srcFieldCount))
-    call ESMF_FieldBundleGet(srcFields, fieldList=is%wrap%srcFieldList, rc=rc)
+    allocate(srcFieldList(srcFieldCount))
+    call ESMF_FieldBundleGet(srcFields, &
+      itemorderflag=ESMF_ITEMORDER_ADDORDER, fieldList=srcFieldList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    allocate(is%wrap%dstFieldList(dstFieldCount))
-    call ESMF_FieldBundleGet(dstFields, fieldList=is%wrap%dstFieldList, rc=rc)
+    allocate(dstFieldList(dstFieldCount))
+    call ESMF_FieldBundleGet(dstFields, &
+      itemorderflag=ESMF_ITEMORDER_ADDORDER, fieldList=dstFieldList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
     do fIndex=1, srcFieldCount
-!      call ESMF_CplCompGet(connector, name=cName, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, &
-!        file=__FILE__)) &
-!        return  ! bail out
-!      call ESMF_FieldGet(is%wrap%srcFieldList(fIndex), name=fName, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, &
-!        file=__FILE__)) &
-!        return  ! bail out
-!      write (logMsg,"(A,A,A)") trim(cName)//": ", &
-!        " checking grid decomp from field ", &
-!        trim(fName)
-!      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
-      call PROTO_FieldCheck(is%wrap%srcFieldList(fIndex), &
-        is%wrap%dstFieldList(fIndex), rc)
+      call PROTO_FieldCheck(srcFieldList(fIndex), &
+        dstFieldList(fIndex), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
     enddo
 
+    deallocate(dstFieldList)
+    deallocate(srcFieldList)
+
   end subroutine
 
   !-----------------------------------------------------------------------------
 
   subroutine PROTO_FieldCheck(srcField, dstField, rc)
-    type(ESMF_Field), intent(in)    :: srcField
-    type(ESMF_Field), intent(inout) :: dstField
-    integer, intent(out)            :: rc
+    type(ESMF_Field), intent(in) :: srcField
+    type(ESMF_Field), intent(in) :: dstField
+    integer, intent(out)         :: rc
  
     ! local variables
+    character(len=ESMF_MAXSTR)    :: fName
     type(ESMF_Grid)               :: grid1, grid2
     type(ESMF_GridMatch_Flag)     :: gridmatch
     type(ESMF_DistGrid)           :: distgrid1, distgrid2
@@ -339,7 +301,7 @@ module CON
     rc = ESMF_SUCCESS
 
     call ESMF_FieldGet(srcField, grid=grid1, &
-      localDeCount=localDeCount1, rc=rc)
+      localDeCount=localDeCount1, name=fName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -362,7 +324,8 @@ module CON
     elseif (gridmatch .eq. ESMF_GRIDMATCH_ALIAS) then
     else
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="MEMCOPY INCOMPATIBILITY DETECTED: Grids must match.", &
+        msg="MEMCOPY INCOMPATIBILITY DETECTED: "// &
+            "Grids must match "//trim(fName), &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
@@ -371,7 +334,8 @@ module CON
 
     if (localDeCount1 .ne. localDeCount2) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="MEMCOPY INCOMPATIBILITY DETECTED: localDeCounts must match.", &
+        msg="MEMCOPY INCOMPATIBILITY DETECTED: "// &
+            "localDeCounts must match "//trim(fName), &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
@@ -400,7 +364,8 @@ module CON
     elseif (distgridmatch .eq. ESMF_DISTGRIDMATCH_ALIAS) then
     else
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="MEMCOPY INCOMPATIBILITY DETECTED: DistGrids must match.", &
+        msg="MEMCOPY INCOMPATIBILITY DETECTED: "// &
+            "DistGrids must match "//trim(fName), &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
@@ -411,62 +376,84 @@ module CON
 
   !-----------------------------------------------------------------------------
 
-  subroutine PROTO_FieldBundleMemCopy(connector, rc)
-    type(ESMF_CplComp),     intent(in) :: connector
-    integer, intent(out)               :: rc
+  subroutine PROTO_FieldBundleMemCopy(srcFields, dstFields, check, rc)
+    type(ESMF_FieldBundle), intent(in)  :: srcFields
+    type(ESMF_FieldBundle), intent(in)  :: dstFields
+    logical, intent(in), optional       :: check
+    integer, intent(out)                :: rc
 
     ! local variables
-    type(type_InternalState)      :: is
+    logical                       :: lcheck
     integer                       :: srcFieldCount, dstFieldCount
+    type(ESMF_Field), allocatable :: srcFieldList(:), dstFieldList(:)
     integer                       :: fIndex
-    character(len=ESMF_MAXSTR)    :: fName
-    character(len=ESMF_MAXSTR)    :: logMsg
 
     rc = ESMF_SUCCESS
 
-    ! Get internal state
-    nullify(is%wrap)
-    call ESMF_UserCompGetInternalState(connector, label_InternalState, is, rc)
+    if (present(check)) then
+      lcheck = check
+    else
+      lcheck = .false.
+    endif
+
+    ! get src field list count
+    call ESMF_FieldBundleGet(srcFields, fieldCount=srcFieldCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    ! get dst field list count
+    call ESMF_FieldBundleGet(dstFields, fieldCount=dstFieldCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    ! Get src field list count
-    srcFieldCount = size(is%wrap%srcFieldList)
-    dstFieldCount = size(is%wrap%srcFieldList)
-
     if (srcFieldCount .ne. dstFieldCount) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="MEMCOPY INCOMPATIBILITY DETECTED: field counts must match.", &
+        msg="MEMCOPY INCOMPATIBILITY DETECTED: "// &
+            "field counts must match", &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
       return  ! bail out
     endif
 
+    allocate(srcFieldList(srcFieldCount))
+    call ESMF_FieldBundleGet(srcFields, &
+      itemorderflag=ESMF_ITEMORDER_ADDORDER, fieldList=srcFieldList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    allocate(dstFieldList(dstFieldCount))
+    call ESMF_FieldBundleGet(dstFields, &
+      itemorderflag=ESMF_ITEMORDER_ADDORDER, fieldList=dstFieldList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     do fIndex=1, srcFieldCount
-!    call ESMF_CplCompGet(connector, name=cName, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, &
-!        file=__FILE__)) &
-!        return  ! bail out
-!      call ESMF_FieldGet(srcFieldList(fIndex), name=fName, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, &
-!        file=__FILE__)) &
-!        return  ! bail out
-!      write (logMsg,"(A,A,A)") trim(cName)//": ", &
-!        " copying data from field ", &
-!        trim(fName)
-!      call ESMF_LogWrite(trim(logMsg), ESMF_LOGMSG_INFO)
-      call PROTO_FieldMemCopy(is%wrap%srcFieldList(fIndex), &
-        is%wrap%dstFieldList(fIndex), rc)
+      if (lcheck) then
+        call PROTO_FieldCheck(srcFieldList(fIndex), &
+          dstFieldList(fIndex), rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      call PROTO_FieldMemCopy(srcFieldList(fIndex), &
+        dstFieldList(fIndex), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
     enddo
+
+    deallocate(dstFieldList)
+    deallocate(srcFieldList)
 
   end subroutine
 
@@ -480,12 +467,14 @@ module CON
  
     ! local variables
     integer                       :: localDeCount1, localDeCount2
+    character(len=ESMF_MAXSTR)    :: fName
     integer                       :: deIndex
     real(ESMF_KIND_R8), pointer   :: srcFarray(:,:), dstFarray(:,:)
 
     rc = ESMF_SUCCESS
 
-    call ESMF_FieldGet(srcField, localDeCount=localDeCount1, rc=rc)
+    call ESMF_FieldGet(srcField, localDeCount=localDeCount1, &
+      name=fName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -499,7 +488,8 @@ module CON
 
     if (localDeCount1 .ne. localDeCount2) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="MEMCOPY INCOMPATIBILITY DETECTED: localDeCounts must match.", &
+        msg="MEMCOPY INCOMPATIBILITY DETECTED: "// &
+            "localDeCounts must match "//trim(fName), &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
@@ -534,8 +524,9 @@ module CON
 
   !-----------------------------------------------------------------------------
 
-  logical function IsMemCopy(connector, rc)
-    type(ESMF_CplComp)   :: connector
+  subroutine IsMemCopy(connector, memcopy, rc)
+    type(ESMF_CplComp), intent(in) :: connector
+    logical, intent(out)           :: memcopy
     integer, intent(out) :: rc
 
     ! local variables
@@ -551,12 +542,12 @@ module CON
 
     select case (attrString)
     case ('true','TRUE','True','t','T','1' )
-      IsMemCopy = .true.
+      memcopy = .true.
     case default
-      IsMemCopy = .false.
+      memcopy = .false.
     endselect
 
-  end function
+  end subroutine
 
   !-----------------------------------------------------------------------------
 
