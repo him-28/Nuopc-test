@@ -2,10 +2,6 @@
     ! will result in a model component that desynchronizes the domain
     ! decomposition.
 #define DECOMPSYNC
-    ! Disabling the following macro, e.g. renaming to WITHIMPORTFIELDS_disable,
-    ! will result in a model component that does not advertise any importable
-    ! Fields. Use this if you want to drive the model independently.
-#define WITHIMPORTFIELDS
 
 module ATM
 
@@ -596,7 +592,6 @@ module ATM
     
     rc = ESMF_SUCCESS
 
-#ifdef WITHIMPORTFIELDS
     ! importable field: sea_surface_temperature
     call NUOPC_Advertise(importState, &
       StandardName="sea_surface_temperature", name="sst", rc=rc)
@@ -604,7 +599,6 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#endif
     
     ! exportable field: air_pressure_at_sea_level
     call NUOPC_Advertise(exportState, &
@@ -670,7 +664,6 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
 
-#ifdef WITHIMPORTFIELDS
     ! importable field: sea_surface_temperature
     field = ESMF_FieldCreate(name="sst", grid=gridIn, &
       typekind=ESMF_TYPEKIND_R8, rc=rc)
@@ -683,7 +676,6 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-#endif
 
     ! exportable field: air_pressure_at_sea_level
     field = ESMF_FieldCreate(name="pmsl", grid=gridOut, &
@@ -939,5 +931,33 @@ module ATM
       return  ! bail out
 
   end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  logical function IsSyncDecomp(model, rc)
+    type(ESMF_GridComp)  :: model
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR) :: attrString
+
+    ! get MemCopy attribute
+    call ESMF_AttributeGet(model, name='SyncDecomp', value=attrString, &
+      defaultValue="true", convention='NUOPC', purpose='Instance', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    select case (attrString)
+    case ('true','TRUE','True','t','T','1' )
+      IsSyncDecomp = .true.
+    case default
+      IsSyncDecomp = .false.
+    endselect
+
+  end function
+
+  !-----------------------------------------------------------------------------
 
 end module

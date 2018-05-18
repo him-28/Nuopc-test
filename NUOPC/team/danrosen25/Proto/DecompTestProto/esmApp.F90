@@ -9,8 +9,13 @@ program esmApp
 
   implicit none
 
-  integer                 :: rc, urc
-  type(ESMF_GridComp)     :: esmComp
+  integer                    :: rc, urc
+  type(ESMF_GridComp)        :: esmComp
+  type(ESMF_VM)              :: vm
+  integer                    :: localPet
+  integer                    :: argCount
+  character(len=ESMF_MAXSTR) :: configFile
+  type(ESMF_Config)          :: config
   
   ! Initialize ESMF
   call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
@@ -26,7 +31,63 @@ program esmApp
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
   ! Create the earth system Component
-  esmComp = ESMF_GridCompCreate(name="esm", rc=rc)
+  esmComp = ESMF_GridCompCreate(name="DRIVER", rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  ! Determine the local PET identifier
+  call ESMF_VMGetGlobal(vm=vm, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  call ESMF_VMGet(vm=vm, localPet=localPet, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  ! Read the config filename from the command line arguments
+  if (localPet .eq. 0) then
+    configFile = 'runconfig.default'
+    call ESMF_UtilGetArgC(argCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (argCount.gt.0) then
+      call ESMF_UtilGetArg(1, argValue=configFile, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    endif
+  endif
+
+  call ESMF_VMBroadcast(vm=vm, bcstData=configFile, count=ESMF_MAXSTR, &
+    rootPet=0, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  ! Create & set config for the driver Component
+  config = ESMF_ConfigCreate(rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  call ESMF_ConfigLoadFile(config, trim(configFile), rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  call ESMF_GridCompSet(esmComp, config=config, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
