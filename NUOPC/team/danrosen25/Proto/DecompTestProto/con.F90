@@ -1,3 +1,11 @@
+#ifdef ESMF_TRACE
+#define T_ENTER(region) call ESMF_TraceRegionEnter(region)
+#define T_EXIT(region) call ESMF_TraceRegionExit(region)
+#else
+#define T_ENTER(region) 
+#define T_EXIT(region)
+#endif
+
 module CON
 
   !-----------------------------------------------------------------------------
@@ -77,6 +85,8 @@ module CON
 
     rc = ESMF_SUCCESS
 
+    T_ENTER("compRH")
+
     call ESMF_CplCompGet(connector, name=cName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -124,7 +134,9 @@ module CON
         file=__FILE__)) &
         return  ! bail out
     endif
- 
+
+    T_EXIT("compRH")
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -139,6 +151,8 @@ module CON
     type(ESMF_RouteHandle)        :: rh
 
     rc = ESMF_SUCCESS
+
+    T_ENTER("execRH")
 
     call IsMemCopy(connector, memcopy=memcopy, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -177,6 +191,8 @@ module CON
         return  ! bail out
     endif
  
+    T_EXIT("execRH")
+
   end subroutine
 
   !-----------------------------------------------------------------------------

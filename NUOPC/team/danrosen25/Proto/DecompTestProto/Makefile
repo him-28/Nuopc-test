@@ -25,6 +25,16 @@ endif
 include $(ESMFMKFILE)
 
 ################################################################################
+
+ESMF_TRACE = OFF
+
+ifeq ($(ESMF_TRACE),ON)
+ ESMF_F90COMPILECPPFLAGS += -DESMF_TRACE
+ ESMF_F90LINKOPTS        += $(ESMF_TRACE_STATICLINKOPTS)
+ ESMF_F90ESMFLINKLIBS    += $(ESMF_TRACE_STATICLINKLIBS)
+endif
+
+################################################################################
 ################################################################################
 
 .SUFFIXES: .f90 .F90 .c .C

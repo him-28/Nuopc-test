@@ -60,10 +60,10 @@ echo "Model started memcopy:  " `date`
 mpirun -n 256 ../esmApp ../runconfig.memcopy > run.log 2>&1
 echo "Model ended memcopy:    " `date`
 
-mkdir -p $RUNDIR/error
-cd $RUNDIR/error
-echo "Model started error:  " `date`
-mpirun -n 256 ../esmApp ../runconfig.error > run.log 2>&1
-echo "Model ended error:    " `date`
+#mkdir -p $RUNDIR/error
+#cd $RUNDIR/error
+#echo "Model started error:  " `date`
+#mpirun -n 256 ../esmApp ../runconfig.error > run.log 2>&1
+#echo "Model ended error:    " `date`
 
 exit

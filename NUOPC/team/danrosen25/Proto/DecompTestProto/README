@@ -6,14 +6,21 @@ decomposition is synchronized versus desynchronized. Domains are decomposed
 over 256 PETs.
 
 Dependencies:
-  - ESMF v7.0.0 beta
+  - Without Trace IO (default)
+      * ESMF v7.0.0r
+  - With Trace IO (ESMF_TRACE=ON)
+      * ESMF v8.0.0 beta with Trace IO (ESMF branch traceio)
   
 Build:
   - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF
     installation.
-  - gmake
+  - Without Trace IO (default)
+      * gmake
+  - With Trace IO (requires ESMF with Trace IO)
+      * gmake ESMF_TRACE=ON
   
 Execution:
+  - Set Verbosity to desired level in the runconfig file.
   - Enable/Disable domain decomposition synchronization (syncdecomp) in the
     runconfig file.
   - Enable/Disable memory copy (memcopy) in the runconfig file. Memory copy
