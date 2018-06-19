@@ -1,5 +1,11 @@
-#define USE_NETCDF4 
-#define USE_GRIBAPI 
-#define USE_HDF4 
-#define USE_HDF5 
+#define PARALLEL OFF
+#define ASYNC    OFF
+#define SETTINGS_LOGKIND ESMF_LOGKIND_NONE
 
+#ifdef ESMF_TRACE
+#define T_ENTER(region) call ESMF_TraceRegionEnter(region)
+#define T_EXIT(region) call ESMF_TraceRegionExit(region)
+#else
+#define T_ENTER(region) 
+#define T_EXIT(region)
+#endif

@@ -26,7 +26,7 @@ include $(ESMFMKFILE)
 
 ################################################################################
 
-ESMF_TRACE = OFF
+ESMF_TRACE = ON
 
 ifeq ($(ESMF_TRACE),ON)
  ESMF_F90COMPILECPPFLAGS += -DESMF_TRACE
@@ -53,20 +53,22 @@ endif
 
 
 # -----------------------------------------------------------------------------
-offlineApp.exe: offlineApp.o lndDriver.o lndState.o lndLogger.o lndWriter.o
+offlineApp.exe: offlineApp.o lndDriver.o lndState.o lndLogger.o lndWriter.o lndClock.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
-offlineApp.o: lndDriver.o
-lndDriver.o:  lndState.o lndLogger.o lndWriter.o
-lndState.o:   lndLogger.o
-lndWriter.o:  lndState.o lndLogger.o
+offlineApp.o: lndDriver.o settings.h
+lndDriver.o:  lndState.o lndLogger.o lndWriter.o lndClock.o settings.h
+lndClock.o:   lndLogger.o settings.h
+lndState.o:   lndLogger.o lndClock.o settings.h
+lndWriter.o:  lndState.o lndLogger.o lndClock.o settings.h
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
-	rm -rf *.log traceout
+	rm -f *.nc *.log core 
+	rm -rf traceout
 clean:
 	rm -f *.exe *.o *.mod
 distclean: dust clean
@@ -79,4 +81,4 @@ info:
 	@echo ==================================================================
 
 edit:
-	nedit esmApp.F90 esm.F90 atm.F90 ocn.F90 con.F90 &
+	nedit offlineApp.F90 lndDriver.F90 lndState.F90 lndLogger.F90 lndWriter.F90 &

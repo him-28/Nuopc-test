@@ -4,8 +4,8 @@
 #------------------------------------------------------------------------------#
 #PBS -S /bin/ksh
 #PBS -A PROJECT_ACCOUNT
-#PBS -N decompTestProto
-#PBS -o decompTestProto.log
+#PBS -N asyncIoTestProto
+#PBS -o asyncIoTestProto.log
 #PBS -j oe
 #PBS -m abe
 #PBS -l walltime=00:30:00
