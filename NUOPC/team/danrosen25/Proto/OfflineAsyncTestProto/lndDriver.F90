@@ -7,7 +7,7 @@ module lndDriver
   !-----------------------------------------------------------------------------
 
   use ESMF
-  use lndState, only : state_ini, state_fin, state, field_fill
+  use lndState, only : state_ini, state_fin, state_log, state, field_fill
   use lndWriter, only : write_ini, write_fin, write_state
   use lndClock
   use lndLogger, only : log_ini, log_fin, log_info, log_warning, log_error
@@ -31,7 +31,7 @@ module lndDriver
     type(type_clock) :: clock
 
     call ESMF_Initialize(defaultCalKind=ESMF_CALKIND_GREGORIAN,&
-      logkindflag=SETTINGS_LOGKIND,rc=rc)
+      logkindflag=DEFAULT_LOGKIND,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -49,19 +49,11 @@ module lndDriver
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-#if ASYNC == ON
-#if PARALLEL == ON
-    call write_ini(0.0,10.0,2.0,async=.true.,parallel=.true.,rc=rc)
-#else
-    call write_ini(0.0,10.0,2.0,async=.true.,parallel=.false.,rc=rc)
-#endif
-#else
-#if PARALLEL == ON
-    call write_ini(0.0,10.0,2.0,async=.false.,parallel=.true.,rc=rc)
-#else
-    call write_ini(0.0,10.0,2.0,async=.false.,parallel=.false.,rc=rc)
-#endif
-#endif
+    call state_log()
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    call write_ini(0.0,10.0,2.0,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)

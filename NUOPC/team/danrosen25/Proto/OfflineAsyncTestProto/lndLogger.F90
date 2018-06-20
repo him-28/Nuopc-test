@@ -17,6 +17,7 @@ module lndLogger
   public log_info
   public log_warning
   public log_error
+  public abort_error
 
   type type_log_state
     logical           :: initialized = .false.
@@ -28,16 +29,21 @@ module lndLogger
 
   type(type_log_state)       :: logState
   integer,parameter          :: maxMsgLen   = 55
-  integer,parameter          :: maxMsgLenR4 = 45
+  integer,parameter          :: maxMsgLenR4 = maxMsgLen-12
+  integer,parameter          :: maxMsgLenI4 = maxMsgLen-12
+  integer,parameter          :: maxMsgLenL1 = maxMsgLen-12
   character(len=*),parameter :: logInf   = "('INFO    ',A,' ',A)"
-  character(len=*),parameter :: logInfR4 = "('INFO    ',A,' ',A,'=',F9.1)"
+  character(len=*),parameter :: logInfI4 = "('INFO    ',A,' ',A,'=',I11)"
+  character(len=*),parameter :: logInfR4 = "('INFO    ',A,' ',A,'=',F11.1)"
+  character(len=*),parameter :: logInfL1 = "('INFO    ',A,' ',A,'=',L11)"
   character(len=*),parameter :: logWrn   = "('WARNING ',A,' ',A)"
   character(len=*),parameter :: logErr   = "('ERROR   ',A,' ',A)"
 
-
   interface log_info
      module procedure log_info_msg
+     module procedure log_info_i4
      module procedure log_info_r4
+     module procedure log_info_l1
   end interface
 
   !-----------------------------------------------------------------------------
@@ -144,6 +150,7 @@ module lndLogger
         write (*,logErr) TRIM(logState%pet_id),"log_reset inquire"
       else
         if ( isOpen ) then
+          call log_flush()
           CLOSE(unit=logState%log_unit, iostat=rc)
           if ( rc /= 0 ) then
             write (*,logErr) TRIM(logState%pet_id),"log_reset close"
@@ -187,6 +194,25 @@ module lndLogger
 
   !-----------------------------------------------------------------------------
 
+  subroutine log_info_i4(msg,value)
+    ! ARGUMENTS
+    character(len=*),intent(in) :: msg
+    integer*4,intent(in)        :: value
+    ! LOCAL VARIABLES
+    integer          :: maxLen
+
+    maxLen = MIN(LEN(msg),maxMsgLenI4)
+    if ( logState%initialized ) then
+      write (logState%log_unit,logInfI4) TRIM(logState%pet_id) &
+        ,msg(1:maxLen), value
+    else
+      write (*,logInfI4) TRIM(logState%pet_id),msg(1:maxLen),value
+    endif
+    if ( logState%opt_flush ) call log_flush()
+  end subroutine log_info_i4
+
+  !-----------------------------------------------------------------------------
+
   subroutine log_info_r4(msg,value)
     ! ARGUMENTS
     character(len=*),intent(in) :: msg
@@ -203,6 +229,25 @@ module lndLogger
     endif
     if ( logState%opt_flush ) call log_flush()
   end subroutine log_info_r4
+
+  !-----------------------------------------------------------------------------
+
+  subroutine log_info_l1(msg,value)
+    ! ARGUMENTS
+    character(len=*),intent(in) :: msg
+    logical,intent(in)          :: value
+    ! LOCAL VARIABLES
+    integer          :: maxLen
+
+    maxLen = MIN(LEN(msg),maxMsgLenL1)
+    if ( logState%initialized ) then
+      write (logState%log_unit,logInfL1) TRIM(logState%pet_id) &
+        ,msg(1:maxLen), value
+    else
+      write (*,logInfL1) TRIM(logState%pet_id),msg(1:maxLen),value
+    endif
+    if ( logState%opt_flush ) call log_flush()
+  end subroutine log_info_l1
 
   !-----------------------------------------------------------------------------
 
@@ -237,6 +282,18 @@ module lndLogger
     endif
     if ( logState%opt_flush ) call log_flush()
   end subroutine log_error
+
+  !-----------------------------------------------------------------------------
+
+  subroutine abort_error(msg)
+    ! ARGUMENTS
+    character(len=*),intent(in) :: msg
+
+    call log_error(msg)
+    call log_flush()
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    call abort()
+  end subroutine abort_error
 
   !-----------------------------------------------------------------------------
 

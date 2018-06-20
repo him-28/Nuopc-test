@@ -23,8 +23,6 @@ module lndWriter
 
   type type_writer
     logical :: initialized  = .false.
-    logical :: opt_async    = .false.
-    logical :: opt_parallel = .false.
     real*4  :: writer_start = 0.0
     real*4  :: writer_end   = 0.0
     real*4  :: writer_step  = 0.0
@@ -37,13 +35,11 @@ module lndWriter
   contains
   !-----------------------------------------------------------------------------
 
-  subroutine write_ini(write_start,write_end,write_step,async,parallel,rc)
+  subroutine write_ini(write_start,write_end,write_step,rc)
     ! ARGUMENTS
     real*4,intent(in)   :: write_start 
     real*4,intent(in)   :: write_end
     real*4,intent(in)   :: write_step
-    logical,intent(in)  :: async
-    logical,intent(in)  :: parallel
     integer,intent(out) :: rc
 
     rc = ESMF_SUCCESS
@@ -61,8 +57,6 @@ module lndWriter
         writer%writer_end   = write_end
         writer%writer_step  = write_step
         writer%writer_next  = write_start + write_step
-        writer%opt_async    = async
-        writer%opt_parallel = parallel
         writer%initialized  = .true.
       endif
     else
@@ -75,8 +69,6 @@ module lndWriter
         writer%writer_end   = write_end
         writer%writer_step  = write_step
         writer%writer_next  = write_start + write_step
-        writer%opt_async    = async
-        writer%opt_parallel = parallel
         writer%initialized  = .true.
       endif
     endif
@@ -119,8 +111,8 @@ module lndWriter
       write(clockStr,"(I0."//TRIM(padding)//")") INT(state%clock%current_time)
       clockStr = ADJUSTL(clockStr)
       write(fname,"('OUTPUT',A,'.nc')") TRIM(clockStr)
-      if( writer%opt_async ) then
-        if ( writer%opt_parallel ) then
+      if( state%async ) then
+        if ( state%parallel ) then
           call log_info("async_parallel write: "//TRIM(fname))
           call writer_async_parallel(fname,rc=rc)
         else
@@ -128,7 +120,7 @@ module lndWriter
           call writer_async_noParallel(fname,rc=rc)
         endif
       else
-        if ( writer%opt_parallel ) then
+        if ( state%parallel ) then
           call log_info("noAsync_parallel write: "//TRIM(fname))
           call writer_noAsync_parallel(fname,rc=rc)
         else
@@ -147,8 +139,6 @@ module lndWriter
     writer%writer_end   = 0.0
     writer%writer_step  = 0.0
     writer%writer_next  = 0.0
-    writer%opt_async    = .false.
-    writer%opt_parallel = .false.
     writer%initialized  = .false.
   end subroutine
 
@@ -161,6 +151,8 @@ module lndWriter
 
     rc = ESMF_SUCCESS
 
+    call log_warning("async_noParallel is not implemented ")
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -172,6 +164,8 @@ module lndWriter
 
     rc = ESMF_SUCCESS
 
+    call log_warning("async_parallel is not implemented ")
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -181,9 +175,10 @@ module lndWriter
     character(len=*),intent(in) :: fname
     integer,intent(out) :: rc
     ! LOCAL VARIABLES
-    real*4,allocatable  :: rcvData(:,:)
+    real*4,allocatable  :: wrtData(:,:)
     integer             :: ncId
-    integer             :: varId
+    integer             :: varInfexs
+    integer             :: varSfctmp
     integer             :: dimIds(2)
 
     rc = ESMF_SUCCESS
@@ -192,49 +187,60 @@ module lndWriter
         call log_error("state_write: state must be initialized.")
     endif
     if ( state%lcl_pet_id == state%root ) then
-      allocate(rcvData(state%gbl_x,state%gbl_y),stat=rc)
+      ! create netcdf file and define variables
+      rc = nf90_create(fname, NF90_CLOBBER, ncId)
+      if ( rc /= nf90_NoErr ) call log_error("netcdf create error")
+      rc = nf90_def_dim(ncId, "x", state%gbl_max(1), dimIds(2) )
+      if ( rc /= nf90_NoErr ) call log_error("netcdf define x error")
+      rc = nf90_def_dim(ncId, "y", state%gbl_max(2), dimIds(1) )
+      if ( rc /= nf90_NoErr ) call log_error("netcdf define y error")
+      rc = nf90_def_var(ncId, "infexs", NF90_FLOAT, dimIds, varInfexs)
+      if ( rc /= nf90_NoErr ) call log_error("netcdf define infexs error")
+      rc = nf90_def_var(ncId, "sfctmp", NF90_FLOAT, dimIds, varSfctmp)
+      if ( rc /= nf90_NoErr ) call log_error("netcdf define sfctmp error")
+      rc = nf90_enddef(ncId)
+      if ( rc /= nf90_NoErr ) call log_error("netcdf end define error")
+      ! allocate memory for gather
+      allocate(wrtData(state%gbl_max(1),state%gbl_max(2)),stat=rc)
       if ( rc /= 0 ) then
         call log_error("error allocating memory for gather")
       endif
     else
-      allocate(rcvData(0,0),stat=rc)
+      ! allocate zero memory for gather
+      allocate(wrtData(0,0),stat=rc)
       if ( rc /= 0 ) then
         call log_error("error allocating memory for gather")
       endif
     endif
+
 !    Note MPI_GATHERV cannot be used because decomposition may
 !    not be a contiguos block in the recv array
+
     ! infexs
-    call ESMF_FieldGather(state%infexs, farray=rcvData &
+    call ESMF_FieldGather(state%infexs, farray=wrtData &
       , rootPet=state%root, rc=rc)
     if ( rc /= ESMF_SUCCESS ) then
       call log_error("state_write ESMF_FieldGather error")
     endif
     if ( state%lcl_pet_id == state%root ) then
-      call log_info("creating netcdf")
-      rc = nf90_create(fname, NF90_CLOBBER, ncId)
-      if ( rc /= nf90_NoErr ) call log_error("netcdf create error")
-      rc = nf90_def_dim(ncId, "x", state%gbl_x, dimIds(2) )
-      if ( rc /= nf90_NoErr ) call log_error("netcdf define x error")
-      rc = nf90_def_dim(ncId, "y", state%gbl_y, dimIds(1) )
-      if ( rc /= nf90_NoErr ) call log_error("netcdf define y error")
-      rc = nf90_def_var(ncId, "infexs", NF90_FLOAT, dimIds, varId)
-      if ( rc /= nf90_NoErr ) call log_error("netcdf define infexs error")
-      rc = nf90_enddef(ncId)
-      if ( rc /= nf90_NoErr ) call log_error("netcdf end define error")
-      rc = nf90_put_var(ncId, varId, rcvData)
+      rc = nf90_put_var(ncId, varInfexs, wrtData)
       if ( rc /= nf90_NoErr ) call log_error("netcdf write infexs error")
+    endif
+
+    ! sfctmp
+    call ESMF_FieldGather(state%sfctmp, farray=wrtData &
+      , rootPet=state%root, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) then
+      call log_error("state_write ESMF_FieldGather error")
+    endif
+    if ( state%lcl_pet_id == state%root ) then
+      rc = nf90_put_var(ncId, varSfctmp, wrtData)
+      if ( rc /= nf90_NoErr ) call log_error("netcdf write sfctmp error")
       rc = nf90_close(ncId)
       if ( rc /= nf90_NoErr ) call log_error("netcdf close error")
     endif
-    ! sfctmp
-!    nullify(sndData)
-!    call ESMF_FieldGet(state%sfctmp, farrayPtr=sndData &
-!      ,totalCount=sndCount, rc=rc)A
-!    call MPI_Gather(sndData, sndCount(1)*sndCount(2), MPI_REAL &
-!      ,rcvData, SIZE(rcvData), state%root, state%lnd_mpi_com)
-    ! clean up
-    deallocate(rcvData,stat=rc)
+
+    deallocate(wrtData,stat=rc)
     if ( rc /= 0 ) then
       call log_error("error deallocating memory for gather")
     endif
@@ -247,8 +253,59 @@ module lndWriter
     ! ARGUMENTS
     character(len=*),intent(in) :: fname
     integer,intent(out) :: rc
+    ! LOCAL VARIABLES
+    real*4,pointer      :: wrtData(:,:)
+    integer             :: ncId
+    integer             :: varInfexs
+    integer             :: varSfctmp
+    integer             :: dimIds(2)
+    integer             :: starts(2), counts(2) 
 
     rc = ESMF_SUCCESS
+
+    if ( .NOT.state%initialized ) then
+        call log_error("state_write: state must be initialized.")
+    endif
+
+    rc = nf90_create(path=fname &
+      , cmode=IOR(IOR(NF90_CLOBBER,NF90_NETCDF4),NF90_MPIIO) &
+      , ncId=ncid, comm=state%lnd_mpi_com, info=MPI_INFO_NULL)
+    if ( rc /= nf90_NoErr ) call log_error("netcdf create error")
+    rc = nf90_def_dim(ncId, "x", state%gbl_max(1), dimIds(2) )
+    if ( rc /= nf90_NoErr ) call log_error("netcdf define x error")
+    rc = nf90_def_dim(ncId, "y", state%gbl_max(2), dimIds(1) )
+    if ( rc /= nf90_NoErr ) call log_error("netcdf define y error")
+    rc = nf90_def_var(ncId, "infexs", NF90_FLOAT, dimIds, varInfexs)
+    if ( rc /= nf90_NoErr ) call log_error("netcdf define infexs error")
+    rc = nf90_def_var(ncId, "sfctmp", NF90_FLOAT, dimIds, varSfctmp)
+    if ( rc /= nf90_NoErr ) call log_error("netcdf define sfctmp error")
+    rc = nf90_enddef(ncId)
+    if ( rc /= nf90_NoErr ) call log_error("netcdf end define error")
+
+    ! infexs
+    nullify(wrtData)
+    call ESMF_FieldGet(state%infexs, farrayPtr=wrtData, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) then
+      call log_error("state_write ESMF_FieldGet error")
+    endif
+    rc = nf90_put_var(ncId, varInfexs, wrtData &
+      , start=(/state%lcl_min(1),state%lcl_min(2)/) &
+      , count=(/state%lcl_edg(1),state%lcl_edg(2)/))
+    if ( rc /= nf90_NoErr ) call log_error("netcdf write infexs error")
+
+    ! sfctmp
+    nullify(wrtData)
+    call ESMF_FieldGet(state%sfctmp, farrayPtr=wrtData, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) then
+      call log_error("state_write ESMF_FieldGet error")
+    endif
+    rc = nf90_put_var(ncId, varSfctmp, wrtData &
+      , start=(/state%lcl_min(1),state%lcl_min(2)/) &
+      , count=(/state%lcl_edg(1),state%lcl_edg(2)/))
+    if ( rc /= nf90_NoErr ) call log_error("netcdf write sfctmp error")
+
+    rc = nf90_close(ncId)
+    if ( rc /= nf90_NoErr ) call log_error("netcdf close error")
 
   end subroutine
 
