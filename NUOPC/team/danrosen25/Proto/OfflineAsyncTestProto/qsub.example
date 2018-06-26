@@ -17,14 +17,8 @@
 cd $PBS_O_WORKDIR
 
 # Load modules and setup runtime environment
-module unload PrgEnv-cray PrgEnv-gnu PrgEnv-pgi
-module load PrgEnv-intel
-module use /p/work1/projects/AFWA/modulefiles
-module load build/lis.2
-module load cray-hdf5-parallel
-module load cray-netcdf-hdf5parallel
-module load ccm
-module list
+# module load intel hdf5 netcdf
+# module list
 
 export NP=$PBS_NP
 export RUNDIR=`pwd`
@@ -46,9 +40,55 @@ ulimit -t unlimited #cputime
 ulimit -d unlimited #datasize
 ulimit -m unlimited #memoryuse
 
-# Run application using MPI
-echo "Model started offlineApp:  " `date`
-aprun -n 32 ./offlineApp.exe
-echo "Model ended offlineApp:    " `date`
+# Run single test using mpirun
+# echo "Model started offlineApp:  " `date`
+# mpirun -n 32 ./offlineApp.exe
+# echo "Model ended offlineApp:    " `date`
+
+# Run multiple tests using mpirun
+mkdir -p $RUNDIR/gather
+cd $RUNDIR/gather
+echo "Model started gather:  " `date`
+start=$SECONDS
+mpirun -n 32 ../offlineApp.exe ../runconfig.gather > run.log 2>&1
+elapsed=$SECONDS-start
+printf 'Model ended gather: Elapsed %d:%02d:%02d\n' \
+  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+
+mkdir -p $RUNDIR/parallel
+cd $RUNDIR/parallel
+echo "Model started parallel:  " `date`
+start=$SECONDS
+mpirun -n 32 ../offlineApp.exe ../runconfig.parallel > run.log 2>&1
+elapsed=$SECONDS-start
+printf 'Model ended parallel: Elapsed %d:%02d:%02d\n' \
+  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+
+mkdir -p $RUNDIR/esmf
+cd $RUNDIR/esmf
+echo "Model started esmf:  " `date`
+start=$SECONDS
+mpirun -n 32 ../offlineApp.exe ../runconfig.esmf > run.log 2>&1
+elapsed=$SECONDS-start
+printf 'Model ended esmf: Elapsed %d:%02d:%02d\n' \
+  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+
+#mkdir -p $RUNDIR/async
+#cd $RUNDIR/async
+#echo "Model started async:  " `date`
+#start=$SECONDS
+#mpirun -n 32 ../offlineApp.exe ../runconfig.async > run.log 2>&1
+#elapsed=$SECONDS-start
+#printf 'Model ended async: Elapsed %d:%02d:%02d\n' \
+#  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+
+#mkdir -p $RUNDIR/asyncPar
+#cd $RUNDIR/asyncPar
+#echo "Model started asyncPar:  " `date`
+#start=$SECONDS
+#mpirun -n 32 ../offlineApp.exe ../runconfig.asyncPar > run.log 2>&1
+#elapsed=$SECONDS-start
+#printf 'Model ended asyncPar: Elapsed %d:%02d:%02d\n' \
+#  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
 exit

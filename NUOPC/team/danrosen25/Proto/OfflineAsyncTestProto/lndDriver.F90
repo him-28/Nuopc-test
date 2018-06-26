@@ -7,8 +7,9 @@ module lndDriver
   !-----------------------------------------------------------------------------
 
   use ESMF
-  use lndState, only : state_ini, state_fin, state_log, state, field_fill
-  use lndWriter, only : write_ini, write_fin, write_state
+  use lndState, only : state_ini, state_fin, state_log, state
+  use lndFields, only : fieldBundle_fill
+  use lndWriter, only : write_ini, write_fin, write_run
   use lndClock
   use lndLogger, only : log_ini, log_fin, log_info, log_warning, log_error
 
@@ -74,7 +75,9 @@ module lndDriver
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
       ! Insert Computation Here
-      call lnd_adv(rc=rc)
+      state%step = state%step + 1
+      call fieldBundle_fill(state%fields, start=state%lcl_min &
+        , step=state%step, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -82,11 +85,11 @@ module lndDriver
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
-      call write_state(rc=rc)
+      call clock_log(state%clock, msg="exiting advance loop", rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
-      call clock_log(state%clock, msg="exiting advance loop", rc=rc)
+      call write_run(rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -116,27 +119,5 @@ module lndDriver
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     call ESMF_Finalize() 
   end subroutine lnd_fin
-
-  !-----------------------------------------------------------------------------
-
-  subroutine lnd_adv(rc)
-    ! ARGUMENTS
-    integer,intent(out) :: rc
-
-    rc = ESMF_SUCCESS
-
-    state%step = state%step + 1
-    call field_fill(state%sfctmp, member=1, step=state%step, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call field_fill(state%infexs, member=2, step=state%step, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT) 
-
-  end subroutine lnd_adv
-
-  !-----------------------------------------------------------------------------
 
 end module lndDriver

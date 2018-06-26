@@ -9,6 +9,8 @@ module lndState
   use ESMF
   use lndLogger, only : log_info, log_error, abort_error
   use lndClock, only : type_clock, clock_reset
+  use lndFields, only : fieldBundle_ini, fieldBundle_fin, fieldBundle_log &
+    , fieldBundle_fill
 
   implicit none
   
@@ -19,7 +21,6 @@ module lndState
   public state_fin
   public state_log
   public type_lnd_state
-  public field_fill
 
   type type_lnd_state
     logical             :: initialized  = .false.
@@ -28,24 +29,27 @@ module lndState
     integer             :: lcl_de_id    = -1
     integer             :: gbl_pet_cnt  = -1
     integer             :: root         = DEFAULT_ROOT
+    integer             :: gbl_min(2)   = (/1,1/)
     integer             :: gbl_max(2)   = (/DEFAULT_X,DEFAULT_Y/)
     integer             :: gbl_cnt      = DEFAULT_X*DEFAULT_Y
+    character(len=64)   :: gbl_bnds     = "(?:?,?:?)"
     integer             :: lcl_min(2)   = (/-1,-1/)
     integer             :: lcl_max(2)   = (/-1,-1/)
     integer             :: lcl_edg(2)   = (/-1,-1/)
     integer             :: lcl_cnt      = -1
+    character(len=64)   :: lcl_bnds     = "(?:?,?:?)"
     integer,allocatable :: all_min(:,:)
     integer,allocatable :: all_max(:,:)
     integer,allocatable :: all_cnt(:)
     integer             :: step         = 1
+    logical             :: wrtesmf      = DEFAULT_WRTESMF
     logical             :: async        = DEFAULT_ASYNC
     logical             :: parallel     = DEFAULT_PARALLEL
     type(type_clock)    :: clock 
     type(ESMF_Config)   :: config
     type(ESMF_DistGrid) :: distGrid
     type(ESMF_Grid)     :: grid
-    type(ESMF_Field)    :: sfctmp
-    type(ESMF_Field)    :: infexs
+    type(ESMF_FieldBundle)     :: fields
   end type type_lnd_state
 
   type(type_lnd_state) :: state
@@ -84,9 +88,7 @@ module lndState
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    if (.NOT.isCreated) then
-      call abort_error(msg="state_ini ESMF not initialized")
-    endif
+    if (.NOT.isCreated) call abort_error(msg="state_ini ESMF not initialized")
 
     ! get pet and communicator information
     call ESMF_VMGetCurrent(vm=vm, rc=rc)
@@ -130,7 +132,15 @@ module lndState
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Get async, parallel
+    ! Get wrtesmf, async, parallel
+    call ESMF_ConfigGetAttribute(state%config, value, default="f", &
+      label='WriteESMF:', rc=rc)
+    select case (value)
+    case ('true','TRUE','True','t','T','1' )
+      state%wrtesmf = .true.
+    case default
+      state%wrtesmf = .false.
+    endselect
     call ESMF_ConfigGetAttribute(state%config, value, default="f", &
       label='Async:', rc=rc)
     select case (value)
@@ -149,11 +159,14 @@ module lndState
     endselect
 
     ! create distGrid
-    state%distGrid = ESMF_DistGridCreate(minIndex=(/1,1/) &
+    state%distGrid = ESMF_DistGridCreate( &
+       minIndex=(/state%gbl_min(1),state%gbl_min(2)/) &
       ,maxIndex=(/state%gbl_max(1),state%gbl_max(2)/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    write(state%gbl_bnds,"('(',I0,':',I0,',',I0,':',I0,')')") &
+      state%gbl_min(1),state%gbl_max(1),state%gbl_min(2),state%gbl_max(2)
     ! get dimCount, tileCount, deCount, regDecomp, localDeCount
     call ESMF_DistGridGet(state%distGrid, delayout=delayout &
       , dimCount=dimCount, tileCount=tileCount, deCount=deCount &
@@ -199,6 +212,8 @@ module lndState
     state%lcl_cnt = state%all_cnt(state%lcl_de_id)
     state%lcl_edg(1) = state%lcl_max(1)-state%lcl_min(1)+1
     state%lcl_edg(2) = state%lcl_max(2)-state%lcl_min(2)+1
+    write(state%lcl_bnds,"('(',I0,':',I0,',',I0,':',I0,')')") &
+      state%lcl_min(1),state%lcl_max(1),state%lcl_min(2),state%lcl_max(2)
 
     ! create grid
     state%grid = ESMF_GridCreate(distgrid=state%distGrid, rc=rc)
@@ -206,22 +221,8 @@ module lndState
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    state%sfctmp = ESMF_FieldCreate(grid=state%grid &
-      ,typekind=ESMF_TYPEKIND_R4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call field_fill(state%sfctmp, member=1, step=1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    state%infexs = ESMF_FieldCreate(grid=state%grid &
-      ,typekind=ESMF_TYPEKIND_R4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call field_fill(state%infexs, member=2, step=1, rc=rc)
+    call fieldBundle_ini(fieldBundle=state%fields, start=state%lcl_min &
+      , grid=state%grid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -239,17 +240,10 @@ module lndState
 
     rc = ESMF_SUCCESS
 
-    call state_reset()
+    call fieldBundle_fin(state%fields,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-  end subroutine state_fin
-
-  !-----------------------------------------------------------------------------
-
-  subroutine state_reset()
-    call ESMF_FieldDestroy(field=state%infexs)
-    call ESMF_FieldDestroy(field=state%sfctmp)
     call ESMF_GridDestroy(grid=state%grid)
     call ESMF_DistGridDestroy(distgrid=state%distgrid)
     call ESMF_ConfigDestroy(config=state%config)
@@ -260,19 +254,22 @@ module lndState
     deallocate(state%all_cnt)
     deallocate(state%all_max)
     deallocate(state%all_min)
+    state%lcl_bnds = "(?:?,?:?)"
     state%lcl_cnt = -1
     state%lcl_edg = (/-1,-1/)
     state%lcl_max = (/-1,-1/)
     state%lcl_min = (/-1,-1/)
+    state%gbl_bnds = "(?:?,?:?)"
     state%gbl_cnt = DEFAULT_X*DEFAULT_Y
     state%gbl_max = (/DEFAULT_X,DEFAULT_Y/)
+    state%gbl_max = (/1,1/)
     state%root    = DEFAULT_ROOT
     state%gbl_pet_cnt  = -1
     state%lcl_de_id    = -1
     state%lcl_pet_id   = -1
     state%lnd_mpi_com  = -1
     state%initialized  = .false.
-  end subroutine state_reset
+  end subroutine state_fin
 
   !-----------------------------------------------------------------------------
 
@@ -293,6 +290,7 @@ module lndState
     call log_info("lcl_edg_x  ",state%lcl_edg(1))
     call log_info("lcl_edg_y  ",state%lcl_edg(2))
     call log_info("lcl_cnt    ",state%lcl_cnt)
+    call log_info("write esmf ",state%wrtesmf)
     call log_info("async      ",state%async)
     call log_info("parallel   ",state%parallel)
 !    state%all_min
@@ -308,47 +306,4 @@ module lndState
 
   !-----------------------------------------------------------------------------
 
-  subroutine field_fill(field,member,step,rc)
-    ! ARGUMENTS
-    type(ESMF_Field),intent(inout) :: field
-    integer,intent(in)             :: member
-    integer,intent(in)             :: step
-    integer,intent(out)            :: rc
-    ! LOCAL VAIRABLES
-    type(ESMF_TypeKind_Flag)   :: typekind
-    integer                    :: rank
-    integer                    :: localDeCount
-    real(ESMF_KIND_R4),pointer :: dataPtrR4D2(:,:)
-    integer                    :: deIndex
-    integer                    :: i,j
-
-    call ESMF_FieldGet(field, typekind=typekind, rank=rank, &
-      localDeCount=localDeCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    nullify(dataPtrR4D2)
-    do deIndex=0, localDeCount-1
-      call ESMF_FieldGet(field, localDe=deIndex, farrayPtr=dataPtrR4D2, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) &
-        call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-      do j=lbound(dataPtrR4D2,2),ubound(dataPtrR4D2,2)
-      do i=lbound(dataPtrR4D2,1),ubound(dataPtrR4D2,1)
-        dataPtrR4D2(i,j) = real( &
-          sin(real(member)*3.1416*(state%lcl_min(1)+i+real(step))/180.)&
-          * &
-          cos(real(member)*3.1416*(state%lcl_min(2)+j+real(step))/180.)&
-          , ESMF_KIND_R4)
-      enddo
-      enddo
-      nullify(dataPtrR4D2)
-    enddo
-
- end subroutine field_fill
-
-  !-----------------------------------------------------------------------------
-
-end module
+end module lndState

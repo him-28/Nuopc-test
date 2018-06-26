@@ -53,22 +53,24 @@ endif
 
 
 # -----------------------------------------------------------------------------
-offlineApp.exe: offlineApp.o lndDriver.o lndState.o lndLogger.o lndWriter.o lndClock.o
+offlineApp.exe: offlineApp.o lndDriver.o lndState.o lndFields.o lndLogger.o lndWriter.o lndClock.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 offlineApp.o: lndDriver.o settings.h
 lndDriver.o:  lndState.o lndLogger.o lndWriter.o lndClock.o settings.h
 lndClock.o:   lndLogger.o settings.h
-lndState.o:   lndLogger.o lndClock.o settings.h
+lndState.o:   lndLogger.o lndClock.o lndFields.o settings.h
 lndWriter.o:  lndState.o lndLogger.o lndClock.o settings.h
+lndFields.o:  lndLogger.o settings.h
+lndLogger.o:  settings.h
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
 	rm -f *.nc *.log core 
-	rm -rf traceout
+	rm -rf traceout gather parallel esmf
 clean:
 	rm -f *.exe *.o *.mod
 distclean: dust clean
