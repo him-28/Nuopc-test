@@ -1,0 +1,51 @@
+#!/bin/ksh --login
+#------------------------------------------------------------------------------#
+# batch directives
+#------------------------------------------------------------------------------#
+#PBS -S /bin/ksh
+#PBS -A PROJECT_ACCOUNT
+#PBS -N asyncIoTestProto
+#PBS -o asyncIoTestProto.log
+#PBS -j oe
+#PBS -m abe
+#PBS -l walltime=00:30:00
+#PBS -l select=2:ncpus=32
+#PBS -l place=scatter:excl
+#PBS -q standard
+#PBS -W umask=0027
+
+cd $PBS_O_WORKDIR
+
+# Load modules and setup runtime environment
+# module load intel hdf5 netcdf
+# module list
+
+export NP=$PBS_NP
+export RUNDIR=`pwd`
+
+# Enable FORTRAN RTL core dumps for severe run time failures
+#export decfort_dump_flag=y
+
+# Enable runtime compliance checker
+#export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+
+# Enable runtime trace output
+export ESMF_RUNTIME_TRACE=ON
+#export ESMF_RUNTIME_TRACE_PETLIST="0"
+
+# Set resource usage limits
+ulimit -c unlimited #coredumpsize
+ulimit -s unlimited #stacksize
+ulimit -t unlimited #cputime
+ulimit -d unlimited #datasize
+ulimit -m unlimited #memoryuse
+
+# Run application using MPI
+echo "Model started:  " `date`
+start=$SECONDS
+mpirun -n 64 ./offlineApp.exe
+elapsed=$SECONDS-start
+printf 'Model ended: Elapsed %d:%02d:%02d\n' \
+  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+
+exit

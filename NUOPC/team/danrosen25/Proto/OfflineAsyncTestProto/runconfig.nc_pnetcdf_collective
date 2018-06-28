@@ -7,6 +7,6 @@ WriteEnd: 259200.0
 WriteStep: 43200.0
 WriteESMF_FB: false
 WriteESMF_Async: false
-WriteNC_Par: false
-WriteNC_ParType: NF90_NETCDF4|NC_MPIIO
-WriteNC_ParAccess: NF90_COLLECTIVE 
+WriteNC_Par: true
+WriteNC_ParType: NF90_PNETCDF
+WriteNC_ParAccess: NF90_COLLECTIVE

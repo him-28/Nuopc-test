@@ -29,20 +29,23 @@ module lndLogger
 
   type(type_log_state)       :: logState
   integer,parameter          :: maxMsgLen   = 55
+  integer,parameter          :: maxMsgLenR8 = maxMsgLen-12
   integer,parameter          :: maxMsgLenR4 = maxMsgLen-12
   integer,parameter          :: maxMsgLenI4 = maxMsgLen-12
   integer,parameter          :: maxMsgLenL1 = maxMsgLen-12
   character(len=*),parameter :: logInf   = "('INFO    ',A,' ',A)"
-  character(len=*),parameter :: logInfI4 = "('INFO    ',A,' ',A,'=',I11)"
+  character(len=*),parameter :: logInfR8 = "('INFO    ',A,' ',A,'=',F11.1)"
   character(len=*),parameter :: logInfR4 = "('INFO    ',A,' ',A,'=',F11.1)"
+  character(len=*),parameter :: logInfI4 = "('INFO    ',A,' ',A,'=',I11)"
   character(len=*),parameter :: logInfL1 = "('INFO    ',A,' ',A,'=',L11)"
   character(len=*),parameter :: logWrn   = "('WARNING ',A,' ',A)"
   character(len=*),parameter :: logErr   = "('ERROR   ',A,' ',A)"
 
   interface log_info
      module procedure log_info_msg
-     module procedure log_info_i4
+     module procedure log_info_r8
      module procedure log_info_r4
+     module procedure log_info_i4
      module procedure log_info_l1
   end interface
 
@@ -213,10 +216,30 @@ module lndLogger
 
   !-----------------------------------------------------------------------------
 
+  subroutine log_info_r8(msg,value)
+    ! ARGUMENTS
+    character(len=*),intent(in)   :: msg
+    real(ESMF_KIND_R8),intent(in) :: value
+    ! LOCAL VARIABLES
+    integer          :: maxLen
+
+    maxLen = MIN(LEN(msg),maxMsgLenR8)
+    if ( logState%initialized ) then
+      write (logState%log_unit,logInfR8) TRIM(logState%pet_id) &
+        ,msg(1:maxLen), value
+    else
+      write (*,logInfR8) TRIM(logState%pet_id),msg(1:maxLen),value
+    endif
+    if ( logState%opt_flush ) call log_flush()
+  end subroutine log_info_r8
+
+  !-----------------------------------------------------------------------------
+
+
   subroutine log_info_r4(msg,value)
     ! ARGUMENTS
-    character(len=*),intent(in) :: msg
-    real*4,intent(in)           :: value
+    character(len=*),intent(in)   :: msg
+    real(ESMF_KIND_R4),intent(in) :: value
     ! LOCAL VARIABLES
     integer          :: maxLen
 
