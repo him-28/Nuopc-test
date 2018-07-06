@@ -25,10 +25,11 @@ module lndState
 
   type type_lnd_state
     logical                :: initialized   = .false.
+    logical                :: physics_node  = .true.
     integer                :: mpi_lnd_comm  = -1
+    integer                :: gbl_pet_id    = -1
     integer                :: lcl_pet_id    = -1
     integer                :: lcl_de_id     = -1
-    integer                :: gbl_pet_cnt   = -1
     integer                :: root          = DEFAULT_ROOT
     integer                :: gbl_min(2)    = (/1,1/)
     integer                :: gbl_max(2)    = (/DEFAULT_X,DEFAULT_Y/)
@@ -49,6 +50,7 @@ module lndState
     type(ESMF_DistGrid)    :: distGrid
     type(ESMF_Grid)        :: grid
     type(ESMF_FieldBundle) :: fields
+    real                   :: lcl_pet_stime = 0
   end type type_lnd_state
 
   type(type_lnd_state) :: state
@@ -57,11 +59,13 @@ module lndState
   contains
   !-----------------------------------------------------------------------------
 
-  subroutine state_ini(rc)
+  subroutine state_ini(vm,rc)
     ! ARGUMENTS
-    integer,intent(out)         :: rc
+    type(ESMF_VM),intent(in),optional :: vm
+    integer,intent(out)               :: rc
     ! LOCAL VARIABLES
-    type(ESMF_VM)              :: vm
+    type(ESMF_VM)              :: gblVM
+    type(ESMF_VM)              :: curVM
     type(ESMF_DELayout)        :: delayout
     logical                    :: isCreated
     logical                    :: isPresent
@@ -69,6 +73,8 @@ module lndState
     character(len=ESMF_MAXSTR) :: configFile
     character(len=ESMF_MAXSTR) :: value
     character(len=ESMF_MAXSTR) :: label
+    logical                    :: opt_esmf_async
+    integer                    :: petListBounds(2)
     real(ESMF_KIND_R8)         :: time_start
     real(ESMF_KIND_R8)         :: time_end
     real(ESMF_KIND_R8)         :: time_step
@@ -82,27 +88,25 @@ module lndState
     ! set root
     state%root = DEFAULT_ROOT
 
-    ! check to see if ESMF is initialized
-    call ESMF_VMGetGlobal(vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    isCreated = ESMF_VMIsCreated(vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    if (.NOT.isCreated) call abort_error(msg="state_ini ESMF not initialized")
+    call cpu_time(state%lcl_pet_stime)
 
-    ! get pet and communicator information
-    call ESMF_VMGetCurrent(vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call ESMF_VMGet(vm &
-      ,localPet=state%lcl_pet_id &
-      ,petCount=state%gbl_pet_cnt &
-      ,mpiCommunicator=state%mpi_lnd_comm &
-      ,rc=rc)
+    ! get the global pet id and communicator
+    call ESMF_VMGetGlobal(vm=gblVM, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) call abort_error("current vm get error")
+    call ESMF_VMGet(gblVM, localPet=state%gbl_pet_id, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) call abort_error("vm get error")
+
+    ! get local pet id and communicator
+    if ( present(vm) ) then
+      curVM = vm
+    else
+      call ESMF_VMGetCurrent(vm=curVM, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) &
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    endif
+    call ESMF_VMGet(curVM, localPet=state%lcl_pet_id &
+      , mpiCommunicator=state%mpi_lnd_comm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -125,7 +129,7 @@ module lndState
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
       endif
     endif
-    call ESMF_VMBroadcast(vm=vm, bcstData=configFile, count=ESMF_MAXSTR, &
+    call ESMF_VMBroadcast(vm=curVm, bcstData=configFile, count=ESMF_MAXSTR, &
       rootPet=state%root, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
@@ -134,6 +138,49 @@ module lndState
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    ! get Async from config file
+    label="WriteESMF_Async:"
+    call ESMF_ConfigFindLabel(state%config, label=TRIM(label) &
+      , isPresent=isPresent, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) call abort_error(trim(label)//" find error")
+    if ( isPresent ) then
+      call ESMF_ConfigGetAttribute(state%config, value &
+        , label=TRIM(label), rc=rc)
+      if ( rc /= ESMF_SUCCESS ) call abort_error(trim(label)//" get error")
+      select case (value)
+        case ('true','TRUE','True','t','T','1' )
+          opt_esmf_async = .true.
+        case ('false','FALSE','False','f','F','0' )
+          opt_esmf_async = .false.
+        case default
+          if ( rc /= 0 ) call abort_error (trim(label)//" value error")
+      endselect
+    else
+      opt_esmf_async = DEFAULT_ESMF_ASYNC
+    endif
+    if ( opt_esmf_async ) then
+      ! get petlist from config file
+      label="LND_petlist_bounds:"
+      call ESMF_ConfigFindLabel(state%config, label=TRIM(label) &
+        , isPresent=isPresent, rc=rc)
+      if ( rc /= ESMF_SUCCESS) call abort_error("ConfigFind "//TRIM(label))
+      if ( isPresent ) then
+        call ESMF_ConfigGetAttribute(state%config, petListBounds &
+          , label=TRIM(label), rc=rc)
+        if ( rc /= ESMF_SUCCESS) call abort_error("ConfigGet "//TRIM(label))
+        if (state%gbl_pet_id >= petListBounds(1) &
+          .AND. state%gbl_pet_id <= petListBounds(2)) then
+          state%physics_node = .true.
+        else
+          state%physics_node = .false.
+        endif
+      else
+        call abort_error("Missing Config "//TRIM(label))
+      endif
+    else
+      state%physics_node = .true.
+    endif
 
     ! get ClockStart from config file
     label="ClockStart:"
@@ -264,9 +311,15 @@ module lndState
   subroutine state_fin(rc)
     ! ARGUMENTS
     integer,intent(out) :: rc
+    ! LOCAL VARIABLES
+    real :: lcl_pet_ftime
 
     rc = ESMF_SUCCESS
 
+    call cpu_time(lcl_pet_ftime)
+    call log_info("state.runtime(s)",(lcl_pet_ftime-state%lcl_pet_stime))
+
+    state%lcl_pet_stime = 0
     call fieldBundle_fin(state%fields,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
@@ -290,10 +343,11 @@ module lndState
     state%gbl_max = (/DEFAULT_X,DEFAULT_Y/)
     state%gbl_max = (/1,1/)
     state%root    = DEFAULT_ROOT
-    state%gbl_pet_cnt  = -1
     state%lcl_de_id    = -1
     state%lcl_pet_id   = -1
-    state%mpi_lnd_comm  = -1
+    state%gbl_pet_id   = -1
+    state%mpi_lnd_comm = -1
+    state%physics_node = .true.
     state%initialized  = .false.
   end subroutine state_fin
 
@@ -301,10 +355,11 @@ module lndState
 
   subroutine state_log()
     call log_info("state.initialized ",state%initialized)
+    call log_info("state.physics_node",state%physics_node)
     call log_info("state.mpi_lnd_comm",state%mpi_lnd_comm)
+    call log_info("state.gbl_pet_id  ",state%gbl_pet_id)
     call log_info("state.lcl_pet_id  ",state%lcl_pet_id)
     call log_info("state.lcl_de_id   ",state%lcl_de_id)
-    call log_info("state.gbl_pet_cnt ",state%gbl_pet_cnt)
     call log_info("state.root        ",state%root)
     call log_info("state.gbl_min_x   ",state%gbl_min(1))
     call log_info("state.gbl_max_x   ",state%gbl_max(1))

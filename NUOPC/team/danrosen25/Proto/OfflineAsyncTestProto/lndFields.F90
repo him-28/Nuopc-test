@@ -69,7 +69,7 @@ module lndFields
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
-      call field_fill(field, start=start, member=fIndex, step=1, rc=rc)
+      call field_missing(field, value=DEFAULT_MISSING, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) &
         call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -135,19 +135,141 @@ module lndFields
   subroutine fieldBundle_log(fieldBundle)
     ! ARGUMENTS
     type(ESMF_FieldBundle),intent(in) :: fieldBundle
+    ! LOCAL VAIRABLES
+    integer                      :: rc
+    integer                      :: fCount
+    type(ESMF_Field),allocatable :: fieldList(:)
+    integer                      :: fIndex
+
+    call ESMF_FieldBundleGet(fieldBundle, fieldCount=fCount, rc=rc)
+    if ( rc /= ESMF_SUCCESS ) fCount = 0
+
+    allocate(fieldList(fCount),stat=rc)
+    if ( rc /= 0 ) call abort_error("allocate fieldList error")
+
+    call ESMF_FieldBundleGet(fieldBundle &
+      , itemorderflag=ESMF_ITEMORDER_ADDORDER, fieldList=fieldList, rc=rc)
+    if ( rc /= 0 ) call abort_error("field bundle get error")
+
+    do fIndex=1, fCount
+      call field_log(fieldList(fIndex))
+    enddo
+
+    deallocate(fieldList,stat=rc)
+    if ( rc /= 0 ) call abort_error("deallocate fieldList error")
   end subroutine fieldBundle_log
 
   !-----------------------------------------------------------------------------
 
-  subroutine fieldBundle_fill(fieldBundle,start,step,rc)
+  subroutine field_log(field)
+    ! ARGUMENTS
+    type(ESMF_Field),intent(in) :: field
+    ! LOCAL VAIRABLES
+    integer                    :: rc
+    character(ESMF_MAXSTR)     :: fname
+    real(DEFAULT_KIND)         :: fmin
+    real(DEFAULT_KIND)         :: fmax
+    integer                    :: deCount
+    integer                    :: dIndex
+    real(DEFAULT_KIND),pointer :: farray(:,:)
+    
+    call ESMF_FieldGet(field, localDeCount=deCount, name=fname, rc=rc)
+    if ( rc /= ESMF_SUCCESS) call log_error("field get error")
+
+    nullify(farray)
+    do dIndex=0, deCount-1
+      call ESMF_FieldGet(field, localDe=dIndex, farrayPtr=farray, rc=rc)
+      if ( rc /= ESMF_SUCCESS) call log_error("field get error")
+      fmin = MINVAL(farray)
+      fmax = MAXVAL(farray)
+      call log_info(TRIM(fname)//".lclmin",fmin)
+      call log_info(TRIM(fname)//".lclmax",fmax)
+      nullify(farray)
+    enddo
+  end subroutine field_log
+
+  !-----------------------------------------------------------------------------
+
+  subroutine fieldBundle_missing(fieldBundle,value,rc)
     ! ARGUMENTS
     type(ESMF_FieldBundle),intent(inout) :: fieldBundle
-    integer,intent(in)                   :: start(2)
-    integer,intent(in)                   :: step
+    real(DEFAULT_KIND),intent(in)        :: value
     integer,intent(out)                  :: rc
     ! LOCAL VAIRABLES
     integer                      :: fCount
     type(ESMF_Field),allocatable :: fieldList(:)
+    integer                      :: fIndex
+
+    call ESMF_FieldBundleGet(fieldBundle, fieldCount=fCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    allocate(fieldList(fCount),stat=rc)
+    if ( rc /= 0 ) call abort_error("allocate fieldList error")
+
+    call ESMF_FieldBundleGet(fieldBundle &
+      , itemorderflag=ESMF_ITEMORDER_ADDORDER, fieldList=fieldList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    do fIndex=1, fCount
+      call field_missing(fieldList(fIndex), value=value, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) &
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    enddo
+
+    deallocate(fieldList,stat=rc)
+    if ( rc /= 0 ) call abort_error("deallocate fieldList error")
+
+  end subroutine fieldBundle_missing
+
+  !-----------------------------------------------------------------------------
+
+  subroutine field_missing(field,value,rc)
+    ! ARGUMENTS
+    type(ESMF_Field),intent(inout) :: field
+    real(DEFAULT_KIND),intent(in)  :: value
+    integer,intent(out)            :: rc
+    ! LOCAL VAIRABLES
+    integer                      :: deCount
+    integer                      :: dIndex
+    real(DEFAULT_KIND),pointer   :: farray(:,:)
+
+    rc = ESMF_SUCCESS
+
+    nullify(farray)
+    call ESMF_FieldGet(field, localDeCount=deCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    do dIndex=0, deCount-1
+      call ESMF_FieldGet(field, localDe=dIndex, farrayPtr=farray, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) &
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      farray=value
+      nullify(farray)
+    enddo
+  end subroutine field_missing
+
+  !-----------------------------------------------------------------------------
+
+  subroutine fieldBundle_fill(fieldBundle,start,step,msWait,rc)
+    ! ARGUMENTS
+    type(ESMF_FieldBundle),intent(inout) :: fieldBundle
+    integer,intent(in)                   :: start(2)
+    integer,intent(in)                   :: step
+    integer,intent(in),optional          :: msWait
+    integer,intent(out)                  :: rc
+    ! LOCAL VAIRABLES
+    integer                      :: fCount
+    type(ESMF_Field),allocatable :: fieldList(:)
+    real                         :: stime
+    real                         :: ctime
+    logical                      :: sleep
     integer                      :: fIndex
 
     rc = ESMF_SUCCESS
@@ -177,6 +299,15 @@ module lndFields
     deallocate(fieldList,stat=rc)
     if ( rc /= 0 ) call abort_error("deallocate fieldList error")
 
+    ! BUSY WAIT LOOP
+    if ( present(msWait) ) then
+      call cpu_time(stime)
+      sleep = .true.
+      do while ( sleep )
+        call cpu_time(ctime)
+        if ( (ctime-stime) >= (msWait/1000) ) sleep = .false.
+      end do
+    endif
   end subroutine fieldBundle_fill
 
   !-----------------------------------------------------------------------------
