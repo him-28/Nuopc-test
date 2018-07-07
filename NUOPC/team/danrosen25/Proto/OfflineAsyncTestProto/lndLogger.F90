@@ -18,6 +18,7 @@ module lndLogger
   public log_warning
   public log_error
   public abort_error
+  public log_flush
 
   type type_log_state
     logical           :: initialized = .false.

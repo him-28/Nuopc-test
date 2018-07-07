@@ -9,8 +9,9 @@ module lndWriter
   use ESMF
   use NETCDF
   use MPI
-  use lndState, only : state_get_bnds
-  use lndLogger, only : log_info, log_error, log_warning, abort_error
+  use lndState,   only : state_get_bnds
+  use lndLogger,  only : log_info, log_error, log_warning, abort_error
+  use lndCoupler, only : cpl_run
 
   implicit none
 
@@ -40,7 +41,7 @@ module lndWriter
     integer :: root             = DEFAULT_ROOT
     integer :: mpi_wrt_comm     = -1
     type(ESMF_FieldBundle) :: fields
-    type(ESMF_RouteHandle) :: rh
+    real                   :: runtime = 0
   end type type_writer
 
   type(type_writer) :: this
@@ -80,7 +81,6 @@ module lndWriter
     integer,intent(out) :: rc
     ! LOCAL VARIABLES
     type(ESMF_FieldBundle)                  :: fields
-    type(ESMF_RouteHandle)                  :: rh
     integer                                 :: itemCount
     character (len=ESMF_MAXSTR),allocatable :: itemNameList(:)
     type(ESMF_StateItem_Flag),allocatable   :: itemTypeList(:)
@@ -123,10 +123,6 @@ module lndWriter
           call ESMF_FieldBundleAdd(fields, fieldList=(/field/), rc=rc)
           if ( rc /= ESMF_SUCCESS ) call abort_error("field bundle add error")
         endif
-      else if ( itemTypeList(iIndex) == ESMF_STATEITEM_ROUTEHANDLE ) then
-        call ESMF_StateGet(imp_state, itemName=itemNameList(iIndex) &
-          , routehandle=rh, rc=rc)
-        if ( rc /= ESMF_SUCCESS ) call abort_error("state get error")
       endif
     enddo
     deallocate(itemNameList,stat=rc)
@@ -182,12 +178,12 @@ module lndWriter
     if (configIsPresent) then
       call ESMF_GridCompGet(write_cmp, config=config, rc=rc)
       if ( rc /= ESMF_SUCCESS ) call abort_error("grid comp get error")
-      call writer_ini(fields, rh=rh, config=config &
+      call writer_ini(fields, config=config &
         , time_start=time_start, time_end=time_end &
         , time_step=time_step, rc=rc)
       if ( rc /= 0 ) call abort_error("write ini error")      
     else
-      call writer_ini(fields, rh=rh, time_start=time_start, time_end=time_end &
+      call writer_ini(fields, time_start=time_start, time_end=time_end &
         , time_step=time_step, rc=rc)
       if ( rc /= 0 ) call abort_error("write ini error")
     endif
@@ -241,11 +237,10 @@ module lndWriter
 
   !-----------------------------------------------------------------------------
 
-  subroutine writer_ini(fields,vm,rh,config,time_start,time_end,time_step,rc)
+  subroutine writer_ini(fields,vm,config,time_start,time_end,time_step,rc)
     ! ARGUMENTS
     type(ESMF_FieldBundle),intent(in)          :: fields
     type(ESMF_VM),intent(in),optional          :: vm
-    type(ESMF_RouteHandle),intent(in),optional :: rh
     type(ESMF_Config),intent(inout),optional   :: config
     real(ESMF_KIND_R8),intent(in),optional     :: time_start
     real(ESMF_KIND_R8),intent(in),optional     :: time_end
@@ -264,9 +259,7 @@ module lndWriter
 
     rc = ESMF_SUCCESS
 
-    if ( present(rh) ) then
-      this%rh = rh
-    endif
+    this%runtime = 0
 
     ! get the global pet id and communicator
     call ESMF_VMGetGlobal(vm=gblVM, rc=rc)
@@ -513,7 +506,6 @@ module lndWriter
                                   ,LEN_TRIM(ADJUSTL(eStr)))
 
     this%fields = fields
-
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -525,8 +517,12 @@ module lndWriter
     ! LOCAL VARIABLES
     character(len=10) :: clockStr
     character(len=32) :: fname
+    real              :: stime
+    real              :: ftime
 
     rc = ESMF_SUCCESS
+
+    call cpu_time(stime) 
 
     if ( .NOT. this%initialized ) then
       call abort_error(msg="writer is not initialized")
@@ -538,6 +534,7 @@ module lndWriter
       write(clockStr,"(I0."//TRIM(this%padding)//")") INT(current_time)
       clockStr = ADJUSTL(clockStr)
       write(fname,"('OUTPUT',A,'.nc')") TRIM(clockStr)
+
       if( this%opt_esmf_async ) then
         call log_info("write esmf_async: "//TRIM(fname))
         T_ENTER("async")
@@ -561,6 +558,9 @@ module lndWriter
       endif
       this%time_next = this%time_next + this%time_step
     endif
+
+    call cpu_time(ftime)
+    this%runtime = this%runtime + (ftime - stime)
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -571,10 +571,12 @@ module lndWriter
 
     rc = ESMF_SUCCESS
 
+    call log_info("writer.runtime",this%runtime)
     if ( this%initialized ) then
       call mpi_comm_free(this%mpi_wrt_comm,rc)
       if ( rc /= MPI_SUCCESS ) call abort_error("mpi comm free error")
     endif
+    this%runtime          = 0
     this%gbl_pet_id       = -1
     this%lcl_pet_id       = -1
     this%root             = DEFAULT_ROOT
@@ -629,20 +631,8 @@ module lndWriter
     rc = ESMF_SUCCESS
 
     ! redist writeFields
-    isCreated = ESMF_RouteHandleIsCreated(this%rh, rc=rc)
-    if ( .NOT. isCreated ) then
-      call log_error("write_esmf_async is missing routehandle")
-    else
-      if ( .NOT. this%write_node ) then
-        call ESMF_FieldBundleRedist(srcFieldBundle=this%fields &
-          , routehandle=this%rh, rc=rc)
-        if ( rc /= ESMF_SUCCESS ) call abort_error("fb redist failed")
-      else
-        call ESMF_FieldBundleRedist(dstFieldBundle=this%fields &
-          , routehandle=this%rh, rc=rc)
-        if ( rc /= ESMF_SUCCESS ) call abort_error("fb redist failed")
-      endif
-    endif
+    call cpl_run(rc=rc)
+    if ( rc /= ESMF_SUCCESS ) call abort_error("cpl_run failed")
 
     ! write field bundle
     if ( this%write_node ) then

@@ -9,29 +9,30 @@ program offlineApp
   use ESMF
   use lndDriver,  only : lnd_ini, lnd_run, lnd_fin
   use lndWrapper, only : lndSS => SetServices
+  use lndCoupler, only : cplSS => SetServices
 
   implicit none
 
   ! Local Variables
-  integer                    :: rc, urc
-  type(ESMF_GridComp)        :: phyComp
-  type(ESMF_GridComp)        :: wrtComp
-  type(ESMF_VM)              :: vm
-  type(ESMF_State)           :: phyState
-  type(ESMF_State)           :: wrtState
-  type(ESMF_RouteHandle)     :: rh
-  integer                    :: petCount
-  integer                    :: localPet
-  integer                    :: argCount
-  character(len=ESMF_MAXSTR) :: configFile
-  type(ESMF_Config)          :: config
-  character(len=ESMF_MAXSTR) :: label
-  logical                    :: isPresent
-  character(len=ESMF_MAXSTR) :: value
-  logical                    :: opt_esmf_async
-  integer                    :: petListBounds(2)
-  integer,allocatable        :: petList(:)
-  integer                    :: pIndex
+  integer                                 :: rc, urc
+  type(ESMF_GridComp)                     :: phyComp
+  type(ESMF_GridComp)                     :: wrtComp
+  type(ESMF_CplComp)                      :: cplComp
+  type(ESMF_VM)                           :: vm
+  type(ESMF_State)                        :: phyState
+  type(ESMF_State)                        :: wrtState
+  integer                                 :: petCount
+  integer                                 :: localPet
+  integer                                 :: argCount
+  character(len=ESMF_MAXSTR)              :: configFile
+  type(ESMF_Config)                       :: config
+  character(len=ESMF_MAXSTR)              :: label
+  logical                                 :: isPresent
+  character(len=ESMF_MAXSTR)              :: value
+  logical                                 :: opt_esmf_async
+  integer                                 :: petListBounds(2)
+  integer,allocatable                     :: petList(:)
+  integer                                 :: pIndex
  
   ! Initialize ESMF
   call ESMF_Initialize(logkindflag=DEFAULT_LOGKIND, rc=rc)
@@ -40,7 +41,7 @@ program offlineApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
   
-  ! Determine the local PET identifier
+  ! Determine the local pet id and global pet count
   call ESMF_VMGetGlobal(vm=vm, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
@@ -75,20 +76,19 @@ program offlineApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-  ! Create config
+  ! Create config in order to determine if write is a concurrent component
   config = ESMF_ConfigCreate(rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
   call ESMF_ConfigLoadFile(config, trim(configFile), rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-  ! get Async from config file
+  ! Read config and determine if write is a concurrent component
   label="WriteESMF_Async:"
   call ESMF_ConfigFindLabel(config, label=TRIM(label) &
     , isPresent=isPresent, rc=rc)
@@ -126,7 +126,7 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! get petlist from config file
+    ! Get physics petlist from config file
     label="LND_petlist_bounds:"
     call ESMF_ConfigFindLabel(config, label=TRIM(label) &
       , isPresent=isPresent, rc=rc)
@@ -163,7 +163,7 @@ program offlineApp
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     endif
 
-    ! Create the earth system Component
+    ! Create phyComp on the physics petlist
     phyComp = ESMF_GridCompCreate(name="PHYSICS", petList=petList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -177,7 +177,7 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! get petlist from config file
+    ! Get write petlist from config file
     label="WRITER_petlist_bounds:"
     call ESMF_ConfigFindLabel(config, label=TRIM(label) &
       , isPresent=isPresent, rc=rc)
@@ -214,7 +214,7 @@ program offlineApp
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     endif
 
-    ! Create the earth system Component
+    ! Create wrtComp on write petlist
     wrtComp = ESMF_GridCompCreate(name="WRITER", petList=petList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -227,8 +227,15 @@ program offlineApp
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    
-    ! SetServices for the earth system Component
+
+    ! Create cplComp on all pets
+    cplComp = ESMF_CplCompCreate(name="COUPLER", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    ! Set initialize,run,finalize for phyComp
     call ESMF_GridCompSetServices(phyComp, lndSS, userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -239,7 +246,7 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! SetServices for the earth system Component
+    ! Set initialize,run,finalize for wrtComp
     call ESMF_GridCompSetServices(wrtComp, lndSS, userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -250,32 +257,34 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Add RH to state for each component
+    ! Set initialize,run,finalize for cplComp
+    call ESMF_CplCompSetServices(cplComp, cplSS, userRc=urc, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    ! Create phyState
     phyState = ESMF_StateCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-!    call ESMF_StateAdd(phyState, routehandleList=(/rh/), rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+    ! Create wrtState
     wrtState = ESMF_StateCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-!    call ESMF_StateAdd(wrtState, routehandleList=(/rh/), rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Call Initialize for the earth system Component
-    call ESMF_GridCompInitialize(phyComp, importState=phyState &
-      , exportState=phyState, userRc=urc, rc=rc)
+    ! Call initialize for the phyComp
+    call ESMF_GridCompInitialize(phyComp, exportState=phyState &
+      , userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -285,9 +294,9 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
   
-    ! Call Initialize for the earth system Component
-    call ESMF_GridCompInitialize(wrtComp, importState=wrtState &
-      , exportState=wrtState, userRc=urc, rc=rc)
+    ! Call initialize for the wrtComp
+    call ESMF_GridCompInitialize(wrtComp, exportState=wrtState &
+      , userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -297,20 +306,35 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Reconcile physics state across all PETS
-!    call statereconcile
-    ! Reconcile writer state across all PETS
-!    call statereconcile
+    ! Reconcile phyState
+    call ESMF_StateReconcile(phyState &
+      , attreconflag=ESMF_ATTRECONCILE_OFF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Get fieldBundle from physics state
-!    call stateget(physicsState, fieldBundle)
-    ! Get fieldBundle from writer state
-!    call stateget(writerState, fieldBundle)
+    ! Reconcile wrtState
+    call ESMF_StateReconcile(wrtState &
+      , attreconflag=ESMF_ATTRECONCILE_OFF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Create fieldBundle redist routeHandle
-!    call fieldbundlerediststore(rh)
+    ! Call initialize for the cplComp
+    call ESMF_CplCompInitialize(cplComp, importState=phyState &
+      , exportState=wrtState, rc=rc, userRc=urc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Call Run  for earth the system Component
+    ! Call run for physics component
     call ESMF_GridCompRun(phyComp, userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -321,7 +345,7 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Call Run  for earth the system Component
+    ! Call run for write component
     call ESMF_GridCompRun(wrtComp, userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -332,7 +356,18 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Call Finalize for the earth system Component
+    ! Call finalize for coupler component
+      call ESMF_CplCompFinalize(cplComp, userRc=urc, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ESMF_LogFoundError(rcToCheck=urc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    ! Call finalize for physics component
     call ESMF_GridCompFinalize(phyComp, userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -343,7 +378,7 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Call Finalize for the earth system Component
+    ! Call finalize for write component
     call ESMF_GridCompFinalize(wrtComp, userRc=urc, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -354,26 +389,35 @@ program offlineApp
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+    ! Destroy phyState
     call ESMF_StateDestroy(phyState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+    ! Destory wrtState
     call ESMF_StateDestroy(wrtState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Destroy the earth system Component
+    ! Destroy cplComp
+    call ESMF_CplCompDestroy(cplComp, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    ! Destroy phyComp
     call ESMF_GridCompDestroy(phyComp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Destroy the earth system Component
+    ! Destroy wrtComp
     call ESMF_GridCompDestroy(wrtComp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -394,6 +438,7 @@ program offlineApp
     call lnd_fin(rc=rc)
   endif
 
+  ! Destroy config
   call ESMF_ConfigDestroy(config,rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &

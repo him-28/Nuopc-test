@@ -53,67 +53,18 @@ module lndWrapper
     type(ESMF_Clock)    :: clock
     integer,intent(out) :: rc
     ! LOCAL VARIABLES
-    type(ESMF_FieldBundle)                  :: fields
-    type(ESMF_RouteHandle)                  :: rh
-    integer                                 :: itemCount
-    character (len=ESMF_MAXSTR),allocatable :: itemNameList(:)
-    type(ESMF_StateItem_Flag),allocatable   :: itemTypeList(:)
-    integer                                 :: iIndex
+    type(ESMF_FieldBundle) :: fields
 
     rc = ESMF_SUCCESS
 
-    ! Get RH from imp_state
-    call ESMF_StateGet(imp_state, itemCount=itemCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    allocate(itemNameList(itemCount),stat=rc)
-    if (ESMF_LogFoundAllocError(statusToCheck=rc, &
-      msg="Allocation of itemNameList memory failed.", &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    allocate(itemTypeList(itemCount),stat=rc)
-    if (ESMF_LogFoundAllocError(statusToCheck=rc, &
-      msg="Allocation of itemTypeList memory failed.", &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call ESMF_StateGet(imp_state, itemorderflag=ESMF_ITEMORDER_ADDORDER &
-      , itemNameList=itemNameList, itemTypeList=itemTypeList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    do iIndex=1, itemCount
-      if ( itemTypeList(iIndex) == ESMF_STATEITEM_ROUTEHANDLE ) then
-        call ESMF_StateGet(imp_state, itemName=itemNameList(iIndex) &
-          , routehandle=rh, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=__FILE__)) &
-          call ESMF_Finalize(endflag=ESMF_END_ABORT)
-      endif
-    enddo
-    deallocate(itemNameList,stat=rc)
-    if (ESMF_LogFoundDeallocError(statusToCheck=rc, &
-      msg="Deallocation of itemNameList memory failed.", &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    deallocate(itemTypeList,stat=rc)
-    if (ESMF_LogFoundDeallocError(statusToCheck=rc, &
-      msg="Deallocation of itemTypeList memory failed.", &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
     ! Initialize Applicaiton
-    call lnd_ini(rh=rh,fields=fields,rc=rc)
+    call lnd_ini(fields=fields,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    ! Store fields in imp_state
-    call ESMF_StateAdd(imp_state, fieldbundleList=(/fields/), rc=rc)
+    ! Store fields in exp_state
+    call ESMF_StateAdd(exp_state, fieldbundleList=(/fields/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)

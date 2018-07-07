@@ -44,7 +44,9 @@ ulimit -m unlimited #memoryuse
 echo "Model started:  " `date`
 start=$SECONDS
 mpirun -n 64 ./offlineApp.exe
+status=$?
 elapsed=$SECONDS-start
+printf 'STATUS=%d\n' $status
 printf 'Model ended: Elapsed %d:%02d:%02d\n' \
   $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 

@@ -9,8 +9,7 @@ module lndState
   use ESMF
   use lndLogger, only : log_info, log_error, abort_error
   use lndClock,  only : type_clock, clock_ini, clock_fin, clock_log
-  use lndFields, only : fieldBundle_ini, fieldBundle_fin, fieldBundle_log &
-    , fieldBundle_fill
+  use lndFields, only : fieldBundle_ini, fieldBundle_fin
 
   implicit none
   
@@ -51,6 +50,7 @@ module lndState
     type(ESMF_Grid)        :: grid
     type(ESMF_FieldBundle) :: fields
     real                   :: lcl_pet_stime = 0
+    real                   :: cputime = 0
   end type type_lnd_state
 
   type(type_lnd_state) :: state
@@ -89,6 +89,7 @@ module lndState
     state%root = DEFAULT_ROOT
 
     call cpu_time(state%lcl_pet_stime)
+    state%cputime = 0
 
     ! get the global pet id and communicator
     call ESMF_VMGetGlobal(vm=gblVM, rc=rc)
@@ -316,9 +317,11 @@ module lndState
 
     rc = ESMF_SUCCESS
 
+    call log_info("state.cputime",state%cputime)
     call cpu_time(lcl_pet_ftime)
-    call log_info("state.runtime(s)",(lcl_pet_ftime-state%lcl_pet_stime))
+    call log_info("state.pettime",(lcl_pet_ftime-state%lcl_pet_stime))
 
+    state%cputime       = 0
     state%lcl_pet_stime = 0
     call fieldBundle_fin(state%fields,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

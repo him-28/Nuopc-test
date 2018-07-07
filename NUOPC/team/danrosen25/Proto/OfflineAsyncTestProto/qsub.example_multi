@@ -46,39 +46,47 @@ cd $RUNDIR/esmf_async
 echo "Model started esmf_async:  " `date`
 start=$SECONDS
 mpirun -n 64 ../offlineApp.exe ../runconfig.esmf_async > run.log 2>&1
+status=$?
 elapsed=$SECONDS-start
+printf 'STATUS=%d\n' $status
 printf 'Model ended esmf_async: Elapsed %d:%02d:%02d\n' \
   $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
-# Run runconfig.esmf_fbwrite using MPI
-mkdir -p $RUNDIR/esmf_fbwrite
-cd $RUNDIR/esmf_fbwrite
-echo "Model started esmf_fbwrite:  " `date`
-start=$SECONDS
-mpirun -n 64 ../offlineApp.exe ../runconfig.esmf_fbwrite > run.log 2>&1
-elapsed=$SECONDS-start
-printf 'Model ended esmf_fbwrite: Elapsed %d:%02d:%02d\n' \
-  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+## Run runconfig.esmf_fbwrite using MPI
+#mkdir -p $RUNDIR/esmf_fbwrite
+#cd $RUNDIR/esmf_fbwrite
+#echo "Model started esmf_fbwrite:  " `date`
+#start=$SECONDS
+#mpirun -n 64 ../offlineApp.exe ../runconfig.esmf_fbwrite > run.log 2>&1
+#status=$?
+#elapsed=$SECONDS-start
+#printf 'STATUS=%d\n' $status
+#printf 'Model ended esmf_fbwrite: Elapsed %d:%02d:%02d\n' \
+#  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
 # Run runconfig.gather using MPI
 mkdir -p $RUNDIR/gather
 cd $RUNDIR/gather
 echo "Model started gather:  " `date`
 start=$SECONDS
-mpirun -n 64 ../offlineApp.exe ../runconfig.gather > run.log 2>&1
+mpirun -n 63 ../offlineApp.exe ../runconfig.gather > run.log 2>&1
+status=$?
 elapsed=$SECONDS-start
+printf 'STATUS=%d\n' $status
 printf 'Model ended gather: Elapsed %d:%02d:%02d\n' \
   $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
-# Run runconfig.nc_parHDF5_collective using MPI
-mkdir -p $RUNDIR/nc_parHDF5_collective
-cd $RUNDIR/nc_parHDF5_collective
-echo "Model started nc_parHDF5_collective:  " `date`
-start=$SECONDS
-mpirun -n 64 ../offlineApp.exe ../runconfig.nc_parHDF5_collective > run.log 2>&1
-elapsed=$SECONDS-start
-printf 'Model ended nc_parHDF5_collective: Elapsed %d:%02d:%02d\n' \
-  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+## Run runconfig.nc_parHDF5_collective using MPI
+#mkdir -p $RUNDIR/nc_parHDF5_collective
+#cd $RUNDIR/nc_parHDF5_collective
+#echo "Model started nc_parHDF5_collective:  " `date`
+#start=$SECONDS
+#mpirun -n 64 ../offlineApp.exe ../runconfig.nc_parHDF5_collective > run.log 2>&1
+#status=$?
+#elapsed=$SECONDS-start
+#printf 'STATUS=%d\n' $status
+#printf 'Model ended nc_parHDF5_collective: Elapsed %d:%02d:%02d\n' \
+#  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
 # DISABLED - EXTREMELY SLOW
 # Run runconfig.nc_parHDF5_independent using MPI
@@ -87,28 +95,34 @@ printf 'Model ended nc_parHDF5_collective: Elapsed %d:%02d:%02d\n' \
 # echo "Model started nc_parHDF5_independent:  " `date`
 # start=$SECONDS
 # mpirun -n 64 ../offlineApp.exe ../runconfig.nc_parHDF5_independent > run.log 2>&1
+# status=$?
 # elapsed=$SECONDS-start
+# printf 'STATUS=%d\n' $status
 # printf 'Model ended nc_parHDF5_independent: Elapsed %d:%02d:%02d\n' \
 #   $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
-# Run runconfig.nc_pnetcdf_collective using MPI
-mkdir -p $RUNDIR/nc_pnetcdf_collective
-cd $RUNDIR/nc_pnetcdf_collective
-echo "Model started nc_pnetcdf_collective:  " `date`
-start=$SECONDS
-aprun -n 64 ../offlineApp.exe ../runconfig.nc_pnetcdf_collective > run.log 2>&1
-elapsed=$SECONDS-start
-printf 'Model ended nc_pnetcdf_collective: Elapsed %d:%02d:%02d\n' \
-  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+## Run runconfig.nc_pnetcdf_collective using MPI
+#mkdir -p $RUNDIR/nc_pnetcdf_collective
+#cd $RUNDIR/nc_pnetcdf_collective
+#echo "Model started nc_pnetcdf_collective:  " `date`
+#start=$SECONDS
+#mpirun -n 64 ../offlineApp.exe ../runconfig.nc_pnetcdf_collective > run.log 2>&1
+#status=$?
+#elapsed=$SECONDS-start
+#printf 'STATUS=%d\n' $status
+#printf 'Model ended nc_pnetcdf_collective: Elapsed %d:%02d:%02d\n' \
+#  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
-# Run runconfig.nc_pnetcdf_independent using MPI
-mkdir -p $RUNDIR/nc_pnetcdf_independent
-cd $RUNDIR/nc_pnetcdf_independent
-echo "Model started nc_pnetcdf_independent:  " `date`
-start=$SECONDS
-aprun -n 64 ../offlineApp.exe ../runconfig.nc_pnetcdf_independent > run.log 2>&1
-elapsed=$SECONDS-start
-printf 'Model ended nc_pnetcdf_independent: Elapsed %d:%02d:%02d\n' \
-  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
+## Run runconfig.nc_pnetcdf_independent using MPI
+#mkdir -p $RUNDIR/nc_pnetcdf_independent
+#cd $RUNDIR/nc_pnetcdf_independent
+#echo "Model started nc_pnetcdf_independent:  " `date`
+#start=$SECONDS
+#mpirun -n 64 ../offlineApp.exe ../runconfig.nc_pnetcdf_independent > run.log 2>&1
+#status=$?
+#elapsed=$SECONDS-start
+#printf 'STATUS=%d\n' $status
+#printf 'Model ended nc_pnetcdf_independent: Elapsed %d:%02d:%02d\n' \
+#  $((elapsed / 3600)) $((elapsed / 60 % 60)) $((elapsed % 60))
 
 exit

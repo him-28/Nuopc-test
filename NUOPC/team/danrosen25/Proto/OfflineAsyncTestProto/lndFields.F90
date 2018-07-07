@@ -137,12 +137,15 @@ module lndFields
     type(ESMF_FieldBundle),intent(in) :: fieldBundle
     ! LOCAL VAIRABLES
     integer                      :: rc
+    character(ESMF_MAXSTR)       :: fbName
     integer                      :: fCount
     type(ESMF_Field),allocatable :: fieldList(:)
     integer                      :: fIndex
 
-    call ESMF_FieldBundleGet(fieldBundle, fieldCount=fCount, rc=rc)
-    if ( rc /= ESMF_SUCCESS ) fCount = 0
+    call ESMF_FieldBundleGet(fieldBundle, fieldCount=fCount, name=fbName, rc=rc)
+    if ( rc /= 0 ) call abort_error("field bundle get error")
+
+    call log_info(TRIM(fbName)//".count",fCount)
 
     allocate(fieldList(fCount),stat=rc)
     if ( rc /= 0 ) call abort_error("allocate fieldList error")
@@ -169,6 +172,7 @@ module lndFields
     character(ESMF_MAXSTR)     :: fname
     real(DEFAULT_KIND)         :: fmin
     real(DEFAULT_KIND)         :: fmax
+    integer                    :: fedge(2)
     integer                    :: deCount
     integer                    :: dIndex
     real(DEFAULT_KIND),pointer :: farray(:,:)
@@ -182,8 +186,12 @@ module lndFields
       if ( rc /= ESMF_SUCCESS) call log_error("field get error")
       fmin = MINVAL(farray)
       fmax = MAXVAL(farray)
+      fedge(1) = SIZE(farray,1)
+      fedge(2) = SIZE(farray,2)
       call log_info(TRIM(fname)//".lclmin",fmin)
       call log_info(TRIM(fname)//".lclmax",fmax)
+      call log_info(TRIM(fname)//".lcl_edg_x",fedge(1))
+      call log_info(TRIM(fname)//".lcl_edg_y",fedge(2))
       nullify(farray)
     enddo
   end subroutine field_log
