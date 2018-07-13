@@ -1,7 +1,24 @@
+!==============================================================================
+! Earth System Modeling Framework
+! Copyright 2002-2018, University Corporation for Atmospheric Research, 
+! Massachusetts Institute of Technology, Geophysical Fluid Dynamics 
+! Laboratory, University of Michigan, National Centers for Environmental 
+! Prediction, Los Alamos National Laboratory, Argonne National Laboratory, 
+! NASA Goddard Space Flight Center.
+! Licensed under the University of Illinois-NCSA License.
+!==============================================================================
+
 module ATM
 
   !-----------------------------------------------------------------------------
   ! ATM Component.
+  !   Three nested states are added to the import state and three nested states
+  !   are added to the export state of this component. The nested states are
+  !   labeled Nest1, Nest2, and Nest3 using the CplSet argument passed to the
+  !   NUOPC_AddNestedState subroutine. The standard NUOPC Connector will only
+  !   couple these nested states to other nested states also labeled Nest1,
+  !   Nest2, and Nest3. Each nested import state contains a field named 'sst'.
+  !   Each nested export state contains fields named 'pmsl' and 'rsns'.
   !-----------------------------------------------------------------------------
 
   use ESMF
