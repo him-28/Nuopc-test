@@ -15,9 +15,13 @@ program mainApp
   !-----------------------------------------------------------------------------
 
   use ESMF
+  use NUOPC
 
   use driver, only: &
     driver_SS => SetServices
+
+  ! use local utility methods
+  use util
 
   implicit none
   
@@ -37,6 +41,61 @@ program mainApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
     
+  !-----------------------------------------------------------------------------
+  ! Operate on the NUOPC Field dictionary
+  !-----------------------------------------------------------------------------
+  ! Dump content of default Field dictionary to ESMF log files as:
+  ! (a) FreeFormat default
+  call FieldDictionaryLog("default", rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+  ! (b) YAML
+  call FieldDictionaryLog("default-YAML", iofmt=ESMF_IOFMT_YAML, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  ! Define the following macro if you would like to read in a 
+  ! custom NUOPC Field dictionary from a YAML file.
+#define CUSTOMFIELDDICTIONARY
+#ifdef CUSTOMFIELDDICTIONARY
+  ! Load custom Field dictionary
+  call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  ! Dump content of Field dictionary to ESMF log files as:
+  ! (a) FreeFormat default
+  call FieldDictionaryLog("custom", rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+  ! (b) YAML
+  call FieldDictionaryLog("custom-YAML", iofmt=ESMF_IOFMT_YAML, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, &
+    file=__FILE__)) &
+    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+#endif
+
   !-----------------------------------------------------------------------------
   
   ! -> CREATE THE DRIVER

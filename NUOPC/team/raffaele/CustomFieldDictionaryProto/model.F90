@@ -94,7 +94,7 @@ module MODEL
     
     ! exportable field: air_pressure_at_sea_level
     call NUOPC_Advertise(exportState, &
-      StandardName="air_pressure_at_mean_sea_level", name="pmsl", rc=rc)
+      StandardName="air_pressure_at_sea_level", name="psl", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -103,6 +103,16 @@ module MODEL
     ! exportable field: surface_net_downward_shortwave_flux
     call NUOPC_Advertise(exportState, &
       StandardName="surface_net_downward_shortwave_flux", name="rsns", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! exportable field: x_heat_flux_in_sea_water_due_to_advection
+    ! NOTE: this field is not included in the default NUOPC Field dictionary
+    ! and can only be advertised if the custom NUOPC Field dictionary was set up.
+    call NUOPC_Advertise(exportState, &
+      StandardName="x_heat_flux_in_sea_water_due_to_advection", name="xhfx", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -153,7 +163,7 @@ module MODEL
 #endif
 
     ! exportable field: air_pressure_at_sea_level
-    field = ESMF_FieldCreate(name="pmsl", grid=gridOut, &
+    field = ESMF_FieldCreate(name="psl", grid=gridOut, &
       typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -167,6 +177,20 @@ module MODEL
 
     ! exportable field: surface_net_downward_shortwave_flux
     field = ESMF_FieldCreate(name="rsns", grid=gridOut, &
+      typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_Realize(exportState, field=field, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! exportable field: x_heat_flux_in_sea_water_due_to_advection
+    ! this is valid only if the custom NUOPC Field dictionary is being used
+    field = ESMF_FieldCreate(name="xhfx", grid=gridOut, &
       typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &

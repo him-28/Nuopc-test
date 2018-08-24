@@ -88,41 +88,6 @@ module driver
       file=__FILE__)) &
       return  ! bail out
 
-    ! dump content of default Field dictionary to ESMF log files as:
-    ! (a) FreeFormat default
-    call FieldDictionaryLog("default", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    ! (b) YAML
-    call FieldDictionaryLog("default", iofmt=ESMF_IOFMT_YAML, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! load custom Field dictionary
-    call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! dump content of Field dictionary to ESMF log files as:
-    ! (a) FreeFormat default
-    call FieldDictionaryLog("custom", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    ! (b) YAML
-    call FieldDictionaryLog("custom", iofmt=ESMF_IOFMT_YAML, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-      
     ! set the driver clock
     call ESMF_TimeSet(startTime, s = 0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

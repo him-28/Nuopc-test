@@ -43,11 +43,11 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-mainApp: mainApp.o driver.o model.o
+mainApp: mainApp.o driver.o model.o util.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
-mainApp.o: driver.o
+mainApp.o: driver.o util.o
 driver.o: model.o
 
 # -----------------------------------------------------------------------------
@@ -67,4 +67,4 @@ info:
 	@echo ==================================================================
 
 edit:
-	nedit mainApp.F90 driver.F90 model.F90 &
+	nedit mainApp.F90 driver.F90 model.F90 util.F90 &
