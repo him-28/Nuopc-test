@@ -1,0 +1,45 @@
+#%Module1.0###################################################################
+##
+
+proc ModulesHelp { } {
+    global name version
+
+    puts stderr "\t[module-info name] - loads the $name environment"
+    puts stderr "\tThe following env variables are modified:"
+    puts stderr "\tThe following env variables are added:"
+    puts stderr "\n\tVersion $version\n"
+}
+
+set modname     [module-info name]
+set modmode     [module-info mode]
+
+# for Tcl script use only
+#conflict comp lib
+#module load compiler mpi libraries
+
+set     name         build-esmf
+set     version      g
+set     compiler     $::env(COMPILER)
+set     compiler_ver $::env(COMPILER)_$::env(COMPILER_VER)
+set     bopt         g
+set     netcdf       $::env(NETCDF)
+set     root         $::env(NOBACKUP)/utils/esmf
+
+module-whatis   "loads the $name environment"
+
+setenv ESMF_COMPILER       $compiler
+setenv ESMF_COMM           intelmpi
+setenv ESMF_BOPT           $bopt
+setenv ESMF_NETCDF         split
+setenv ESMF_NETCDF_LIBPATH $netcdf/lib
+setenv ESMF_NETCDF_INCLUDE $netcdf/include
+setenv ESMF_PIO            internal
+setenv ESMF_INSTALL_MODDIR mod
+setenv ESMF_INSTALL_BINDIR bin
+setenv ESMF_INSTALL_LIBDIR lib
+setenv ESMF_INSTALL_ROOT   $root
+setenv ESMF_VERS           default
+setenv ESMF_COMPILER_VERS  $compiler_ver
+setenv ESMF_INSTALL_PREFIX $root/default/$bopt/$compiler_ver
+
+set-alias esmfsetenv {setenv ESMF_DIR `pwd`; setenv ESMF_GIT_COMMITTAG `git describe --tags`; setenv ESMF_GIT_COMMITDATE `git show --quiet --pretty=format:%ci | cut -c1-4,6-7,9-10`; setenv ESMF_GIT_BRANCH `git branch | grep \\* | cut -d " " -f2`; setenv ESMF_INSTALL_VERS `basename \$ESMF_DIR`; setenv ESMF_INSTALL_PREFIX \$ESMF_INSTALL_ROOT/\$ESMF_INSTALL_VERS/\$ESMF_BOPT/\$ESMF_COMPILER_VERS}
