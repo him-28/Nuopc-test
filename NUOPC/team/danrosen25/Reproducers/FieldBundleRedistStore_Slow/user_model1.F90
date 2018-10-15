@@ -20,6 +20,22 @@
 #define T_EXIT(region)
 #endif
 
+#ifndef NPOINTS
+#define NPOINTS 5000
+#endif
+
+#ifndef CONTIGUOUS
+#define CONTIGUOUS 0
+#endif
+
+#ifdef DEBUG
+#define _DPRINT2_(x,y) print *,x,y
+#define _DPRINT3_(x,y,z) print *,x,y,z
+#else
+#define _DPRINT2_(x,y) !print *,x,y
+#define _DPRINT3_(x,y,z) !print *,x,y,z
+#endif
+
 module user_model1
 
   ! ESMF Framework module
@@ -30,19 +46,12 @@ module user_model1
   public userm1_register
 
   ! variable data arrays
-  integer(ESMF_KIND_I4), allocatable, save :: tmp_data(:,:,:)
-  integer(ESMF_KIND_I4), allocatable, save :: hum_data(:,:,:)
-  integer(ESMF_KIND_I4), allocatable, save :: prs_data(:,:,:)
+  integer(ESMF_KIND_I8), allocatable, save :: tmp_data(:,:,:)
+  integer(ESMF_KIND_I8), allocatable, save :: hum_data(:,:,:)
+  integer(ESMF_KIND_I8), allocatable, save :: prs_data(:,:,:)
 
-  ! index lists
-  integer :: index_list0(4) = (/1,3,5,7/)
-  integer :: index_list1(6) = (/2,4,6,8,9,10/)
-  integer :: index_list2(0)
-  integer :: index_list3(6) = (/11,12,13,14,15,18/)
-!  integer :: index_list0(4) = (/1,2,3,5/)
-!  integer :: index_list1(6) = (/5,6,7,8,9,10/)
-!  integer :: index_list2(0)
-!  integer :: index_list3(6) = (/11,12,13,14,15,16/)
+  ! global index size
+  integer(ESMF_KIND_I4) :: gblcnt = NPOINTS
 
   contains
 
@@ -50,10 +59,26 @@ module user_model1
     type(ESMF_GridComp) :: comp
     integer, intent(out) :: rc
 
+    ! Local variables
+    type(ESMF_VM)          :: vm
+    integer                :: de_id
+
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-!    print *, "User Comp1 Register starting"
+    ! Query component for VM and PET id
+    call ESMF_GridCompGet(comp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, localPet=de_id, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    _DPRINT2_(de_id, "User Comp1 Register starting")
 
     ! Register the callback routines.
 
@@ -76,8 +101,8 @@ module user_model1
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, "Registered Initialize, Run, and Finalize routines"
-!    print *, "User Comp1 Register returning"
+    _DPRINT2_(de_id, "Registered Initialize, Run, and Finalize routines")
+    _DPRINT2_(de_id, "User Comp1 Register returning")
     
   end subroutine
 
@@ -93,19 +118,24 @@ module user_model1
     integer, intent(out) :: rc
 
     ! Local variables
-    type(ESMF_VM)          :: vm
-    integer                :: de_id, npets
-    integer, allocatable   :: indexList(:)
-    type(ESMF_DistGrid)    :: distgrid
-    type(ESMF_LocStream)   :: locs
-    type(ESMF_Field)       :: field(3)
-    type(ESMF_FieldBundle) :: fieldbundle
-    integer                :: icount
-    
+    type(ESMF_VM)                      :: vm
+    integer                            :: de_id, npets
+    integer(ESMF_KIND_I4), allocatable :: indexList(:)
+    type(ESMF_DistGrid)                :: distgrid
+    type(ESMF_LocStream)               :: locs
+    type(ESMF_Field)                   :: field(3)
+    type(ESMF_FieldBundle)             :: fieldbundle
+    integer(ESMF_KIND_I4)              :: eqlcnt
+    integer(ESMF_KIND_I4)              :: lclcnt
+    integer(ESMF_KIND_I4)              :: rmdcnt
+    integer(ESMF_KIND_I4)              :: lclbeg
+    integer(ESMF_KIND_I4)              :: lclend
+    integer(ESMF_KIND_I4)              :: i
+
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-    ! Query component for VM and create a layout with the right breakdown
+    ! Query component for VM and PET id and PET count
     call ESMF_GridCompGet(comp, vm=vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -117,52 +147,51 @@ module user_model1
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, de_id, "User Comp 1 Init starting"
+    _DPRINT2_(de_id, "User Comp 1 Init starting")
 
     ! Check for correct number of PETs
-    if ( npets .ne. 4 ) then
+    if ( npets .gt. gblcnt ) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD,&
-            msg="This component must run on 4 PETs.",&
+            msg="Too many PETs are allocated to user_model1",&
             line=__LINE__, file=__FILE__, rcToReturn=rc)
         return
     endif
 
     T_ENTER("DATA_ALLOC")
-    if ( de_id .eq. 0 ) then
-        icount = size(index_list0)
-        allocate(indexList(icount))
-        allocate(tmp_data(2,icount,4))
-        allocate(hum_data(1,icount,4))
-        allocate(prs_data(2,icount,4))
-        indexList = index_list0
-    elseif ( de_id .eq. 1 ) then
-        icount = size(index_list1)
-        allocate(indexList(icount))
-        allocate(tmp_data(2,icount,4))
-        allocate(hum_data(1,icount,4))
-        allocate(prs_data(2,icount,4))
-        indexList = index_list1
-    elseif ( de_id .eq. 2 ) then
-        icount = size(index_list2)
-        allocate(indexList(icount))
-        allocate(tmp_data(2,icount,4))
-        allocate(hum_data(1,icount,4))
-        allocate(prs_data(2,icount,4))
-        indexList = index_list2
-    elseif ( de_id .eq. 3 ) then
-        icount = size(index_list3)
-        allocate(indexList(icount))
-        allocate(tmp_data(2,icount,4))
-        allocate(hum_data(1,icount,4))
-        allocate(prs_data(2,icount,4))
-        indexList = index_list3
+    eqlcnt = gblcnt / npets
+    rmdcnt = MOD(gblcnt, npets)
+#if CONTIGUOUS == 1
+    if ( de_id .eq. (npets-1) ) then
+        lclcnt = eqlcnt + rmdcnt
+    else
+        lclcnt = eqlcnt
     endif
+    lclbeg = (de_id * eqlcnt) + 1
+    lclend = lclbeg + lclcnt - 1
+    allocate(indexList(lclcnt))
+    indexList = (/(i, i=lclbeg, lclend)/)
+#else
+    if ( de_id .lt. rmdcnt ) then
+        lclcnt = eqlcnt + 1
+    else
+        lclcnt = eqlcnt
+    endif
+    lclbeg = de_id + 1
+    lclend = lclbeg + (lclcnt-1) * npets
+    allocate(indexList(lclcnt))
+    indexList = (/(i, i=lclbeg, lclend, npets)/)
+#endif
+    allocate(tmp_data(2,lclcnt,4))
+    allocate(hum_data(1,lclcnt,4))
+    allocate(prs_data(2,lclcnt,4))
     T_EXIT("DATA_ALLOC")
 
-!    print *, de_id, "indexList = ", indexList
+    _DPRINT3_(de_id, "indexList = ", indexList)
+    print *,"model1 ",de_id,"indexList(min) = ",indexList(1)
+    print *,"model1 ",de_id,"indexList(max) = ",indexList(lclcnt)
 
     T_ENTER("DATA_INIT")
-    if (icount .gt. 0) then
+    if (lclcnt .gt. 0) then
         tmp_data(1,:,1) = indexList(:)*1*1
         tmp_data(1,:,2) = indexList(:)*1*2
         tmp_data(1,:,3) = indexList(:)*1*3
@@ -242,7 +271,7 @@ module user_model1
       return  ! bail out
     T_EXIT("ESMF_OBJ_C")
 
-!    print *, de_id, "User Comp1 Init returning"
+    _DPRINT2_(de_id, "User Comp1 Init returning")
 
   end subroutine user_init
 
@@ -264,6 +293,7 @@ module user_model1
     ! Initialize return code
     rc = ESMF_SUCCESS
 
+    ! Query component for VM and PET id
     call ESMF_GridCompGet(comp, vm=vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -275,11 +305,11 @@ module user_model1
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, de_id, "User Comp1 Run starting"
+    _DPRINT2_(de_id, "User Comp1 Run starting")
     T_ENTER("RUN_NULL")
 
     T_EXIT("RUN_NULL")
-!    print *, de_id, "User Comp1 Run returning"
+    _DPRINT2_(de_id, "User Comp1 Run returning")
 
   end subroutine user_run
 
@@ -305,6 +335,7 @@ module user_model1
     ! Initialize return code
     rc = ESMF_SUCCESS
 
+    ! Query component for VM and PET id
     call ESMF_GridCompGet(comp, vm=vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -316,7 +347,7 @@ module user_model1
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, de_id, "User Comp1 Final starting"
+    _DPRINT2_(de_id, "User Comp1 Final starting")
 
     T_ENTER("ESMF_OBJ_D")
     call ESMF_StateGet(exportState, "fieldbundle data", fieldbundle, rc=rc)
@@ -365,7 +396,7 @@ module user_model1
     deallocate(prs_data)
     T_EXIT("DATA_DEALLOC")
 
-!    print *, de_id, "User Comp1 Final returning"
+    _DPRINT2_(de_id, "User Comp1 Final returning")
 
   end subroutine user_final
 

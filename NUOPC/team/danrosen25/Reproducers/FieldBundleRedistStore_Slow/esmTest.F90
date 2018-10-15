@@ -27,6 +27,11 @@
 
     ! Local variables
     integer :: pet_id, npets, rc, localrc, userrc
+    integer :: srcPetCnt, dstPetCnt
+    integer, allocatable :: petList1(:)
+    integer, allocatable :: petList2(:)
+    integer, allocatable :: petList3(:)
+    integer :: i
     character(len=ESMF_MAXSTR) :: cname1, cname2, cplname
     type(ESMF_VM):: vm
     type(ESMF_State) :: c1exp, c2imp
@@ -81,41 +86,53 @@
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-   ! Check for correct number of PETs
-  if ( npets < 6 ) then
-     call ESMF_LogSetError(ESMF_RC_ARG_BAD,&
-         msg="This system test does not run on fewer than 6 PETs.",&
-         line=__LINE__, file=__FILE__, rcToReturn=rc)
-     call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-   endif
+    ! Check for correct number of PETs
+    if ( npets < 4 ) then
+      call ESMF_LogSetError(ESMF_RC_ARG_BAD,&
+        msg="This system test does not run on fewer than 4 PETs.",&
+        line=__LINE__, file=__FILE__, rcToReturn=rc)
+      call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    endif
+
+    dstPetCnt = 2 + (npets/50) + (npets/100)
+    srcPetCnt = npets - dstPetCnt
 
     ! Create the 2 model components and coupler
     cname1 = "user model 1"
-    comp1 = ESMF_GridCompCreate(name=cname1, petList=(/0,1,2,3/), rc=localrc)
+    allocate(petList1(srcPetCnt))
+    petList1 = (/(i, i=0, (srcPetCnt-1))/)
+    comp1 = ESMF_GridCompCreate(name=cname1, petList=petList1, rc=localrc)
     if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     print *, "Created component ", trim(cname1), "rc =", rc
     !  call ESMF_GridCompPrint(comp1, "", rc)
+    deallocate(petList1)
 
     cname2 = "user model 2"
-    comp2 = ESMF_GridCompCreate(name=cname2, petList=(/4,5/), rc=localrc)
+    allocate(petList2(dstPetCnt))
+    petList2 = (/(i, i=srcPetCnt, (npets-1))/)
+    comp2 = ESMF_GridCompCreate(name=cname2, petList=petList2, rc=localrc)
     if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     print *, "Created component ", trim(cname2), "rc =", rc
     !  call ESMF_GridCompPrint(comp2, "", rc)
+    deallocate(petList2)
 
     cplname = "user one-way coupler"
-    cpl = ESMF_CplCompCreate(name=cplname, petList=(/0,1,2,3,4,5/), rc=localrc)
+    allocate(petList3(npets))
+    petList3 = (/(i, i=0, (npets-1))/)
+    cpl = ESMF_CplCompCreate(name=cplname, petList=petList3, rc=localrc)
     if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
     print *, "Created component ", trim(cplname), ", rc =", rc
     !  call ESMF_CplCompPrint(cpl, "", rc)
+    deallocate(petList3)
 
     print *, "Comp Creates finished"
 

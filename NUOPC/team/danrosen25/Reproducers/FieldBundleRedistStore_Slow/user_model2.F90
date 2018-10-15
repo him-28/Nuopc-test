@@ -20,6 +20,24 @@
 #define T_EXIT(region)
 #endif
 
+#ifndef NPOINTS
+#define NPOINTS 5000
+#endif
+
+#ifndef CONTIGUOUS
+#define CONTIGUOUS 0
+#endif
+
+#ifdef DEBUG
+#define _DPRINT2_(x,y) print *,x,y
+#define _DPRINT3_(x,y,z) print *,x,y,z
+#define _DPRINT5_(v,w,x,y,z) print *,v,w,x,y,z
+#else
+#define _DPRINT2_(x,y) !print *,x,y
+#define _DPRINT3_(x,y,z) !print *,x,y,z
+#define _DPRINT5_(v,w,x,y,z) !print *,v,w,x,y,z
+#endif
+
 module user_model2
 
   ! ESMF Framework module
@@ -30,16 +48,12 @@ module user_model2
   public userm2_register
 
   ! variable data arrays
-  integer(ESMF_KIND_I4), allocatable, save :: tmp_data(:,:,:)
-  integer(ESMF_KIND_I4), allocatable, save :: hum_data(:,:,:)
-  integer(ESMF_KIND_I4), allocatable, save :: prs_data(:,:,:)
+  integer(ESMF_KIND_I8), allocatable, save :: tmp_data(:,:,:)
+  integer(ESMF_KIND_I8), allocatable, save :: hum_data(:,:,:)
+  integer(ESMF_KIND_I8), allocatable, save :: prs_data(:,:,:)
 
-  ! index lists
-  integer :: index_list0(6)  = (/1,7,3,8,5,6/)
-  integer :: index_list1(10) = (/2,4,9,10,11,12,13,14,15,18/)
-!  integer :: index_list0(6)  = (/1,2,3,5,5,6/)
-!  integer :: index_list1(10) = (/7,8,9,10,11,12,13,14,15,16/)
-
+  ! global index size
+  integer(ESMF_KIND_I4) :: gblcnt = NPOINTS
 
   contains
 
@@ -47,10 +61,26 @@ module user_model2
     type(ESMF_GridComp) :: comp
     integer, intent(out) :: rc
 
+    ! Local variables
+    type(ESMF_VM)          :: vm
+    integer                :: de_id
+
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-!    print *, "User Comp2 Register starting"
+    ! Query component for VM and PET id
+    call ESMF_GridCompGet(comp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, localPet=de_id, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    _DPRINT2_(de_id, "User Comp2 Register starting")
 
     ! Register the callback routines.
 
@@ -73,8 +103,8 @@ module user_model2
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, "Registered Initialize, Run, and Finalize routines"
-!    print *, "User Comp2 Register returning"
+    _DPRINT2_(de_id, "Registered Initialize, Run, and Finalize routines")
+    _DPRINT2_(de_id, "User Comp2 Register returning")
     
   end subroutine
 
@@ -89,14 +119,19 @@ module user_model2
     integer, intent(out) :: rc
 
     ! Local variables
-    type(ESMF_VM)          :: vm
-    integer                :: de_id, npets
-    integer, allocatable   :: indexList(:)
-    type(ESMF_DistGrid)    :: distgrid
-    type(ESMF_LocStream)   :: locs
-    type(ESMF_Field)       :: field(3)
-    type(ESMF_FieldBundle) :: fieldbundle
-    integer                :: icount
+    type(ESMF_VM)                      :: vm
+    integer                            :: de_id, npets
+    integer(ESMF_KIND_I4), allocatable :: indexList(:)
+    type(ESMF_DistGrid)                :: distgrid
+    type(ESMF_LocStream)               :: locs
+    type(ESMF_Field)                   :: field(3)
+    type(ESMF_FieldBundle)             :: fieldbundle
+    integer(ESMF_KIND_I4)              :: eqlcnt
+    integer(ESMF_KIND_I4)              :: lclcnt
+    integer(ESMF_KIND_I4)              :: rmdcnt
+    integer(ESMF_KIND_I4)              :: lclbeg
+    integer(ESMF_KIND_I4)              :: lclend
+    integer(ESMF_KIND_I4)              :: i
     
     ! Initialize return code
     rc = ESMF_SUCCESS
@@ -113,40 +148,51 @@ module user_model2
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, de_id, "User Comp 2 Init starting"
+    _DPRINT2_(de_id, "User Comp 2 Init starting")
 
     ! Check for correct number of PETs
-    if ( npets .ne. 2 ) then
+    if ( npets .gt. gblcnt ) then
         call ESMF_LogSetError(ESMF_RC_ARG_BAD,&
-            msg="This component must run on 2 PETs.",&
+            msg="Too many PETs are allocated to user_model2",&
             line=__LINE__, file=__FILE__, rcToReturn=rc)
         return
     endif
 
     T_ENTER("DATA_ALLOC")
-    if ( de_id .eq. 0 ) then
-        icount = size(index_list0)
-        allocate(indexList(icount))
-        allocate(tmp_data(2,icount,4))
-        allocate(hum_data(1,icount,4))
-        allocate(prs_data(2,icount,4))
-!        indexList = (/1,2,3,4,5,6/)
-        indexList = index_list0
-    elseif ( de_id .eq. 1 ) then
-        icount = size(index_list1)
-        allocate(indexList(icount))
-        allocate(tmp_data(2,icount,4))
-        allocate(hum_data(1,icount,4))
-        allocate(prs_data(2,icount,4))
-!        indexList = (/7,8,9,10,11,12,13,14,15,16/)
-        indexList = index_list1
+    eqlcnt = gblcnt / npets
+    rmdcnt = MOD(gblcnt, npets)
+#if CONTIGUOUS == 1
+    if ( de_id .eq. (npets-1) ) then
+        lclcnt = eqlcnt + rmdcnt
+    else
+        lclcnt = eqlcnt
     endif
+    lclbeg = (de_id * eqlcnt) + 1
+    lclend = lclbeg + lclcnt - 1
+    allocate(indexList(lclcnt))
+    indexList = (/(i, i=lclbeg, lclend)/)
+#else
+    if ( de_id .lt. rmdcnt ) then
+        lclcnt = eqlcnt + 1
+    else
+        lclcnt = eqlcnt
+    endif
+    lclbeg = de_id + 1
+    lclend = lclbeg + (lclcnt-1) * npets
+    allocate(indexList(lclcnt))
+    indexList = (/(i, i=lclbeg, lclend, npets)/)
+#endif
+    allocate(tmp_data(2,lclcnt,4))
+    allocate(hum_data(1,lclcnt,4))
+    allocate(prs_data(2,lclcnt,4))
     T_EXIT("DATA_ALLOC")
 
-!    print *, de_id, "indexList = ", indexList
+    _DPRINT3_(de_id, "indexList = ", indexList)
+    print *,"model2 ",de_id,"indexList(min) = ",indexList(1)
+    print *,"model2 ",de_id,"indexList(max) = ",indexList(lclcnt)
 
     T_ENTER("DATA_INIT")
-    if (icount .gt. 0) then
+    if (lclcnt .gt. 0) then
         tmp_data(:,:,:) = 0
         hum_data(:,:,:) = 0
         prs_data(:,:,:) = 0
@@ -209,7 +255,7 @@ module user_model2
       return  ! bail out
     T_EXIT("ESMF_OBJ_C")
 
-!    print *, de_id, "User Comp2 Init returning"
+    _DPRINT2_(de_id, "User Comp2 Init returning")
 
   end subroutine user_init
 
@@ -225,18 +271,18 @@ module user_model2
     integer, intent(out) :: rc
 
     ! Local variables
-    type(ESMF_VM)                  :: vm
-    integer                        :: de_id
-    type(ESMF_FieldBundle)         :: fieldbundle
-    type(ESMF_LocStream)           :: locs
-    type(ESMF_DistGrid)            :: distgrid
-    logical                        :: arbIndex
-    integer                        :: elementCount
-    integer, allocatable           :: indexList(:)
-    type(ESMF_Field)               :: field
-    integer(ESMF_KIND_I4), pointer :: fptr(:,:,:)
-    integer                        :: i
-    integer                        :: exlb(3), exub(3)
+    type(ESMF_VM)                      :: vm
+    integer                            :: de_id
+    type(ESMF_FieldBundle)             :: fieldbundle
+    type(ESMF_LocStream)               :: locs
+    type(ESMF_DistGrid)                :: distgrid
+    logical                            :: arbIndex
+    integer(ESMF_KIND_I4)              :: elementCount
+    integer(ESMF_KIND_I4), allocatable :: indexList(:)
+    type(ESMF_Field)                   :: field
+    integer(ESMF_KIND_I8), pointer     :: fptr(:,:,:)
+    integer(ESMF_KIND_I4)              :: i
+    integer(ESMF_KIND_I4)              :: exlb(3), exub(3)
     
     ! Initialize return code
     rc = ESMF_SUCCESS
@@ -252,7 +298,7 @@ module user_model2
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, de_id, "User Comp2 Run starting"
+    _DPRINT2_(de_id, "User Comp2 Run starting")
 
     T_ENTER("RUN_CHECK")
     ! Get the destination Field from the import State
@@ -305,35 +351,35 @@ module user_model2
       return  ! bail out
     do i = exlb(2), exub(2)
           if(fptr(1,i,1) .ne. indexList(i)*1*1) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(1,i,1) =", fptr(1,i,1)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,1) =", fptr(1,i,1))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,2) .ne. indexList(i)*1*2) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(1,i,2) =", fptr(1,i,2)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,2) =", fptr(1,i,2))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,3) .ne. indexList(i)*1*3) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(1,i,3) =", fptr(1,i,3)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,3) =", fptr(1,i,3))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,4) .ne. indexList(i)*1*4) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(1,i,4) =", fptr(1,i,4)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,4) =", fptr(1,i,4))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,1) .ne. 1*1) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(2,i,1) =", fptr(2,i,1)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,1) =", fptr(2,i,1))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,2) .ne. 1*2) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(2,i,2) =", fptr(2,i,2)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,2) =", fptr(2,i,2))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,3) .ne. 1*3) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(2,i,3) =", fptr(2,i,3)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,3) =", fptr(2,i,3))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,4) .ne. 1*4) then
-!            print *, de_id, "ERROR temp ", indexList(i), " val(2,i,4) =", fptr(2,i,4)
+            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,4) =", fptr(2,i,4))
             rc = ESMF_FAILURE
           endif
     enddo
@@ -353,19 +399,19 @@ module user_model2
       return  ! bail out
     do i = exlb(2), exub(2)
           if(fptr(1,i,1) .ne. indexList(i)*10*1) then
-!            print *, de_id, "ERROR humd ", indexList(i), " val(1,i,1) =", fptr(1,i,1)
+            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,1) =", fptr(1,i,1))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,2) .ne. indexList(i)*10*2) then
-!            print *, de_id, "ERROR humd ", indexList(i), " val(1,i,2) =", fptr(1,i,2)
+            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,2) =", fptr(1,i,2))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,3) .ne. indexList(i)*10*3) then
-!            print *, de_id, "ERROR humd ", indexList(i), " val(1,i,3) =", fptr(1,i,3)
+            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,3) =", fptr(1,i,3))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,4) .ne. indexList(i)*10*4) then
-!            print *, de_id, "ERROR humd ", indexList(i), " val(1,i,4) =", fptr(1,i,4)
+            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,4) =", fptr(1,i,4))
             rc = ESMF_FAILURE
           endif
     enddo
@@ -385,35 +431,35 @@ module user_model2
       return  ! bail out
     do i = exlb(2), exub(2)
           if(fptr(1,i,1) .ne. indexList(i)*100*1) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(1,i,1) =", fptr(1,i,1)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,1) =", fptr(1,i,1))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,2) .ne. indexList(i)*100*2) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(1,i,2) =", fptr(1,i,2)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,2) =", fptr(1,i,2))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,3) .ne. indexList(i)*100*3) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(1,i,3) =", fptr(1,i,3)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,3) =", fptr(1,i,3))
             rc = ESMF_FAILURE
           endif
           if(fptr(1,i,4) .ne. indexList(i)*100*4) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(1,i,4) =", fptr(1,i,4)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,4) =", fptr(1,i,4))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,1) .ne. 100*1) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(2,i,1) =", fptr(2,i,1)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,1) =", fptr(2,i,1))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,2) .ne. 100*2) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(2,i,2) =", fptr(2,i,2)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,2) =", fptr(2,i,2))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,3) .ne. 100*3) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(2,i,3) =", fptr(2,i,3)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,3) =", fptr(2,i,3))
             rc = ESMF_FAILURE
           endif
           if(fptr(2,i,4) .ne. 100*4) then
-!            print *, de_id, "ERROR pres ", indexList(i), " val(2,i,4) =", fptr(2,i,4)
+            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,4) =", fptr(2,i,4))
             rc = ESMF_FAILURE
           endif
     enddo
@@ -421,7 +467,7 @@ module user_model2
     deallocate(indexList)
     T_EXIT("RUN_CHECK")
 
-!    print *, de_id, "User Comp2 Run returning"
+    _DPRINT2_(de_id, "User Comp2 Run returning")
 
   end subroutine user_run
 
@@ -457,7 +503,7 @@ module user_model2
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-!    print *, de_id, "User Comp2 Final starting"
+    _DPRINT2_(de_id, "User Comp2 Final starting")
 
     T_ENTER("ESMF_OBJ_D")
     call ESMF_StateGet(importState, "fieldbundle data", fieldbundle, rc=rc)
@@ -506,7 +552,7 @@ module user_model2
     deallocate(prs_data)
     T_EXIT("DATA_DEALLOC")
 
-!    print *, de_id, "User Comp2 Final returning"
+    _DPRINT2_(de_id, "User Comp2 Final returning")
 
   end subroutine user_final
 

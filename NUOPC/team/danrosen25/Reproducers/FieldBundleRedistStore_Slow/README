@@ -9,6 +9,21 @@ The issue was discovered while running a test case with 5 million
 arbitrarily distributed points being redistributed from 1024 processors
 to 32 processors.
 
+The number of PETs allocated to the applicaiton (nPETs) is divided
+between model1 and model2 such that model2 is given 2PETS+(nPETs/50)+
+(nPETs/100). The remaining PETs are given to model1.
+
+The application is configurable at build time.
+  ESMF_TRACE   - write events to traceout when regions are entered or
+                 exited (default=ON).
+  ESMF_TRACEIO - wrap file and mpi calls with trace regions
+                 (default=OFF).
+  NPOINTS      - Number of points to be redistributed from model1 to 
+                 model2 (default=5000000).
+  CONTIGUOUS   - Distribute the points in contiguous blocks
+                 (default=OFF).
+  DEBUG        - Include extra debugging print statements (default=OFF).
+
 Dependencies:
   - ESMF with LocStream Reconcile Fix (branch fb_on_ls_reconcile_fix)
       * ESMF v8.0.0 beta snapshot TBD
@@ -16,7 +31,8 @@ Dependencies:
 Build:
   - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF
     installation.
-  - gmake
+  - gmake [ESMF_TRACE=ON/OFF] [ESMF_TRACEIO=OFF/ON] [NPOINTS=#]
+    [CONTIGUOUS=OFF/ON] [DEBUG=OFF/ON]
   
 Execution:
   - Modify the Portable Batch System(PBS) template script, qsub_template.sh.

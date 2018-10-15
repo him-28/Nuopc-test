@@ -20,6 +20,14 @@
 #define T_EXIT(region)
 #endif
 
+#ifdef DEBUG
+#define _DPRINT2_(x,y) print *,x,y
+#define _DPRINT4_(w,x,y,z) print *,w,x,y,z
+#else
+#define _DPRINT2_(x,y) !print *,x,y
+#define _DPRINT4_(w,x,y,z) !print *,w,x,y,z
+#endif
+
 module user_coupler
 
   ! ESMF Framework module
@@ -38,10 +46,26 @@ module user_coupler
     type(ESMF_CplComp) :: comp
     integer, intent(out) :: rc
 
+    ! Local variables
+    type(ESMF_VM)          :: vm
+    integer                :: de_id
+
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-!    print *, "User Coupler Register starting"
+    ! Query component for VM and PET id
+    call ESMF_CplCompGet(comp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, localPet=de_id, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    _DPRINT2_(de_id, "User Coupler Register starting")
     
     ! Register the callback routines.
     call ESMF_CplCompSetEntryPoint(comp, ESMF_METHOD_INITIALIZE, userRoutine=user_init, &
@@ -63,8 +87,8 @@ module user_coupler
       file=__FILE__)) &
       return  ! bail out
 
-!    print *, "Registered Initialize, Run, and Finalize routines"
-!    print *, "User Coupler Register returning"
+    _DPRINT2_(de_id, "Registered Initialize, Run, and Finalize routines")
+    _DPRINT2_(de_id, "User Coupler Register returning")
 
   end subroutine
 
@@ -82,26 +106,34 @@ module user_coupler
     integer :: itemcount, localPet, i
     type(ESMF_FieldBundle) :: srcFieldBundle, dstFieldBundle
     type(ESMF_VM) :: vm
+    integer       :: de_id
 
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-!    print *, "User Coupler Init starting"
+    ! Query component for VM and PET id
+    call ESMF_CplCompGet(comp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, localPet=de_id, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    _DPRINT2_(de_id, "User Coupler Init starting")
 
     call ESMF_StateGet(importState, itemcount=itemcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-!    print *, "Import State contains ", itemcount, " items."
+    _DPRINT4_(de_id, "Import State contains ", itemcount, " items.")
 
     ! Need to reconcile import and export states
     T_ENTER("STATE_RECL")
-    call ESMF_CplCompGet(comp, vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
     call ESMF_StateReconcile(importState, vm=vm, &
       attreconflag=ESMF_ATTRECONCILE_ON, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -139,7 +171,7 @@ module user_coupler
       return  ! bail out
     T_EXIT("REDIST_STR")
 
-!    print *, "User Coupler Init returning"
+    _DPRINT2_(de_id, "User Coupler Init returning")
    
   end subroutine user_init
 
@@ -155,12 +187,26 @@ module user_coupler
     integer, intent(out) :: rc
 
     ! Local variables
+    type(ESMF_VM)          :: vm
+    integer                :: de_id
     type(ESMF_FieldBundle) :: srcFieldBundle, dstFieldBundle
 
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-!    print *, "User Coupler Run starting"
+    ! Query component for VM and PET id
+    call ESMF_CplCompGet(comp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, localPet=de_id, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    _DPRINT2_(de_id, "User Coupler Run starting")
 
     ! Get source FieldBundle out of import State
     call ESMF_StateGet(importState, "fieldbundle data", srcFieldBundle, rc=rc)
@@ -186,7 +232,7 @@ module user_coupler
       return  ! bail out
     T_EXIT("REDIST_RUN")
   
-!    print *, "User Coupler Run returning"
+    _DPRINT2_(de_id, "User Coupler Run returning")
 
   end subroutine user_run
 
@@ -201,10 +247,14 @@ module user_coupler
     type(ESMF_Clock) :: clock
     integer, intent(out) :: rc
 
+    ! Local variables
+    type(ESMF_VM)          :: vm
+    integer                :: de_id
+
     ! Initialize return code
     rc = ESMF_SUCCESS
 
-!    print *, "User Coupler Final starting"
+    _DPRINT2_(de_id, "User Coupler Final starting")
 
     T_ENTER("REDIST_RLS")
     ! Release resources stored for the FieldBundleRedist.
@@ -215,7 +265,7 @@ module user_coupler
       return  ! bail out
     T_EXIT("REDIST_RLS")
 
-!    print *, "User Coupler Final returning"
+    _DPRINT2_(de_id, "User Coupler Final returning")
   
   end subroutine user_final
 

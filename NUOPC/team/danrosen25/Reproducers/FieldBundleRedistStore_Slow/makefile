@@ -40,6 +40,29 @@ ifeq ($(ESMF_TRACEIO),ON)
 endif
 
 ################################################################################
+
+NPOINTS = 5000000
+ESMF_F90COMPILECPPFLAGS += -DNPOINTS=$(NPOINTS)
+
+################################################################################
+
+CONTIGUOUS = OFF
+
+ifeq ($(CONTIGUOUS),ON)
+ESMF_F90COMPILECPPFLAGS += -DCONTIGUOUS=1
+else
+ESMF_F90COMPILECPPFLAGS += -DCONTIGUOUS=0
+endif
+
+################################################################################
+
+DEBUG = OFF
+
+ifeq ($(DEBUG),ON)
+ ESMF_F90COMPILECPPFLAGS += -DDEBUG
+endif
+
+################################################################################
 ################################################################################
 
 .SUFFIXES: .f90 .F90 .c .C
