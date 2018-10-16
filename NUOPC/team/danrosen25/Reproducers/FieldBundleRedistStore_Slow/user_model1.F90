@@ -24,16 +24,24 @@
 #define NPOINTS 5000
 #endif
 
+#ifndef NFIELDS
+#define NFIELDS 40
+#endif
+
 #ifndef CONTIGUOUS
 #define CONTIGUOUS 0
 #endif
 
 #ifdef DEBUG
-#define _DPRINT2_(x,y) print *,x,y
-#define _DPRINT3_(x,y,z) print *,x,y,z
+#define _DPRINT2_(a,b) print *,a,b
+#define _DPRINT3_(a,b,c) print *,a,b,c
+#define _DPRINT4_(a,b,c,d) print *,a,b,c,d
+#define _DPRINT5_(a,b,c,d,e) print *,a,b,c,d,e
 #else
-#define _DPRINT2_(x,y) !print *,x,y
-#define _DPRINT3_(x,y,z) !print *,x,y,z
+#define _DPRINT2_(a,b) !print *,a,b
+#define _DPRINT3_(a,b,c) !print *,a,b,c
+#define _DPRINT4_(a,b,c,d) !print *,a,b,c,d
+#define _DPRINT5_(a,b,c,d,e) !print *,a,b,c,d,e
 #endif
 
 module user_model1
@@ -45,13 +53,19 @@ module user_model1
     
   public userm1_register
 
-  ! variable data arrays
-  integer(ESMF_KIND_I8), allocatable, save :: tmp_data(:,:,:)
-  integer(ESMF_KIND_I8), allocatable, save :: hum_data(:,:,:)
-  integer(ESMF_KIND_I8), allocatable, save :: prs_data(:,:,:)
-
   ! global index size
   integer(ESMF_KIND_I4) :: gblcnt = NPOINTS
+
+  ! custom user field
+  type type_user_field
+      integer(ESMF_KIND_I8), allocatable :: fdata(:,:,:)
+      character(len=32)                  :: fname = ""
+      integer                            :: favgs = 1
+      integer                            :: flvls = 1
+      integer                            :: fnumb = 0
+  end type type_user_field
+
+  type(type_user_field),dimension(NFIELDS) :: flist
 
   contains
 
@@ -123,14 +137,16 @@ module user_model1
     integer(ESMF_KIND_I4), allocatable :: indexList(:)
     type(ESMF_DistGrid)                :: distgrid
     type(ESMF_LocStream)               :: locs
-    type(ESMF_Field)                   :: field(3)
+    type(ESMF_Field),allocatable       :: field(:)
     type(ESMF_FieldBundle)             :: fieldbundle
     integer(ESMF_KIND_I4)              :: eqlcnt
     integer(ESMF_KIND_I4)              :: lclcnt
     integer(ESMF_KIND_I4)              :: rmdcnt
     integer(ESMF_KIND_I4)              :: lclbeg
     integer(ESMF_KIND_I4)              :: lclend
-    integer(ESMF_KIND_I4)              :: i
+    integer(ESMF_KIND_I4)              :: i,j,k
+    character(len=32)                  :: fstr
+    character(len=3)                   :: padding
 
     ! Initialize return code
     rc = ESMF_SUCCESS
@@ -181,47 +197,55 @@ module user_model1
     allocate(indexList(lclcnt))
     indexList = (/(i, i=lclbeg, lclend, npets)/)
 #endif
-    allocate(tmp_data(2,lclcnt,4))
-    allocate(hum_data(1,lclcnt,4))
-    allocate(prs_data(2,lclcnt,4))
+    write(fstr,"(I32)") size(flist)
+    write(padding,"(I3)") LEN_TRIM(ADJUSTL(fstr))
+    do i=1, size(flist)
+        write(fstr,"(I0."//TRIM(padding)//")") i
+        flist(i)%fname = 'field'//ADJUSTL(fstr)
+        flist(i)%fnumb = i
+        if ( MOD(i,3) .eq. 0 ) then
+            flist(i)%flvls = 4
+        else
+            flist(i)%flvls = 1
+        endif
+        if ( MOD(i,7) .eq. 0 ) then
+            flist(i)%favgs = 2
+        else
+            flist(i)%favgs = 1
+        endif
+        allocate(flist(i)%fdata(flist(i)%favgs,lclcnt,flist(i)%flvls))
+    enddo
     T_EXIT("DATA_ALLOC")
-
-    _DPRINT3_(de_id, "indexList = ", indexList)
-    print *,"model1 ",de_id,"indexList(min) = ",indexList(1)
-    print *,"model1 ",de_id,"indexList(max) = ",indexList(lclcnt)
 
     T_ENTER("DATA_INIT")
     if (lclcnt .gt. 0) then
-        tmp_data(1,:,1) = indexList(:)*1*1
-        tmp_data(1,:,2) = indexList(:)*1*2
-        tmp_data(1,:,3) = indexList(:)*1*3
-        tmp_data(1,:,4) = indexList(:)*1*4
-        hum_data(1,:,1) = indexList(:)*10*1
-        hum_data(1,:,2) = indexList(:)*10*2
-        hum_data(1,:,3) = indexList(:)*10*3
-        hum_data(1,:,4) = indexList(:)*10*4
-        prs_data(1,:,1) = indexList(:)*100*1
-        prs_data(1,:,2) = indexList(:)*100*2
-        prs_data(1,:,3) = indexList(:)*100*3
-        prs_data(1,:,4) = indexList(:)*100*4
-        tmp_data(2,:,1) = 1*1
-        tmp_data(2,:,2) = 1*2
-        tmp_data(2,:,3) = 1*3
-        tmp_data(2,:,4) = 1*4
-        prs_data(2,:,1) = 100*1
-        prs_data(2,:,2) = 100*2
-        prs_data(2,:,3) = 100*3
-        prs_data(2,:,4) = 100*4
+        do i=1, size(flist)
+        do j=1, ubound(flist(i)%fdata,1)
+        do k=1, ubound(flist(i)%fdata,3)
+            if (j .eq. 1) then
+                flist(i)%fdata(j,:,k) = indexList(:)*flist(i)%fnumb*k
+            else
+                flist(i)%fdata(j,:,k) = flist(i)%fnumb*k
+            endif
+        enddo
+        enddo
+        enddo
     endif
     T_EXIT("DATA_INIT")
 
     T_ENTER("ESMF_OBJ_C")
-    ! Add "temperature" "humidity" "pressure" fields to the export state.
+    ! Add "aa" "ab" "ac" fields to the export state.
     distgrid = ESMF_DistGridCreate(arbSeqIndexList=indexList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    print *, "Model1 ", de_id, "DistGrid contains ", gblcnt, " global points."
+    print *, "Model1 ", de_id, "DistGrid contains ", lclcnt, " local points."
+    print *, "Model1 ", de_id, "indexList(min) = ", indexList(1)
+    print *, "Model1 ", de_id, "indexList(max) = ", indexList(lclcnt)
+    _DPRINT4_("Model1 ", de_id, "indexList = ", indexList)
 
     deallocate(indexList)
 
@@ -233,29 +257,16 @@ module user_model1
       file=__FILE__)) &
       return  ! bail out
 
-    field(1) = ESMF_FieldCreate(locs, tmp_data, &
-        indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
-        name="temperature", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    field(2) = ESMF_FieldCreate(locs, hum_data, &
-        indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
-        name="humidity", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    field(3) = ESMF_FieldCreate(locs, prs_data, &
-        indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
-        name="pressure", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    allocate(field(size(flist)))
+    do i=1, size(field)
+        field(i) = ESMF_FieldCreate(locs, flist(i)%fdata, &
+            indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
+            name=flist(i)%fname, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+    enddo
 
     fieldbundle = ESMF_FieldBundleCreate(fieldList=field, &
         name="fieldbundle data", rc=rc)
@@ -269,6 +280,8 @@ module user_model1
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    deallocate(field)
     T_EXIT("ESMF_OBJ_C")
 
     _DPRINT2_(de_id, "User Comp1 Init returning")
@@ -329,7 +342,8 @@ module user_model1
     integer                :: de_id
     type(ESMF_Field)       :: field
     type(ESMF_FieldBundle) :: fieldbundle
-    integer                :: k
+    integer                :: fcount
+    integer                :: i
     type(ESMF_LocStream)   :: locs
     
     ! Initialize return code
@@ -355,13 +369,14 @@ module user_model1
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_FieldBundleGet(fieldbundle, locstream=locs, rc=rc)
+    call ESMF_FieldBundleGet(fieldbundle, locstream=locs, &
+        fieldCount=fcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    do k = 1, 3
-        call ESMF_FieldBundleGet(fieldbundle, fieldIndex=k, field=field, rc=rc)
+    do i = 1, fcount
+        call ESMF_FieldBundleGet(fieldbundle, fieldIndex=i, field=field, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -391,9 +406,9 @@ module user_model1
     T_EXIT("ESMF_OBJ_D")
 
     T_ENTER("DATA_DEALLOC")
-    deallocate(tmp_data)
-    deallocate(hum_data)
-    deallocate(prs_data)
+    do i=1, size(flist)
+        deallocate(flist(i)%fdata)
+    enddo
     T_EXIT("DATA_DEALLOC")
 
     _DPRINT2_(de_id, "User Comp1 Final returning")

@@ -20,12 +20,20 @@
 #define T_EXIT(region)
 #endif
 
+#ifndef REDIST
+#define REDIST 1
+#endif
+
 #ifdef DEBUG
-#define _DPRINT2_(x,y) print *,x,y
-#define _DPRINT4_(w,x,y,z) print *,w,x,y,z
+#define _DPRINT2_(a,b) print *,a,b
+#define _DPRINT3_(a,b,c) print *,a,b,c
+#define _DPRINT4_(a,b,c,d) print *,a,b,c,d
+#define _DPRINT5_(a,b,c,d,e) print *,a,b,c,d,e
 #else
-#define _DPRINT2_(x,y) !print *,x,y
-#define _DPRINT4_(w,x,y,z) !print *,w,x,y,z
+#define _DPRINT2_(a,b) !print *,a,b
+#define _DPRINT3_(a,b,c) !print *,a,b,c
+#define _DPRINT4_(a,b,c,d) !print *,a,b,c,d
+#define _DPRINT5_(a,b,c,d,e) !print *,a,b,c,d,e
 #endif
 
 module user_coupler
@@ -124,14 +132,6 @@ module user_coupler
       return  ! bail out
 
     _DPRINT2_(de_id, "User Coupler Init starting")
-
-    call ESMF_StateGet(importState, itemcount=itemcount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    _DPRINT4_(de_id, "Import State contains ", itemcount, " items.")
-
     ! Need to reconcile import and export states
     T_ENTER("STATE_RECL")
     call ESMF_StateReconcile(importState, vm=vm, &
@@ -149,26 +149,56 @@ module user_coupler
     T_EXIT("STATE_RECL")
 
     ! Get source FieldBundle out of import State
+    call ESMF_StateGet(importState, itemcount=itemcount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    print *, de_id, "Import State contains ", itemcount, " items."
+
     call ESMF_StateGet(importState, "fieldbundle data", srcFieldBundle, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
+    call ESMF_FieldBundleGet(srcFieldBundle, fieldCount=itemcount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    print *, de_id, "Source FieldBundle contains ", itemcount, " fields."
+
     ! Get destination FieldBundle out of export State
+    call ESMF_StateGet(exportState, itemcount=itemcount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    print *, de_id, "Export State contains ", itemcount, " items."
+
     call ESMF_StateGet(exportState, "fieldbundle data", dstFieldBundle, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
+    call ESMF_FieldBundleGet(dstFieldBundle, fieldCount=itemcount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    print *, de_id, "Destination FieldBundle contains ", itemcount, " fields."
+
     T_ENTER("REDIST_STR")
+#if REDIST == 1
     call ESMF_FieldBundleRedistStore(srcFieldBundle=srcFieldBundle, dstFieldBundle=dstFieldBundle, &
       routehandle=routehandle, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
     T_EXIT("REDIST_STR")
 
     _DPRINT2_(de_id, "User Coupler Init returning")
@@ -224,12 +254,14 @@ module user_coupler
 
     T_ENTER("REDIST_RUN")
     ! Use FieldBundleRedist() to take data from srcFieldBundle to dstFieldBundle
+#if REDIST == 1
     call ESMF_FieldBundleRedist(srcFieldBundle=srcFieldBundle, dstFieldBundle=dstFieldBundle, &
       routehandle=routehandle, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
     T_EXIT("REDIST_RUN")
   
     _DPRINT2_(de_id, "User Coupler Run returning")
@@ -258,11 +290,13 @@ module user_coupler
 
     T_ENTER("REDIST_RLS")
     ! Release resources stored for the FieldBundleRedist.
+#if REDIST == 1
     call ESMF_FieldBundleRedistRelease(routehandle=routehandle, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
     T_EXIT("REDIST_RLS")
 
     _DPRINT2_(de_id, "User Coupler Final returning")

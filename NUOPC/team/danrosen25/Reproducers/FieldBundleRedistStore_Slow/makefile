@@ -46,6 +46,21 @@ ESMF_F90COMPILECPPFLAGS += -DNPOINTS=$(NPOINTS)
 
 ################################################################################
 
+NFIELDS = 40
+ESMF_F90COMPILECPPFLAGS += -DNFIELDS=$(NFIELDS)
+
+################################################################################
+
+REDIST = ON
+
+ifeq ($(REDIST),ON)
+ESMF_F90COMPILECPPFLAGS += -DREDIST=1
+else
+ESMF_F90COMPILECPPFLAGS += -DREDIST=0
+endif
+
+################################################################################
+
 CONTIGUOUS = OFF
 
 ifeq ($(CONTIGUOUS),ON)

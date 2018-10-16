@@ -72,7 +72,7 @@
 !-------------------------------------------------------------------------
 !
     ! Initialize framework and get back default global VM
-    call ESMF_Initialize(vm=vm, defaultlogfilename="FieldBundleRedistStore_SlowSTest.Log", &
+    call ESMF_Initialize(vm=vm, defaultlogfilename="ESMF_Test.Log", &
                         logkindflag=ESMF_LOGKIND_MULTI, rc=localrc)
     if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &

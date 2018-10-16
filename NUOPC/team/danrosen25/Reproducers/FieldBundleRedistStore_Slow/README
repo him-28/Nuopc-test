@@ -20,6 +20,9 @@ The application is configurable at build time.
                  (default=OFF).
   NPOINTS      - Number of points to be redistributed from model1 to 
                  model2 (default=5000000).
+  NFIELDS      - Number of fields to be redistributed from model1 to
+                 model2 (default=40).
+  REDIST       - Redistribute from model1 to model2 (default=ON).
   CONTIGUOUS   - Distribute the points in contiguous blocks
                  (default=OFF).
   DEBUG        - Include extra debugging print statements (default=OFF).
@@ -31,8 +34,8 @@ Dependencies:
 Build:
   - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF
     installation.
-  - gmake [ESMF_TRACE=ON/OFF] [ESMF_TRACEIO=OFF/ON] [NPOINTS=#]
-    [CONTIGUOUS=OFF/ON] [DEBUG=OFF/ON]
+  - gmake [ESMF_TRACE=ON/OFF] [ESMF_TRACEIO=OFF/ON] [NPOINTS=#] [NFIELDS=#]
+    [REDIST=ON/OFF] [CONTIGUOUS=OFF/ON] [DEBUG=OFF/ON]
   
 Execution:
   - Modify the Portable Batch System(PBS) template script, qsub_template.sh.

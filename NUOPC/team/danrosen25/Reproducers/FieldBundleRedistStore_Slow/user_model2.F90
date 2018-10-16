@@ -24,18 +24,24 @@
 #define NPOINTS 5000
 #endif
 
+#ifndef NFIELDS
+#define NFIELDS 40
+#endif
+
 #ifndef CONTIGUOUS
 #define CONTIGUOUS 0
 #endif
 
 #ifdef DEBUG
-#define _DPRINT2_(x,y) print *,x,y
-#define _DPRINT3_(x,y,z) print *,x,y,z
-#define _DPRINT5_(v,w,x,y,z) print *,v,w,x,y,z
+#define _DPRINT2_(a,b) print *,a,b
+#define _DPRINT3_(a,b,c) print *,a,b,c
+#define _DPRINT4_(a,b,c,d) print *,a,b,c,d
+#define _DPRINT5_(a,b,c,d,e) print *,a,b,c,d,e
 #else
-#define _DPRINT2_(x,y) !print *,x,y
-#define _DPRINT3_(x,y,z) !print *,x,y,z
-#define _DPRINT5_(v,w,x,y,z) !print *,v,w,x,y,z
+#define _DPRINT2_(a,b) !print *,a,b
+#define _DPRINT3_(a,b,c) !print *,a,b,c
+#define _DPRINT4_(a,b,c,d) !print *,a,b,c,d
+#define _DPRINT5_(a,b,c,d,e) !print *,a,b,c,d,e
 #endif
 
 module user_model2
@@ -47,13 +53,19 @@ module user_model2
     
   public userm2_register
 
-  ! variable data arrays
-  integer(ESMF_KIND_I8), allocatable, save :: tmp_data(:,:,:)
-  integer(ESMF_KIND_I8), allocatable, save :: hum_data(:,:,:)
-  integer(ESMF_KIND_I8), allocatable, save :: prs_data(:,:,:)
-
   ! global index size
   integer(ESMF_KIND_I4) :: gblcnt = NPOINTS
+
+  ! custom user field
+  type type_user_field
+      integer(ESMF_KIND_I8), allocatable :: fdata(:,:,:)
+      character(len=32)                  :: fname = ""
+      integer                            :: favgs = 1
+      integer                            :: flvls = 1
+      integer                            :: fnumb = 0
+  end type type_user_field
+
+  type(type_user_field),dimension(NFIELDS) :: flist
 
   contains
 
@@ -124,7 +136,7 @@ module user_model2
     integer(ESMF_KIND_I4), allocatable :: indexList(:)
     type(ESMF_DistGrid)                :: distgrid
     type(ESMF_LocStream)               :: locs
-    type(ESMF_Field)                   :: field(3)
+    type(ESMF_Field),allocatable       :: field(:)
     type(ESMF_FieldBundle)             :: fieldbundle
     integer(ESMF_KIND_I4)              :: eqlcnt
     integer(ESMF_KIND_I4)              :: lclcnt
@@ -132,6 +144,8 @@ module user_model2
     integer(ESMF_KIND_I4)              :: lclbeg
     integer(ESMF_KIND_I4)              :: lclend
     integer(ESMF_KIND_I4)              :: i
+    character(len=32)                  :: fstr
+    character(len=3)                   :: padding
     
     ! Initialize return code
     rc = ESMF_SUCCESS
@@ -182,30 +196,47 @@ module user_model2
     allocate(indexList(lclcnt))
     indexList = (/(i, i=lclbeg, lclend, npets)/)
 #endif
-    allocate(tmp_data(2,lclcnt,4))
-    allocate(hum_data(1,lclcnt,4))
-    allocate(prs_data(2,lclcnt,4))
+    write(fstr,"(I32)") size(flist)
+    write(padding,"(I3)") LEN_TRIM(ADJUSTL(fstr))
+    do i=1, size(flist)
+        write(fstr,"(I0."//TRIM(padding)//")") i
+        flist(i)%fname = 'field'//ADJUSTL(fstr)
+        flist(i)%fnumb = i
+        if ( MOD(i,3) .eq. 0 ) then
+            flist(i)%flvls = 4
+        else
+            flist(i)%flvls = 1
+        endif
+        if ( MOD(i,7) .eq. 0 ) then
+            flist(i)%favgs = 2
+        else
+            flist(i)%favgs = 1
+        endif
+        allocate(flist(i)%fdata(flist(i)%favgs,lclcnt,flist(i)%flvls))
+    enddo
     T_EXIT("DATA_ALLOC")
-
-    _DPRINT3_(de_id, "indexList = ", indexList)
-    print *,"model2 ",de_id,"indexList(min) = ",indexList(1)
-    print *,"model2 ",de_id,"indexList(max) = ",indexList(lclcnt)
 
     T_ENTER("DATA_INIT")
     if (lclcnt .gt. 0) then
-        tmp_data(:,:,:) = 0
-        hum_data(:,:,:) = 0
-        prs_data(:,:,:) = 0
+        do i=1, size(flist)
+            flist(i)%fdata(:,:,:) = 0
+        enddo
     endif
     T_EXIT("DATA_INIT")
 
     T_ENTER("ESMF_OBJ_C")
-    ! Add "temperature" "humidity" "pressure" fields to the export state.
+    ! Add "aa" "ab" "ac" fields to the import state.
     distgrid = ESMF_DistGridCreate(arbSeqIndexList=indexList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    print *, "Model2 ", de_id, "DistGrid contains ", gblcnt, " global points."
+    print *, "Model2 ", de_id, "DistGrid contains ", lclcnt, " local points."
+    print *, "Model2 ", de_id, "indexList(min) = ", indexList(1)
+    print *, "Model2 ", de_id, "indexList(max) = ", indexList(lclcnt)
+    _DPRINT4_("Model2 ", de_id, "indexList = ", indexList)
 
     deallocate(indexList)
 
@@ -217,29 +248,16 @@ module user_model2
       file=__FILE__)) &
       return  ! bail out
 
-    field(1) = ESMF_FieldCreate(locs, tmp_data, &
-        indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
-        name="temperature", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    field(2) = ESMF_FieldCreate(locs, hum_data, &
-        indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
-        name="humidity", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    field(3) = ESMF_FieldCreate(locs, prs_data, &
-        indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
-        name="pressure", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    allocate(field(size(flist)))
+    do i=1, size(field)
+        field(i) = ESMF_FieldCreate(locs, flist(i)%fdata, &
+            indexflag=ESMF_INDEX_DELOCAL, gridToFieldMap=(/2/), &
+            name=flist(i)%fname, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+    enddo
 
     fieldbundle = ESMF_FieldBundleCreate(fieldList=field, &
         name="fieldbundle data", rc=rc)
@@ -253,6 +271,8 @@ module user_model2
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    deallocate(field)
     T_EXIT("ESMF_OBJ_C")
 
     _DPRINT2_(de_id, "User Comp2 Init returning")
@@ -279,9 +299,10 @@ module user_model2
     logical                            :: arbIndex
     integer(ESMF_KIND_I4)              :: elementCount
     integer(ESMF_KIND_I4), allocatable :: indexList(:)
+    integer                            :: fcount
     type(ESMF_Field)                   :: field
     integer(ESMF_KIND_I8), pointer     :: fptr(:,:,:)
-    integer(ESMF_KIND_I4)              :: i
+    integer(ESMF_KIND_I4)              :: f,i,j,k
     integer(ESMF_KIND_I4)              :: exlb(3), exub(3)
     
     ! Initialize return code
@@ -336,133 +357,47 @@ module user_model2
       file=__FILE__)) &
       return  ! bail out
 
-    nullify(fptr)
-    call ESMF_FieldBundleGet(fieldbundle, fieldName="temperature", &
-          field=field, rc=rc)
+    call ESMF_FieldBundleGet(fieldbundle, fieldCount=fcount, &
+          rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_FieldGet(field, localDe=0, farrayPtr=fptr, &
-          exclusiveLBound=exlb, exclusiveUBound=exub, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    do i = exlb(2), exub(2)
-          if(fptr(1,i,1) .ne. indexList(i)*1*1) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,1) =", fptr(1,i,1))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,2) .ne. indexList(i)*1*2) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,2) =", fptr(1,i,2))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,3) .ne. indexList(i)*1*3) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,3) =", fptr(1,i,3))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,4) .ne. indexList(i)*1*4) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(1,i,4) =", fptr(1,i,4))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,1) .ne. 1*1) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,1) =", fptr(2,i,1))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,2) .ne. 1*2) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,2) =", fptr(2,i,2))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,3) .ne. 1*3) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,3) =", fptr(2,i,3))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,4) .ne. 1*4) then
-            _DPRINT5_(de_id, "ERROR temp ", indexList(i), " val(2,i,4) =", fptr(2,i,4))
-            rc = ESMF_FAILURE
-          endif
-    enddo
 
-    nullify(fptr)
-    call ESMF_FieldBundleGet(fieldbundle, fieldName="humidity", &
-          field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_FieldGet(field, localDe=0, farrayPtr=fptr, &
-          exclusiveLBound=exlb, exclusiveUBound=exub, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    do i = exlb(2), exub(2)
-          if(fptr(1,i,1) .ne. indexList(i)*10*1) then
-            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,1) =", fptr(1,i,1))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,2) .ne. indexList(i)*10*2) then
-            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,2) =", fptr(1,i,2))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,3) .ne. indexList(i)*10*3) then
-            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,3) =", fptr(1,i,3))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,4) .ne. indexList(i)*10*4) then
-            _DPRINT5_(de_id, "ERROR humd ", indexList(i), " val(1,i,4) =", fptr(1,i,4))
-            rc = ESMF_FAILURE
-          endif
-    enddo
-
-    nullify(fptr)
-    call ESMF_FieldBundleGet(fieldbundle, fieldName="pressure", &
-          field=field, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_FieldGet(field, localDe=0, farrayPtr=fptr, &
-          exclusiveLBound=exlb, exclusiveUBound=exub, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    do i = exlb(2), exub(2)
-          if(fptr(1,i,1) .ne. indexList(i)*100*1) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,1) =", fptr(1,i,1))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,2) .ne. indexList(i)*100*2) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,2) =", fptr(1,i,2))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,3) .ne. indexList(i)*100*3) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,3) =", fptr(1,i,3))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(1,i,4) .ne. indexList(i)*100*4) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(1,i,4) =", fptr(1,i,4))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,1) .ne. 100*1) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,1) =", fptr(2,i,1))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,2) .ne. 100*2) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,2) =", fptr(2,i,2))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,3) .ne. 100*3) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,3) =", fptr(2,i,3))
-            rc = ESMF_FAILURE
-          endif
-          if(fptr(2,i,4) .ne. 100*4) then
-            _DPRINT5_(de_id, "ERROR pres ", indexList(i), " val(2,i,4) =", fptr(2,i,4))
-            rc = ESMF_FAILURE
-          endif
-    enddo
+    check_field: do f=1, size(flist)
+        call ESMF_FieldBundleGet(fieldbundle, fieldName=flist(f)%fname, &
+            field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        nullify(fptr)
+        call ESMF_FieldGet(field, localDe=0, farrayPtr=fptr, &
+            exclusiveLBound=exlb, exclusiveUBound=exub, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        do j = exlb(1), exub(1)
+        do i = exlb(2), exub(2)
+        do k = exlb(3), exub(3)
+            if (j .eq. 1) then
+                if(fptr(j,i,k) .ne. indexList(i)*flist(f)%fnumb*k) then
+                    print *, de_id, "ERROR "//TRIM(flist(f)%fname),fptr(j,i,k)," .ne. ",indexList(i)*flist(f)%fnumb*k
+                    rc = ESMF_FAILURE
+                    cycle check_field
+                endif
+            else
+                if(fptr(j,i,k) .ne. flist(f)%fnumb*k) then
+                    print *, de_id, "ERROR "//TRIM(flist(f)%fname),fptr(j,i,k)," .ne. ",flist(f)%fnumb*k
+                    rc = ESMF_FAILURE
+                    cycle check_field
+                endif
+            endif
+        enddo
+        enddo
+        enddo
+    enddo check_field
 
     deallocate(indexList)
     T_EXIT("RUN_CHECK")
@@ -487,8 +422,9 @@ module user_model2
     integer                :: de_id
     type(ESMF_Field)       :: field
     type(ESMF_FieldBundle) :: fieldbundle
+    integer                :: fcount
     type(ESMF_LocStream)   :: locs
-    integer                :: k
+    integer                :: i
     
     ! Initialize return code
     rc = ESMF_SUCCESS
@@ -511,13 +447,14 @@ module user_model2
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_FieldBundleGet(fieldbundle, locstream=locs, rc=rc)
+    call ESMF_FieldBundleGet(fieldbundle, locstream=locs, &
+        fieldCount=fcount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    do k = 1, 3
-        call ESMF_FieldBundleGet(fieldbundle, fieldIndex=k, field=field, rc=rc)
+    do i = 1, fcount
+        call ESMF_FieldBundleGet(fieldbundle, fieldIndex=i, field=field, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -547,9 +484,9 @@ module user_model2
     T_EXIT("ESMF_OBJ_D")
 
     T_ENTER("DATA_DEALLOC")
-    deallocate(tmp_data)
-    deallocate(hum_data)
-    deallocate(prs_data)
+    do i=1, size(flist)
+        deallocate(flist(i)%fdata)
+    enddo
     T_EXIT("DATA_DEALLOC")
 
     _DPRINT2_(de_id, "User Comp2 Final returning")
