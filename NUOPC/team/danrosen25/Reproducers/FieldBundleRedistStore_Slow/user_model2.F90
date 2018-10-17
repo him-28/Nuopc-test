@@ -29,7 +29,11 @@
 #endif
 
 #ifndef CONTIGUOUS
-#define CONTIGUOUS 0
+#define CONTIGUOUS 1
+#endif
+
+#ifndef NGAPS
+#define NGAPS 50000
 #endif
 
 #ifdef DEBUG
@@ -55,6 +59,9 @@ module user_model2
 
   ! global index size
   integer(ESMF_KIND_I4) :: gblcnt = NPOINTS
+
+  ! number of gaps
+  integer(ESMF_KIND_I4) :: gaps = NGAPS
 
   ! custom user field
   type type_user_field
@@ -132,18 +139,24 @@ module user_model2
 
     ! Local variables
     type(ESMF_VM)                      :: vm
-    integer                            :: de_id, npets
+    integer                            :: de_id,npets
+    integer(ESMF_KIND_I4)              :: lclcnt,lclcntng
     integer(ESMF_KIND_I4), allocatable :: indexList(:)
+    integer(ESMF_KIND_I4), allocatable :: indexListNoGaps(:)
     type(ESMF_DistGrid)                :: distgrid
     type(ESMF_LocStream)               :: locs
     type(ESMF_Field),allocatable       :: field(:)
     type(ESMF_FieldBundle)             :: fieldbundle
     integer(ESMF_KIND_I4)              :: eqlcnt
-    integer(ESMF_KIND_I4)              :: lclcnt
     integer(ESMF_KIND_I4)              :: rmdcnt
+    integer(ESMF_KIND_I4)              :: incrmt
     integer(ESMF_KIND_I4)              :: lclbeg
     integer(ESMF_KIND_I4)              :: lclend
-    integer(ESMF_KIND_I4)              :: i
+    integer(ESMF_KIND_I4)              :: i,j
+    integer(ESMF_KIND_I8)              :: gapszs
+    integer(ESMF_KIND_I8)              :: chkszs
+    integer(ESMF_KIND_I4)              :: glbgapbnd(gaps,2)
+    logical                            :: inclpt
     character(len=32)                  :: fstr
     character(len=3)                   :: padding
     
@@ -175,27 +188,78 @@ module user_model2
     T_ENTER("DATA_ALLOC")
     eqlcnt = gblcnt / npets
     rmdcnt = MOD(gblcnt, npets)
+
 #if CONTIGUOUS == 1
     if ( de_id .eq. (npets-1) ) then
-        lclcnt = eqlcnt + rmdcnt
+        lclcntng = eqlcnt + rmdcnt
     else
-        lclcnt = eqlcnt
+        lclcntng = eqlcnt
     endif
+    incrmt = 1
     lclbeg = (de_id * eqlcnt) + 1
-    lclend = lclbeg + lclcnt - 1
-    allocate(indexList(lclcnt))
-    indexList = (/(i, i=lclbeg, lclend)/)
+    lclend = lclbeg + (lclcntng-1)
 #else
     if ( de_id .lt. rmdcnt ) then
-        lclcnt = eqlcnt + 1
+        lclcntng = eqlcnt + 1
     else
-        lclcnt = eqlcnt
+        lclcntng = eqlcnt
     endif
+    incrmt = npets
     lclbeg = de_id + 1
-    lclend = lclbeg + (lclcnt-1) * npets
-    allocate(indexList(lclcnt))
-    indexList = (/(i, i=lclbeg, lclend, npets)/)
+    lclend = lclbeg + ((lclcntng-1) * npets)
 #endif
+
+    allocate(indexListNoGaps(lclcntng))
+    indexListNoGaps = (/(i, i=lclbeg, lclend, incrmt)/)
+
+#if NGAPS > 0
+    ! Check for correct number of gaps
+    if ( gaps .gt. (gblcnt/3) ) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD,&
+            msg="Too many gaps are defined in user_model2",&
+            line=__LINE__, file=__FILE__, rcToReturn=rc)
+        return
+    endif
+    gapszs = ( ( gblcnt * 6 ) / 10 ) / gaps
+    chkszs = (gblcnt - ( gaps * gapszs )) / ( gaps + 1)
+    glbgapbnd(1,:) = (/chkszs + 1,chkszs + gapszs/)
+    do j=2, gaps
+        glbgapbnd(j,1) = glbgapbnd(j-1,2) + chkszs + 1
+        glbgapbnd(j,2) = glbgapbnd(j,1) + gapszs - 1
+    enddo
+    lclcnt = 0
+    do i=1, size(indexListNoGaps)
+        inclpt = .true.
+        do j=1, gaps
+            if ( indexListNoGaps(i) .ge. glbgapbnd(j,1) .AND. &
+                 indexListNoGaps(i) .le. glbgapbnd(j,2) ) then
+                inclpt = .false.
+            endif
+        enddo
+        if (inclpt) lclcnt = lclcnt + 1
+    enddo
+    allocate(indexList(lclcnt))
+    lclcnt = 0
+    do i=1, size(indexListNoGaps)
+        inclpt = .true.
+        do j=1, gaps
+            if ( indexListNoGaps(i) .ge. glbgapbnd(j,1) .AND. &
+                 indexListNoGaps(i) .le. glbgapbnd(j,2) ) then
+                inclpt = .false.
+            endif
+        enddo
+        if (inclpt) then
+            lclcnt = lclcnt + 1
+            indexList(lclcnt) = indexListNoGaps(i)
+        endif
+    enddo
+#else
+    lclcnt = lclcntng
+    allocate(indexList(lclcnt))
+    indexList=indexListNoGaps
+#endif
+    deallocate(indexListNoGaps)
+
     write(fstr,"(I32)") size(flist)
     write(padding,"(I3)") LEN_TRIM(ADJUSTL(fstr))
     do i=1, size(flist)
@@ -222,21 +286,21 @@ module user_model2
             flist(i)%fdata(:,:,:) = 0
         enddo
     endif
+
+    if (de_id .eq. 0) print *, "Model2 global points ", gblcnt
+    print *, "Model2 ", de_id, " Local excluded points ", (lclcntng-lclcnt)
+    print *, "Model2 ", de_id, " Local included points ", lclcnt
+    print *, "Model2 ", de_id, " Local minmax ", indexList(1),indexList(lclcnt)
+    _DPRINT4_("Model2 ", de_id, " indexList ", indexList)
     T_EXIT("DATA_INIT")
 
     T_ENTER("ESMF_OBJ_C")
-    ! Add "aa" "ab" "ac" fields to the import state.
+    ! Add fields to the import state.
     distgrid = ESMF_DistGridCreate(arbSeqIndexList=indexList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    print *, "Model2 ", de_id, "DistGrid contains ", gblcnt, " global points."
-    print *, "Model2 ", de_id, "DistGrid contains ", lclcnt, " local points."
-    print *, "Model2 ", de_id, "indexList(min) = ", indexList(1)
-    print *, "Model2 ", de_id, "indexList(max) = ", indexList(lclcnt)
-    _DPRINT4_("Model2 ", de_id, "indexList = ", indexList)
 
     deallocate(indexList)
 

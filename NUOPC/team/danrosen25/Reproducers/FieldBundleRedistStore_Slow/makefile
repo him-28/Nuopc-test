@@ -51,6 +51,11 @@ ESMF_F90COMPILECPPFLAGS += -DNFIELDS=$(NFIELDS)
 
 ################################################################################
 
+NGAPS = 50000
+ESMF_F90COMPILECPPFLAGS += -DNGAPS=$(NGAPS)
+
+################################################################################
+
 REDIST = ON
 
 ifeq ($(REDIST),ON)
@@ -61,7 +66,7 @@ endif
 
 ################################################################################
 
-CONTIGUOUS = OFF
+CONTIGUOUS = ON
 
 ifeq ($(CONTIGUOUS),ON)
 ESMF_F90COMPILECPPFLAGS += -DCONTIGUOUS=1
