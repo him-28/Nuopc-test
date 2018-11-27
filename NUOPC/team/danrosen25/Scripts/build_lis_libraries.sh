@@ -194,10 +194,10 @@ function get_file()
    if [ "${get}" = false ] ; then
       return 0
    fi
-   local g_fpth="$1"
-   printf "${YLW}GET    :${NCL} [${g_fpth}]\n" 
+   local l_fpth="$1"
+   printf "${YLW}GET    :${NCL} [${l_fpth}]\n" 
    mkdir -p ${achdir}
-   wget ${quiet} -P ${achdir} -nc ${g_fpth} >> ${output} 2>&1
+   wget ${quiet} -P ${achdir} -nc ${l_fpth} >> ${output} 2>&1
    if [ "$?" -ne 0 ]; then return 1; fi
    return 0
 }
@@ -208,12 +208,12 @@ function check_file()
    if [ "${check}" = false ] ; then
       return 0
    fi
-   local c_file="$1"
-   local c_md5h="$2"
-   local c_fpth="${achdir}/${c_file}"
-   printf "${YLW}CHECK  :${NCL} [${c_file}]\n"
-   c_md5s=`${MD5} ${c_fpth} | sed 's/ .*$//'`
-   if [[ "${c_md5s}" != "${c_md5h}" ]]; then return 1; fi
+   local l_file="$1"
+   local l_md5h="$2"
+   local l_fpth="${achdir}/${l_file}"
+   printf "${YLW}CHECK  :${NCL} [${l_file}]\n"
+   l_md5s=`${MD5} ${l_fpth} | sed 's/ .*$//'`
+   if [[ "${l_md5s}" != "${l_md5h}" ]]; then return 1; fi
    return 0
 }
 
@@ -223,25 +223,25 @@ function extract_file()
    if [ "${extract}" = false ] ; then
       return 0
    fi
-   local e_file="$1"
-   local e_extn="$2"
-   local e_fpth="${achdir}/${e_file}"
-   printf "${YLW}EXTRACT:${NCL} [${e_file}]\n"
+   local l_file="$1"
+   local l_extn="$2"
+   local l_fpth="${achdir}/${l_file}"
+   printf "${YLW}EXTRACT:${NCL} [${l_file}]\n"
    mkdir -p ${srcdir}
-   if [[ "${e_extn}" == "zip" ]]; then
-      unzip ${quiet} -n -d ${srcdir} ${e_fpth} >> ${output} 2>&1
+   if [[ "${l_extn}" == "zip" ]]; then
+      unzip ${quiet} -n -d ${srcdir} ${l_fpth} >> ${output} 2>&1
       if [ "$?" -ne 0 ]; then return 1; fi
-   elif [[ ${e_extn} == "tar.gz" ]]; then
-      tar ${TAROPT} -C ${srcdir} -zxf ${e_fpth} >> ${output} 2>&1
+   elif [[ ${l_extn} == "tar.gz" ]]; then
+      tar ${TAROPT} -C ${srcdir} -zxf ${l_fpth} >> ${output} 2>&1
       if [ "$?" -ne 0 ]; then return 1; fi
-   elif [[ ${e_extn} == "tar.Z" ]]; then
-      tar ${TAROPT} -C ${srcdir} -zxf ${e_fpth} >> ${output} 2>&1
+   elif [[ ${l_extn} == "tar.Z" ]]; then
+      tar ${TAROPT} -C ${srcdir} -zxf ${l_fpth} >> ${output} 2>&1
       if [ "$?" -ne 0 ]; then return 1; fi
-   elif [[ ${e_extn} == "tar" ]]; then
-      tar ${TAROPT} -C ${srcdir} -xf ${e_fpth} >> ${output} 2>&1
+   elif [[ ${l_extn} == "tar" ]]; then
+      tar ${TAROPT} -C ${srcdir} -xf ${l_fpth} >> ${output} 2>&1
       if [ "$?" -ne 0 ]; then return 1; fi
    else
-      printf "${RED}ERROR  :${NCL} extension unknown [${e_extn}]\n" 1>&2
+      printf "${RED}ERROR  :${NCL} extension unknown [${l_extn}]\n" 1>&2
       return 1
    fi
    return 0
@@ -252,14 +252,14 @@ function config_lib()
    if [ "${config}" = false ]; then
       return 0
    fi
-   local c_edir="$1"
-   local c_copt="$2"
-   printf "${YLW}CONFIG :${NCL} [${c_edir}]\n"
-   cd ${srcdir}/${c_edir}
+   local l_edir="$1"
+   local l_copt="$2"
+   printf "${YLW}CONFIG :${NCL} [${l_edir}]\n"
+   cd ${srcdir}/${l_edir}
    if [ ! -x configure ]; then
-      printf "${RED}WARNING:${NCL} no configure script [${c_edir}]\n" 1>&2
+      printf "${RED}WARNING:${NCL} no configure script [${l_edir}]\n" 1>&2
    else
-      ./configure ${quiet} ${c_copt} >> ${output} 2>&1
+      ./configure ${quiet} ${l_copt} >> ${output} 2>&1
       if [ "$?" -ne 0 ]; then return 1; fi
    fi
    cd ${scpdir}
@@ -271,9 +271,9 @@ function build_lib()
    if [ "${build}" = false ] ; then
       return 0
    fi
-   local b_edir="$1"
-   printf "${YLW}BUILD  :${NCL} [${b_edir}]\n"
-   cd ${srcdir}/${b_edir}
+   local l_edir="$1"
+   printf "${YLW}BUILD  :${NCL} [${l_edir}]\n"
+   cd ${srcdir}/${l_edir}
    make >> ${output} 2>&1
    make install >> ${output} 2>&1
    if [ "$?" -ne 0 ]; then return 1; fi
@@ -287,58 +287,61 @@ function clean_lib()
    if [ "${clean}" = false ] ; then
       return 0
    fi
-   local c_file="$1"
-   local c_edir="$2"
-   rm -f "${achdir}/${c_file}"
+   local l_file="$1"
+   local l_edir="$2"
+   rm -f "${achdir}/${l_file}"
    if [ "$?" -ne 0 ]; then return 1; fi
-   rm -rf "${srcdir}/${c_edir}"
+   rm -rf "${srcdir}/${l_edir}"
    if [ "$?" -ne 0 ]; then return 1; fi
    return 0
 }
 
-# Download, Check, and Extract Files
+# Get, Check, Extract, Config, Build, Clean
 function install_lib()
 {
-   local i_file="$1"
-   local i_extn="$2"
-   local i_site="$3"
-   local i_md5h="$4"
-   local i_edir="$5"
-   local i_copt="$6"
+   local l_file="$1"
+   local l_extn="$2"
+   local l_site="$3"
+   local l_md5h="$4"
+   local l_edir="$5"
+   local l_copt="$6"
+   local l_strt=`date +%s`
    if [ "${clean}" = false ] ; then
-      get_file "${i_site}/${i_file}"
+      get_file "${l_site}/${l_file}"
       if [ "$?" -ne 0 ]; then
-         printf "${RED}ERROR  :${NCL} get failed [${i_file}]\n" 1>&2
+         printf "${RED}ERROR  :${NCL} get failed [${l_file}]\n" 1>&2
          return 1
       fi
-      check_file "${i_file}" "${i_md5h}"
+      check_file "${l_file}" "${l_md5h}"
       if [ "$?" -ne 0 ]; then
-         printf "${RED}ERROR  :${NCL} check failed [${i_file}]\n" 1>&2
+         printf "${RED}ERROR  :${NCL} check failed [${l_file}]\n" 1>&2
          return 1
       fi
-      extract_file "${i_file}" "${i_extn}"
+      extract_file "${l_file}" "${l_extn}"
       if [ "$?" -ne 0 ]; then
-         printf "${RED}ERROR  :${NCL} extract failed [${i_file}]\n" 1>&2
+         printf "${RED}ERROR  :${NCL} extract failed [${l_file}]\n" 1>&2
          return 1
       fi
-      config_lib "${i_edir}" "${i_copt}"
+      config_lib "${l_edir}" "${l_copt}"
       if [ "$?" -ne 0 ]; then
-         printf "${RED}ERROR  :${NCL} config failed [${i_edir}]\n" 1>&2
+         printf "${RED}ERROR  :${NCL} config failed [${l_edir}]\n" 1>&2
          return 1
       fi
-      build_lib "${i_edir}"
+      build_lib "${l_edir}"
       if [ "$?" -ne 0 ]; then
-         printf "${RED}ERROR  :${NCL} build failed [${i_edir}]\n" 1>&2
+         printf "${RED}ERROR  :${NCL} build failed [${l_edir}]\n" 1>&2
          return 1
       fi
    else
-      clean_lib "${i_file}" "${i_edir}"
+      clean_lib "${l_file}" "${l_edir}"
       if [ "$?" -ne 0 ]; then
-         printf "${RED}ERROR  :${NCL} clean failed [${i_edir}]\n" 1>&2
+         printf "${RED}ERROR  :${NCL} clean failed [${l_edir}]\n" 1>&2
          return 1
       fi
    fi
-   printf "${GRN}SUCCESS:${NCL} [${i_edir}]\n"
+   local l_endt=`date +%s`
+   local l_runt=$((l_endt-l_strt))
+   printf "${GRN}SUCCESS:${NCL} [${l_edir}] in ${l_runt}s\n"
 }
 
 function summary()
