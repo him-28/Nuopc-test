@@ -38,23 +38,26 @@ config=true
 build=true
 scpdir="${PWD}"
 libdir="${PWD}/LIBRARIES"
-achdir="${libdir}/achives"
+achdir="${libdir}/archives"
 srcdir="${libdir}/src"
 logdir="${libdir}"
 insdir="${libdir}"
 clean=false
 scnt=0
 ecnt=0
+declare -a elist
 compiler="default"
 
 # Script Options
-usage="$(basename $0) [-h] [-l list] [-s #] [-p compiler] [-q] [-c] [-o #] [-r]"
-while getopts ":hl:s:p:qco:r" opt; do
+usage="$(basename $0) [-h] [-l list] [-s #] [-d directory] [-p compiler]"
+usage+=" [-q] [-c] [-o #] [-r]"
+while getopts ":hl:s:p:qcd:o:r" opt; do
   case ${opt} in
     h ) printf "script usage: ${usage}\n"
         printf "\t-h\thelp\t\tprints this help information and exits\n"
         printf "\t-l\tlibraries\tinclude listed libraries, comma delimited\n"
         printf "\t-s\tstep\t\t1=get, 2=check, 3=extract, 4=config, 5=build\n"
+        printf "\t-d\tdirectory\tinstallation directory\n"
         printf "\t-p\tcompiler\tset the compiler\n"
         printf "\t-q\tquiet\t\tsupress wget, unzip, and tar output\n"
         printf "\t-c\tclean\t\tdelete downloaded and extracted files\n"
@@ -96,6 +99,12 @@ while getopts ":hl:s:p:qco:r" opt; do
             ;;
         esac
       ;;
+    d ) libdir="${OPTARG}"
+        achdir="${libdir}/archives"
+        srcdir="${libdir}/src"
+        logdir="${libdir}"
+        insdir="${libdir}"
+      ;;
     p ) compiler=${OPTARG}
       ;;
     q ) quiet='-q'
@@ -107,7 +116,7 @@ while getopts ":hl:s:p:qco:r" opt; do
             ;;
           1 ) output="/dev/stdout"
             ;;
-          2 ) output="${logdir}/getlibs.log"
+          2 ) output="${logdir}/buildlibs.log"
               rm -f ${output}
               mkdir -p ${logdir}
             ;;
@@ -212,8 +221,13 @@ function check_file()
    local l_md5h="$2"
    local l_fpth="${achdir}/${l_file}"
    printf "${YLW}CHECK  :${NCL} [${l_file}]\n"
-   l_md5s=`${MD5} ${l_fpth} | sed 's/ .*$//'`
-   if [[ "${l_md5s}" != "${l_md5h}" ]]; then return 1; fi
+   if [ ! -f ${l_fpth} ]; then
+      printf "${RED}ERROR  :${NCL} no file [${l_fpth}]\n" 1>&2
+      return 1
+   else
+      l_md5s=`${MD5} ${l_fpth} | sed 's/ .*$//'`
+      if [[ "${l_md5s}" != "${l_md5h}" ]]; then return 1; fi
+   fi
    return 0
 }
 
@@ -228,7 +242,10 @@ function extract_file()
    local l_fpth="${achdir}/${l_file}"
    printf "${YLW}EXTRACT:${NCL} [${l_file}]\n"
    mkdir -p ${srcdir}
-   if [[ "${l_extn}" == "zip" ]]; then
+   if [ ! -f ${l_fpth} ]; then
+      printf "${RED}ERROR  :${NCL} no file [${l_fpth}]\n" 1>&2
+      return 1
+   elif [[ "${l_extn}" == "zip" ]]; then
       unzip ${quiet} -n -d ${srcdir} ${l_fpth} >> ${output} 2>&1
       if [ "$?" -ne 0 ]; then return 1; fi
    elif [[ ${l_extn} == "tar.gz" ]]; then
@@ -346,7 +363,7 @@ function install_lib()
 
 function summary()
 {
-   # Print Summary Information
+   # Print Summary to Stdout
    printf "\n"
    printf "${BLU}###################################################${NCL}\n"
    printf "${BLU}#                     SUMMARY                     #${NCL}\n"
@@ -356,8 +373,12 @@ function summary()
    printf "\t${YLW}Fortran Compiler:${NCL} ${FC_VERS}\n"
    printf "\n"
    printf "\t${GRN}SUCCESS :${NCL} ${scnt}\n"
-   printf "\t${RED}FAILURES:${NCL} ${ecnt}\n"
+   printf "\t${RED}FAILURES:${NCL} ${ecnt} ${elist[*]}\n"
    printf "\n"
+   printf "${BLU}###################################################${NCL}\n"
+   # Print Result to Output Log
+   echo   "---------------------------------------------------" >> ${output} 2>&1
+   echo   "$(basename $0): ${ecnt} failure(s) ${elist[*]}" >> ${output} 2>&1
    exit ${ecnt}
 }
 
@@ -377,7 +398,8 @@ if [ "${libraries[$libr]}" = true ]; then
       export FCFLAGS="-fpic"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # netcdf
@@ -395,7 +417,8 @@ if [ "${libraries[$libr]}" = true ]; then
       export FCFLAGS="-fpic"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # netcdf-fortran
@@ -414,7 +437,8 @@ if [ "${libraries[$libr]}" = true ]; then
       export FCFLAGS="-fpic"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # jasper
@@ -428,7 +452,8 @@ if [ "${libraries[$libr]}" = true ]; then
    (
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # grib_api
@@ -442,7 +467,8 @@ if [ "${libraries[$libr]}" = true ]; then
    (
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # esmf
@@ -475,7 +501,8 @@ if [ "${libraries[$libr]}" = true ]; then
       export ESMF_INSTALL_DOCDIR="${insdir}/doc"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # hdf4
@@ -489,7 +516,8 @@ if [ "${libraries[$libr]}" = true ]; then
    (
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 # hdfeos
@@ -507,7 +535,8 @@ if [ "${libraries[$libr]}" = true ]; then
       export F90="${insdir}/bin/h4fc"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
-   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); else scnt=$((scnt+1)); fi
+   if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
+   else scnt=$((scnt+1)); fi
 fi
 
 summary
