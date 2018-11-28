@@ -10,8 +10,8 @@ else
 fi
 
 # Script Dev Settings
-# set -u
-# set -o pipefail
+set -u
+set -o pipefail
 
 # Script Defaults
 RED="" # Red
@@ -29,7 +29,7 @@ declare -A libraries=(
    [grib_api]=true
    [esmf]=true
    [hdf]=true
-   [hdf-eos]=true
+   [hdfeos]=true
 )
 get=true
 check=true
@@ -37,7 +37,7 @@ extract=true
 config=true
 build=true
 scpdir="${PWD}"
-libdir="${PWD}/LIBRARIES"
+libdir="${PWD}/lib"
 achdir="${libdir}/archives"
 srcdir="${libdir}/src"
 logdir="${libdir}"
@@ -45,8 +45,14 @@ insdir="${libdir}"
 clean=false
 scnt=0
 ecnt=0
-declare -a elist
+declare -a elist=("")
 compiler="default"
+ccmp="none"
+fcmp="none"
+f77c="none"
+f90c="none"
+ccmp_v="0.0.0"
+fcmp_v="0.0.0"
 
 # Script Options
 usage="$(basename $0) [-h] [-l list] [-s #] [-d directory] [-p compiler]"
@@ -75,7 +81,7 @@ while getopts ":hl:s:p:qcd:o:r" opt; do
            [grib_api]=false
            [esmf]=false
            [hdf]=false
-           [hdf-eos]=false
+           [hdfeos]=false
         )
         for lib in ${list}; do
            libraries[${lib}]=true
@@ -164,36 +170,43 @@ function set_compiler()
    fi
    if [[ "${compiler}" == "intel" ]]; then
       if [ "${icc}" = false ] || [ "${ifort}" = false ] ; then
-         CC_VERS="not found"
-         FC_VERS="not found"
          printf "${RED}ERROR  :${NCL} intel compilers not found\n" 1>&2
          return 1
       fi
-      export CC="icc"
-      export FC="ifort"
-      export F77="ifort"
-      export F90="ifort"
-      CC_VERS=`${CC} --version | head -n 1`
-      FC_VERS=`${FC} --version | head -n 1`
+      ccmp="icc"
+      fcmp="ifort"
+      f77c="ifort"
+      f90c="ifort"
+      ccmp_v=`${ccmp} --version | head -n 1`
+      ccmp_v=`echo "${ccmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
+      fcmp_v=`${fcmp} --version | head -n 1`
+      fcmp_v=`echo "${fcmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
    elif [[ "${compiler}" == "gnu" ]]; then
       if [ "${gcc}" = false ] || [ "${gfortran}" = false ] ; then
-         CC_VERS="not found"
-         FC_VERS="not found"
+         ccmp_v="0.0.0"
+         fcmp_v="0.0.0"
          printf "${RED}ERROR  :${NCL} gnu compilers not found\n" 1>&2
          return 1
       fi
-      export CC="gcc"
-      export FC="gfortran"
-      export F77="gfortran"
-      export F90="gfortran"
-      CC_VERS=`${CC} --version | head -n 1`
-      FC_VERS=`${FC} --version | head -n 1`
+      ccmp="gcc"
+      fcmp="gfortran"
+      f77c="gfortran"
+      f90c="gfortran"
+      ccmp_v=`${ccmp} --version | head -n 1`
+      ccmp_v=`echo "${ccmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
+      fcmp_v=`${fcmp} --version | head -n 1`
+      fcmp_v=`echo "${fcmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
    else
-      CC_VERS="not found"
-      FC_VERS="not found"
+      ccmp_v="0.0.0"
+      fcmp_v="0.0.0"
       printf "${RED}ERROR  :${NCL} compiler not supported [${compiler}]\n" 1>&2
       return 1
    fi
+   compiler_v="${compiler}-${fcmp_v}"
+   export CC="${ccmp}"
+   export FC="${fcmp}"
+   export F77="${f77c}"
+   export F90="${f90c}"
    return 0
 }
 
@@ -369,8 +382,8 @@ function summary()
    printf "${BLU}#                     SUMMARY                     #${NCL}\n"
    printf "${BLU}###################################################${NCL}\n"
    printf "\n"
-   printf "\t${YLW}C Compiler:${NCL} ${CC_VERS}\n"
-   printf "\t${YLW}Fortran Compiler:${NCL} ${FC_VERS}\n"
+   printf "\t${YLW}C Compiler:${NCL} ${ccmp} ${ccmp_v}\n"
+   printf "\t${YLW}Fortran Compiler:${NCL} ${fcmp} ${fcmp_v}\n"
    printf "\n"
    printf "\t${GRN}SUCCESS :${NCL} ${scnt}\n"
    printf "\t${RED}FAILURES:${NCL} ${ecnt} ${elist[*]}\n"
@@ -386,10 +399,11 @@ function summary()
 set_compiler
 
 # hdf5
-libr="hdf5"; vrsn="1.8.14"; extn="tar.gz"
-file="hdf5-1.8.14.tar.gz"
+libr="hdf5"; vrsn="1.8.14"
+file="hdf5-1.8.14.tar.gz"; extn="tar.gz"
 edir="hdf5-1.8.14"
-copt="--enable-fortran --prefix=${insdir}"
+hdf5_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
+copt="--enable-fortran --prefix=${hdf5_idir}"
 site="https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.14/src"
 md5h="a482686e733514a51cde12d6fe5c5d95"
 if [ "${libraries[$libr]}" = true ]; then
@@ -403,16 +417,17 @@ if [ "${libraries[$libr]}" = true ]; then
 fi
 
 # netcdf
-libr="netcdf"; vrsn="v4.3.3.1"; extn="tar.gz"
-file="v4.3.3.1.tar.gz"
+libr="netcdf"; vrsn="4.3.3.1"
+file="v4.3.3.1.tar.gz"; extn="tar.gz"
 edir="netcdf-c-4.3.3.1"
-copt="--enable-netcdf-4 --disable-dap-remote-tests --prefix=${insdir}"
+netcdf_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
+copt="--enable-netcdf-4 --disable-dap-remote-tests --prefix=${netcdf_idir}"
 site="https://github.com/Unidata/netcdf-c/archive"
 md5h="41fe6758d46cccb1675693d155ee7001"
 if [ "${libraries[$libr]}" = true ]; then
    (
-      export CPPFLAGS="-I${insdir}/include"
-      export LDFLAGS="-L${insdir}/lib"
+      export CPPFLAGS="-I${hdf5_idir}/include"
+      export LDFLAGS="-L${hdf5_idir}/lib"
       export CFLAGS="-fpic"
       export FCFLAGS="-fpic"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
@@ -421,18 +436,19 @@ if [ "${libraries[$libr]}" = true ]; then
    else scnt=$((scnt+1)); fi
 fi
 
-# netcdf-fortran
-libr="netcdf-fortran"; vrsn="4.2"; extn="tar.gz"
-file="netcdf-fortran-4.2.tar.gz"
+# netcdf-fortran (install with netcdf)
+libr="netcdf-fortran"; vrsn="4.2"
+file="netcdf-fortran-4.2.tar.gz"; extn="tar.gz"
 edir="netcdf-fortran-4.2"
-copt="--prefix=${insdir}"
+netcdff_idir="${netcdf_idir}"
+copt="--prefix=${netcdff_idir}"
 site="ftp://ftp.unidata.ucar.edu/pub/netcdf"
 md5h="cc3bf530223e8f4aff93793b9f197bf3"
 if [ "${libraries[$libr]}" = true ]; then
    (
-      export LD_LIBRARY_PATH="${insdir}/lib:${LD_LIBRARY_PATH}"
-      export CPPFLAGS="-I${insdir}/include -DgFortran"
-      export LDFLAGS="-L${insdir}/lib"
+      export LD_LIBRARY_PATH="${netcdf_idir}/lib:${LD_LIBRARY_PATH}"
+      export CPPFLAGS="-I${netcdf_idir}/include -DgFortran"
+      export LDFLAGS="-L${netcdf_idir}/lib"
       export CFLAGS="-fpic"
       export FCFLAGS="-fpic"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
@@ -442,10 +458,11 @@ if [ "${libraries[$libr]}" = true ]; then
 fi
 
 # jasper
-libr="jasper"; vrsn="1.900.1"; extn="zip"
-file="jasper-1.900.1.zip"
+libr="jasper"; vrsn="1.900.1"
+file="jasper-1.900.1.zip"; extn="zip"
 edir="jasper-1.900.1"
-copt="--enable-shared --prefix=${insdir}"
+jasper_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
+copt="--enable-shared --prefix=${jasper_idir}"
 site="http://www.ece.uvic.ca/~frodo/jasper/software"
 md5h="a342b2b4495b3e1394e161eb5d85d754"
 if [ "${libraries[$libr]}" = true ]; then
@@ -457,10 +474,12 @@ if [ "${libraries[$libr]}" = true ]; then
 fi
 
 # grib_api
-libr="grib_api"; vrsn="1.12.3"; extn="tar.gz"
-file="grib_api-1.12.3.tar.gz"
+libr="grib_api"; vrsn="1.12.3"
+file="grib_api-1.12.3.tar.gz"; extn="tar.gz"
 edir="grib_api-1.12.3"
-copt="--with-jasper=${insdir}/lib --with-netcdf=${insdir}/lib --prefix=${insdir}"
+gribapi_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
+copt="--with-jasper=${jasper_idir}/lib --with-netcdf=${netcdf_idir}/lib"
+copt+=" --prefix=${gribapi_idir}"
 site="https://confluence.ecmwf.int/download/attachments/3473437"
 md5h="584f60702aeed70330cca42d13b96889"
 if [ "${libraries[$libr]}" = true ]; then
@@ -472,9 +491,10 @@ if [ "${libraries[$libr]}" = true ]; then
 fi
 
 # esmf
-libr="esmf"; vrsn="7_1_0r"; extn="tar.gz"
-file="esmf_7_1_0r_src.tar.gz"
+libr="esmf"; vrsn="7_1_0r"
+file="esmf_7_1_0r_src.tar.gz"; extn="tar.gz"
 edir="esmf"
+esmf_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
 copt=""
 site="https://sourceforge.net/projects/esmf/files/ESMF_7_1_0r"
 md5h="9e455bc36a0aaa9b87e0bdedc78a47f5"
@@ -488,17 +508,17 @@ if [ "${libraries[$libr]}" = true ]; then
          printf "${RED}ERROR  :${NCL} compiler unknown [${compiler}]\n" 1>&2
       fi
       export ESMF_DIR="${srcdir}/${edir}"
-      export ESMF_INSTALL_PREFIX="${insdir}"
+      export ESMF_INSTALL_PREFIX="${esmf_idir}"
       export ESMF_COMM="mpi"
       export ESMF_BOPT="O"
       export ESMF_NETCDF="split"
-      export ESMF_NETCDF_INCLUDE="${insdir}/include"
-      export ESMF_NETCDF_LIBPATH="${insdir}/lib"
-      export ESMF_INSTALL_HEADERDIR="${insdir}/include"
-      export ESMF_INSTALL_MODDIR="${insdir}/mod"
-      export ESMF_INSTALL_LIBDIR="${insdir}/lib"
-      export ESMF_INSTALL_BINDIR="${insdir}/bin"
-      export ESMF_INSTALL_DOCDIR="${insdir}/doc"
+      export ESMF_NETCDF_INCLUDE="${netcdf_idir}/include"
+      export ESMF_NETCDF_LIBPATH="${netcdf_idir}/lib"
+      export ESMF_INSTALL_HEADERDIR="include"
+      export ESMF_INSTALL_MODDIR="mod"
+      export ESMF_INSTALL_LIBDIR="lib"
+      export ESMF_INSTALL_BINDIR="bin"
+      export ESMF_INSTALL_DOCDIR="doc"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
    if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
@@ -506,10 +526,11 @@ if [ "${libraries[$libr]}" = true ]; then
 fi
 
 # hdf4
-libr="hdf"; vrsn="4.2.11"; extn="tar.gz"
-file="hdf-4.2.11.tar.gz"
+libr="hdf"; vrsn="4.2.11"
+file="hdf-4.2.11.tar.gz"; extn="tar.gz"
 edir="hdf-4.2.11"
-copt="--enable-fortran --disable-netcdf --prefix=${insdir}"
+hdf_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
+copt="--enable-fortran --disable-netcdf --prefix=${hdf_idir}"
 site="https://support.hdfgroup.org/ftp/HDF/releases/HDF4.2.11/src"
 md5h="063f9928f3a19cc21367b71c3b8bbf19"
 if [ "${libraries[$libr]}" = true ]; then
@@ -521,18 +542,19 @@ if [ "${libraries[$libr]}" = true ]; then
 fi
 
 # hdfeos
-libr="hdf-eos"; vrsn="2.19v1.00"; extn="tar.Z"
-file="HDF-EOS2.19v1.00.tar.Z"
+libr="hdfeos"; vrsn="2.19v1.00"
+file="HDF-EOS2.19v1.00.tar.Z"; extn="tar.Z"
 edir="hdfeos"
-copt="--prefix=${insdir}"
+hdfeos_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
+copt="--prefix=${hdfeos_idir}"
 site="ftp://edhs1.gsfc.nasa.gov/edhs/hdfeos/previous_releases"
 md5h="b8648484fc78a2db7073dd603f3fb251"
 if [ "${libraries[$libr]}" = true ]; then
    (
-      export CC="${insdir}/bin/h4cc -Df2cFortran"
-      export FC="${insdir}/bin/h4fc"
-      export F77="${insdir}/bin/h4fc"
-      export F90="${insdir}/bin/h4fc"
+      export CC="${hdf_idir}/bin/h4cc -Df2cFortran"
+      export FC="${hdf_idir}/bin/h4fc"
+      export F77="${hdf_idir}/bin/h4fc"
+      export F90="${hdf_idir}/bin/h4fc"
       install_lib "${file}" "${extn}" "${site}" "${md5h}" "${edir}" "${copt}"
    )
    if [ "$?" -ne 0 ]; then ecnt=$((ecnt+1)); elist+=("${libr}");
