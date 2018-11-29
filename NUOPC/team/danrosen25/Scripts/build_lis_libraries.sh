@@ -47,6 +47,7 @@ scnt=0
 ecnt=0
 declare -a elist=("")
 compiler="default"
+compiler_v="0.0.0"
 ccmp="none"
 fcmp="none"
 f77c="none"
@@ -177,9 +178,9 @@ function set_compiler()
       fcmp="ifort"
       f77c="ifort"
       f90c="ifort"
-      ccmp_v=`${ccmp} --version | head -n 1`
+      ccmp_v=`${ccmp} --version 2>/dev/null | head -n 1`
       ccmp_v=`echo "${ccmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
-      fcmp_v=`${fcmp} --version | head -n 1`
+      fcmp_v=`${fcmp} --version 2>/dev/null | head -n 1`
       fcmp_v=`echo "${fcmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
    elif [[ "${compiler}" == "gnu" ]]; then
       if [ "${gcc}" = false ] || [ "${gfortran}" = false ] ; then
@@ -192,9 +193,9 @@ function set_compiler()
       fcmp="gfortran"
       f77c="gfortran"
       f90c="gfortran"
-      ccmp_v=`${ccmp} --version | head -n 1`
+      ccmp_v=`${ccmp} --version 2>/dev/null | head -n 1`
       ccmp_v=`echo "${ccmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
-      fcmp_v=`${fcmp} --version | head -n 1`
+      fcmp_v=`${fcmp} --version 2>/dev/null | head -n 1`
       fcmp_v=`echo "${fcmp_v}" | sed 's/^[a-zA-Z ()]*//' | sed 's/ .*$//'`
    else
       ccmp_v="0.0.0"
@@ -478,7 +479,7 @@ libr="grib_api"; vrsn="1.12.3"
 file="grib_api-1.12.3.tar.gz"; extn="tar.gz"
 edir="grib_api-1.12.3"
 gribapi_idir="${insdir}/${libr}/${vrsn}_${compiler_v}"
-copt="--with-jasper=${jasper_idir}/lib --with-netcdf=${netcdf_idir}/lib"
+copt="--with-jasper=${jasper_idir} --with-netcdf=${netcdf_idir}"
 copt+=" --prefix=${gribapi_idir}"
 site="https://confluence.ecmwf.int/download/attachments/3473437"
 md5h="584f60702aeed70330cca42d13b96889"
@@ -502,14 +503,16 @@ if [ "${libraries[$libr]}" = true ]; then
    (
       if [[ "${compiler}" == "intel" ]]; then
          export ESMF_COMPILER="intel"
+         export ESMF_COMM="mpich2"
       elif [[ "${compiler}" == "gnu" ]]; then
          export ESMF_COMPILER="gfortran"
+         export ESMF_COMM="mpich2"
       else
          printf "${RED}ERROR  :${NCL} compiler unknown [${compiler}]\n" 1>&2
+         exit 1
       fi
       export ESMF_DIR="${srcdir}/${edir}"
       export ESMF_INSTALL_PREFIX="${esmf_idir}"
-      export ESMF_COMM="mpi"
       export ESMF_BOPT="O"
       export ESMF_NETCDF="split"
       export ESMF_NETCDF_INCLUDE="${netcdf_idir}/include"
