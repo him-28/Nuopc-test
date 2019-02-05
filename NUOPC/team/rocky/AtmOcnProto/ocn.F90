@@ -81,6 +81,9 @@ module OCN
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
+
+    integer :: i
+    character(len=25) :: str
     
     rc = ESMF_SUCCESS
 
@@ -110,6 +113,16 @@ module OCN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    do i=1,20
+       write(str,"(A,I2)") "dummy",i
+       call NUOPC_Advertise(importState, StandardName=trim(str), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return
+    end do
+
 #endif
 
 #ifdef WITHEXPORTFIELDS
@@ -145,6 +158,7 @@ module OCN
     real(ESMF_KIND_R8), pointer :: scalarPtr(:,:)
     integer :: i, localPet
     
+    character(len=25) :: str
     rc = ESMF_SUCCESS
 
 
@@ -227,6 +241,22 @@ module OCN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    do i=1,20
+       write(str,"(A,I2)") "dummy",i       
+       field = ESMF_FieldCreate(name=trim(str), mesh=mesh, &
+            typekind=ESMF_TYPEKIND_R8, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+       call NUOPC_Realize(importState, field=field, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+    end do
+
     
     call ESMF_LogWrite("OCN realized fields using MESH", ESMF_LOGMSG_INFO)
     

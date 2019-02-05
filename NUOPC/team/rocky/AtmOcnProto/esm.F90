@@ -86,7 +86,7 @@ module ESM
     rc = ESMF_SUCCESS
     
     ! SetServices for ATM
-    call NUOPC_DriverAddComp(driver, "ATM", atmSS, comp=child, petList=(/0,1,2,3,4,5,6,7/), rc=rc)
+    call NUOPC_DriverAddComp(driver, "ATM", atmSS, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -98,7 +98,7 @@ module ESM
       return  ! bail out
       
     ! SetServices for OCN
-    call NUOPC_DriverAddComp(driver, "OCN", ocnSS, comp=child, petList=(/1,2,3,5/), rc=rc)
+    call NUOPC_DriverAddComp(driver, "OCN", ocnSS, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

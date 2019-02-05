@@ -22,6 +22,9 @@ program esmApp
 
   integer                 :: rc, urc
   type(ESMF_GridComp)     :: esmComp
+
+  integer :: i
+  character(len=25) :: str
   
   ! Initialize ESMF
   call ESMF_Initialize(logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
@@ -42,6 +45,15 @@ program esmApp
     file=__FILE__)) &
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
   
+  do i=1,20
+     write(str,"(A,I2)") "dummy",i
+     call NUOPC_FieldDictionaryAddEntry(trim(str), "1", rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+  end do
+
   ! Create the earth system Component
   esmComp = ESMF_GridCompCreate(name="esm", rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

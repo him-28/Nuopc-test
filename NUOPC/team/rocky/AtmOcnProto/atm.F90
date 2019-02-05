@@ -74,6 +74,9 @@ module ATM
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
+
+    integer :: i
+    character(len=25) :: str
     
     rc = ESMF_SUCCESS
     
@@ -107,6 +110,15 @@ module ATM
       file=__FILE__)) &
       return  ! bail out
 
+    do i=1,20
+       write(str,"(A,I2)") "dummy",i
+       call NUOPC_Advertise(exportState, StandardName=trim(str), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return
+    end do
+
     call NUOPC_Advertise(exportState, StandardName="cpl_scalars", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -134,7 +146,9 @@ module ATM
     type(ESMF_Grid)     :: scalarG
     real(ESMF_KIND_R8), pointer :: scalarPtr(:,:)
     integer :: i, localPet
-        
+    
+    character(len=25) :: str
+    
     rc = ESMF_SUCCESS
 
 #define USE_MESH
@@ -172,6 +186,21 @@ module ATM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    
+    do i=1,20
+       write(str,"(A,I2)") "dummy",i       
+       field = ESMF_FieldCreate(name=trim(str), mesh=mesh, &
+            typekind=ESMF_TYPEKIND_R8, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+       call NUOPC_Realize(exportState, field=field, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+    end do
     
     call ESMF_LogWrite("ATM realized fields using MESH", ESMF_LOGMSG_INFO)
     
