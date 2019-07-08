@@ -43,19 +43,19 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-esmApp: esmApp.o esm.o atm.o atm_m.o ocn.o
+esmApp: esmApp.o esm.o conn.o atm.o atm_m.o ocn.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
 esmApp.o: esm.o
-esm.o: atm.o ocn.o
+esm.o: atm.o ocn.o conn.o
 atm.o: atm_m.o
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
-	rm -f PET*.ESMF_LogFile err out core* *.nc *.stdout
+	rm -f PET*.ESMF_LogFile err out core* *.nc *.stdout *.log
 clean:
 	rm -f esmApp *.o *.mod
 distclean: dust clean

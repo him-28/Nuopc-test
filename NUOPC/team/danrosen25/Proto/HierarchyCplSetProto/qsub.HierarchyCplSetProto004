@@ -1,18 +1,15 @@
 #! /bin/ksh --login
 
-#PBS -e err
-#PBS -o out
+#PBS -e output.log
+#PBS -o output.log
 #PBS -N HierarchyCplSetProto
 #PBS -A ACCNTNUMBER
 #PBS -q debug
-#PBS -l select=1:ncpus=1:mpiprocs=1
-##PBS -l select=1:ncpus=12:mpiprocs=12:accelerator=False
-#PBS -l walltime=00:30:00
+#PBS -l select=1:ncpus=4:mpiprocs=4
+#PBS -l walltime=00:05:00
 #PBS -W umask=027
 
 cd $PBS_O_WORKDIR
-
-set -x
 
 # Set up environment
 
@@ -28,8 +25,13 @@ ulimit -t unlimited #cputime
 ulimit -d unlimited #datasize
 ulimit -m unlimited #memoryuse
 
+echo "Build started:  " `date`
+make dust
+make
 echo "Model started:  " `date`
-aprun -n 1 ./esmApp
+set -x
+aprun -n 4 ./esmApp
+set +x
 echo "Model ended:    " `date`
 
 exit

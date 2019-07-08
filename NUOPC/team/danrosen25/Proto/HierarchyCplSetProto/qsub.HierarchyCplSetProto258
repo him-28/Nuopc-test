@@ -1,0 +1,37 @@
+#! /bin/ksh --login
+
+#PBS -e output.log
+#PBS -o output.log
+#PBS -N HierarchyCplSetProto
+#PBS -A ACCNTNUMBER
+#PBS -q debug
+#PBS -l select=9:ncpus=32
+#PBS -l walltime=00:05:00
+#PBS -W umask=027
+
+cd $PBS_O_WORKDIR
+
+# Set up environment
+
+export np=$PBS_NP
+# Enable Fortran RTL core dumps for severe run time failures
+#export decfort_dump_flag=y
+#export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+
+# set resource usage limits
+ulimit -c unlimited #coredumpsize
+ulimit -s unlimited #stacksize
+ulimit -t unlimited #cputime
+ulimit -d unlimited #datasize
+ulimit -m unlimited #memoryuse
+
+echo "Build started:  " `date`
+make dust
+make
+echo "Model started:  " `date`
+set -x
+aprun -n 258 ./esmApp
+set +x
+echo "Model ended:    " `date`
+
+exit

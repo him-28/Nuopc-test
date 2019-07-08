@@ -218,7 +218,7 @@ module ATM_M
     rc = ESMF_SUCCESS
     
     ! create a Grid object for Fields
-    Domain1 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/10, 10/), &
+    Domain1 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/180, 150/), &
       minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
@@ -227,7 +227,7 @@ module ATM_M
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    Domain2 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/20, 20/), &
+    Domain2 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/319, 313/), &
       minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
@@ -236,7 +236,7 @@ module ATM_M
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    Domain3 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/30, 30/), &
+    Domain3 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/628, 628/), &
       minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &

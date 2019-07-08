@@ -10,6 +10,9 @@
 #if 0
 #define CUSTOMRUNSEQUENCE_on
 #endif
+#define VERBOSITY "max"
+#define REMAPMTHD ":remapmethod=redist"
+#define WRITEPETS 2
 
 module ATM
 
@@ -81,11 +84,27 @@ module ATM
     type(ESMF_CplComp)            :: conn
     integer                       :: verbosity
     character(len=10)             :: vString
+    integer,parameter             :: wPets = WRITEPETS
+    integer                       :: nPets, i
+    integer,allocatable           :: petList(:)
 
     rc = ESMF_SUCCESS
-    
+
+    ! Query component for its configuration
+    call ESMF_GridCompGet(driver, petCount=nPets, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out 
+
+    ! Create PET list for ATM Model
+    allocate(petList(nPets-wPets))
+    do i=1, (nPets-wPets)
+      petList(i)=i-1
+    enddo
+
     ! SetServices for DYN
-    call NUOPC_DriverAddComp(driver, "ATM_M", modelSS, comp=child, rc=rc)
+    call NUOPC_DriverAddComp(driver, "ATM_M", modelSS, petList=petList, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

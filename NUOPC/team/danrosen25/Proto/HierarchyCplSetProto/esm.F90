@@ -8,6 +8,10 @@
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
 
+#define VERBOSITY "max"
+#define REMAPMTHD ":remapmethod=redist"
+#define WRITEPETS 2
+
 module ESM
 
   !-----------------------------------------------------------------------------
@@ -22,16 +26,8 @@ module ESM
   
   use ATM, only: atmSS => SetServices
   use OCN, only: ocnSS => SetServices
-   
-  use NUOPC_Connector, only: cplSS => SetServices
- 
-  implicit none
-  
-  private
-  
-  public SetServices
-  
-  !-----------------------------------------------------------------------------
+  use CON, only: cplSS => SetServices
+
   contains
   !-----------------------------------------------------------------------------
 
@@ -74,32 +70,54 @@ module ESM
     type(ESMF_Clock)              :: internalClock
     type(ESMF_GridComp)           :: child
     type(ESMF_CplComp)            :: connector
+    integer,parameter             :: wPets = WRITEPETS
+    integer                       :: nPets, i
+    integer,allocatable           :: petList(:)
 
     rc = ESMF_SUCCESS
-    
+
+    ! Query component for its configuration
+    call ESMF_GridCompGet(driver, petCount=nPets, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out 
+
+    ! Create PET list for ATM Model
+    allocate(petList(nPets))
+    do i=1, nPets
+      petList(i)=i-1
+    enddo
     ! SetServices for ATM
-    call NUOPC_DriverAddComp(driver, "ATM", atmSS, comp=child, rc=rc)
+    call NUOPC_DriverAddComp(driver, "ATM", atmSS, petList=petList, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_CompAttributeSet(child, name="Verbosity", value="1", rc=rc)
+    call NUOPC_CompAttributeSet(child, name="Verbosity", value=VERBOSITY, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+    deallocate(petList)
+
+    ! Create PET list for OCN Model
+    allocate(petList(nPets-wPets))
+    do i=1, (nPets-wPets)
+      petList(i)=i-1
+    enddo
     ! SetServices for OCN
-    call NUOPC_DriverAddComp(driver, "OCN", ocnSS, comp=child, rc=rc)
+    call NUOPC_DriverAddComp(driver, "OCN", ocnSS, petList=petList, comp=child, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_CompAttributeSet(child, name="Verbosity", value="1", rc=rc)
+    call NUOPC_CompAttributeSet(child, name="Verbosity", value=VERBOSITY, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    deallocate(petList)
       
     ! Disabling the following macro, e.g. renaming to WITHCONNECTORS_disable,
     ! will result in a driver that does not call connectors between the model
@@ -115,7 +133,12 @@ module ESM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_CompAttributeSet(connector, name="Verbosity", value="1", rc=rc)
+    call NUOPC_CompAttributeSet(connector, name="Verbosity", value=VERBOSITY, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_CompAttributeSet(connector, name="ConnectionOptions", value=REMAPMTHD, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -128,7 +151,12 @@ module ESM
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_CompAttributeSet(connector, name="Verbosity", value="1", rc=rc)
+    call NUOPC_CompAttributeSet(connector, name="Verbosity", value=VERBOSITY, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_CompAttributeSet(connector, name="ConnectionOptions", value=REMAPMTHD, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

@@ -8,6 +8,8 @@
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
 
+#define WITHALLFIELDS_on
+
 module OCN
 
   !-----------------------------------------------------------------------------
@@ -34,9 +36,9 @@ module OCN
   
   public SetServices
 
-  type(ESMF_State)        :: NStateImp2, NStateImp3
-  type(ESMF_State)        :: NStateExp2, NStateExp3
-  type(ESMF_Grid)         :: Domain2, Domain3
+  type(ESMF_State)        :: NStateImp1, NStateImp2, NStateImp3
+  type(ESMF_State)        :: NStateExp1, NStateExp2, NStateExp3
+  type(ESMF_Grid)         :: Domain1, Domain2, Domain3
 
   !-----------------------------------------------------------------------------
   contains
@@ -95,7 +97,16 @@ module OCN
     
     rc = ESMF_SUCCESS
 
+
     ! add nested import states
+    call NUOPC_AddNestedState(importState, &
+      CplSet="Nest1", &
+      nestedStateName="NestedStateImp_N1", &
+      nestedState=NStateImp1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
     call NUOPC_AddNestedState(importState, &
       CplSet="Nest2", &
       nestedStateName="NestedStateImp_N2", &
@@ -115,6 +126,14 @@ module OCN
 
     ! add nested export states
     call NUOPC_AddNestedState(exportState, &
+      CplSet="Nest1", &
+      nestedStateName="NestedStateExp_N1", &
+      nestedState=NStateExp1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_AddNestedState(exportState, &
       CplSet="Nest2", &
       nestedStateName="NestedStateExp_N2", &
       nestedState=NStateExp2, rc=rc)
@@ -132,6 +151,14 @@ module OCN
       return  ! bail out
 
     ! importable field: air_pressure_at_sea_level
+#ifdef WITHALLFIELDS_on
+    call NUOPC_Advertise(NStateImp1, &
+      StandardName="air_pressure_at_sea_level", name="pmsl", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
     call NUOPC_Advertise(NStateImp2, &
       StandardName="air_pressure_at_sea_level", name="pmsl", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -146,6 +173,14 @@ module OCN
       return  ! bail out    
 
     ! importable field: surface_net_downward_shortwave_flux
+#ifdef WITHALLFIELDS_on
+    call NUOPC_Advertise(NStateImp1, &
+      StandardName="surface_net_downward_shortwave_flux", name="rsns", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
     call NUOPC_Advertise(NStateImp2, &
       StandardName="surface_net_downward_shortwave_flux", name="rsns", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -160,6 +195,14 @@ module OCN
       return  ! bail out
 
     ! exportable field: sea_surface_temperature
+#ifdef WITHALLFIELDS_on
+    call NUOPC_Advertise(NStateExp1, &
+      StandardName="sea_surface_temperature", name="sst", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
     call NUOPC_Advertise(NStateExp2, &
       StandardName="sea_surface_temperature", name="sst", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -192,7 +235,7 @@ module OCN
     rc = ESMF_SUCCESS
     
     ! create a Grid objects for Fields
-    Domain2 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/20, 20/), &
+    Domain1 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/180, 150/), &
       minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
@@ -201,7 +244,16 @@ module OCN
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    Domain3 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/30, 30/), &
+    Domain2 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/319, 313/), &
+      minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
+      maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
+      coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    Domain3 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/628, 628/), &
       minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
       maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
@@ -212,6 +264,27 @@ module OCN
       return  ! bail out
 
     ! importable field: air_pressure_at_sea_level
+#ifdef WITHALLFIELDS_on
+    if (NUOPC_IsConnected(NStateImp1, fieldName="pmsl", rc=rc)) then
+      field = ESMF_FieldCreate(name="pmsl", grid=Domain1, &
+        typekind=ESMF_TYPEKIND_R8, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_Realize(NStateImp1, field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      call ESMF_StateRemove(NStateImp1,(/"pmsl"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+#endif
     if (NUOPC_IsConnected(NStateImp2, fieldName="pmsl", rc=rc)) then
       field = ESMF_FieldCreate(name="pmsl", grid=Domain2, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
@@ -252,6 +325,27 @@ module OCN
     endif
     
     ! importable field: surface_net_downward_shortwave_flux
+#ifdef WITHALLFIELDS_on
+    if (NUOPC_IsConnected(NStateImp1, fieldName="rsns", rc=rc)) then
+      field = ESMF_FieldCreate(name="rsns", grid=Domain1, &
+        typekind=ESMF_TYPEKIND_R8, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_Realize(NStateImp1, field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      call ESMF_StateRemove(NStateImp1,(/"rsns"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+#endif
     if (NUOPC_IsConnected(NStateImp2, fieldName="rsns", rc=rc)) then
       field = ESMF_FieldCreate(name="rsns", grid=Domain2, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
@@ -292,6 +386,27 @@ module OCN
     endif
 
     ! exportable field: sea_surface_temperature
+#ifdef WITHALLFIELDS_on
+    if (NUOPC_IsConnected(NStateExp1, fieldName="sst", rc=rc)) then
+      field = ESMF_FieldCreate(name="sst", grid=Domain1, &
+        typekind=ESMF_TYPEKIND_R8, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_Realize(NStateExp1, field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+       file=__FILE__)) &
+        return  ! bail out
+    else
+      call ESMF_StateRemove(NStateExp1,(/"sst"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+#endif
     if (NUOPC_IsConnected(NStateExp2, fieldName="sst", rc=rc)) then
       field = ESMF_FieldCreate(name="sst", grid=Domain2, &
         typekind=ESMF_TYPEKIND_R8, rc=rc)
