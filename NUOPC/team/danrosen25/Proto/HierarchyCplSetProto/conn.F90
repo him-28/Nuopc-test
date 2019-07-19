@@ -8,6 +8,8 @@
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
 
+#include "settings.h"
+
 module CON
 
   !-----------------------------------------------------------------------------
@@ -21,8 +23,6 @@ module CON
   ! connector, and precomputes two RouteHandles. The first is a Regrid, while 
   ! the second is simply an identity operation using FieldRedist() to show the
   ! principle.
-#define FIELDWRITE_on
-#define ARRAYGET_on
 
   use ESMF
   use NUOPC

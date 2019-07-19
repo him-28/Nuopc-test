@@ -8,7 +8,7 @@
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
 
-#define WITHALLFIELDS_on
+#include "settings.h"
 
 module OCN
 
@@ -235,27 +235,27 @@ module OCN
     rc = ESMF_SUCCESS
     
     ! create a Grid objects for Fields
-    Domain1 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/180, 150/), &
-      minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
-      maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
+    Domain1 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=MAXINDEX1, &
+      minCornerCoord=MINCORNER1, &
+      maxCornerCoord=MAXCORNER1, &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    Domain2 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/319, 313/), &
-      minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
-      maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
+    Domain2 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=MAXINDEX2, &
+      minCornerCoord=MINCORNER2, &
+      maxCornerCoord=MAXCORNER2, &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    Domain3 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/628, 628/), &
-      minCornerCoord=(/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/), &
-      maxCornerCoord=(/100._ESMF_KIND_R8, 200._ESMF_KIND_R8/), &
+    Domain3 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=MAXINDEX3, &
+      minCornerCoord=MINCORNER3, &
+      maxCornerCoord=MAXCORNER3, &
       coordSys=ESMF_COORDSYS_CART, staggerLocList=(/ESMF_STAGGERLOC_CENTER/), &
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

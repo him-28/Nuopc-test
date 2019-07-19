@@ -8,9 +8,7 @@
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
 
-#define VERBOSITY "max"
-#define REMAPMTHD ":remapmethod=redist"
-#define WRITEPETS 2
+#include "settings.h"
 
 module ESM
 
@@ -124,7 +122,6 @@ module ESM
     ! components. This mode can be used if all model components are driven 
     ! as independent models. However, even for independent models the
     ! connectors can be set here, but will turn into no-ops.
-#define WITHCONNECTORS
 #ifdef WITHCONNECTORS
     ! SetServices for atm2ocn
     call NUOPC_DriverAddComp(driver, srcCompLabel="ATM", dstCompLabel="OCN", &

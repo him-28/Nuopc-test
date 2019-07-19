@@ -5,7 +5,7 @@
 #PBS -N HierarchyCplSetProto
 #PBS -A ACCNTNUMBER
 #PBS -q debug
-#PBS -l select=9:ncpus=32
+#PBS -l select=8:ncpus=32
 #PBS -l walltime=00:05:00
 #PBS -W umask=027
 
@@ -34,7 +34,7 @@ echo "Build ended:    " `date`
 
 echo "Model started:  " `date`
 set -x
-aprun -n 258 ./esmApp
+aprun -n 256 ./esmApp
 set +x
 echo "Model ended:    " `date`
 

@@ -7,12 +7,8 @@
 ! NASA Goddard Space Flight Center.
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
-#if 0
-#define CUSTOMRUNSEQUENCE_on
-#endif
-#define VERBOSITY "max"
-#define REMAPMTHD ":remapmethod=redist"
-#define WRITEPETS 2
+
+#include "settings.h"
 
 module ATM
 

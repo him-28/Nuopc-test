@@ -26,8 +26,12 @@ ulimit -d unlimited #datasize
 ulimit -m unlimited #memoryuse
 
 echo "Build started:  " `date`
+set -x
 make dust
 make
+set +x
+echo "Build ended:    " `date`
+
 echo "Model started:  " `date`
 set -x
 aprun -n 4 ./esmApp
