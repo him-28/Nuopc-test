@@ -1,15 +1,15 @@
 #define VERBOSITY "max"
 #define REMAPMTHD ":remapmethod=redist"
-#define WRITEPETS 32
+#define WRITEPETS 1
 #define CUSTOMRUNSEQUENCE_off
-#define FIELDWRITE_on
+#define FIELDWRITE_off
 #define ARRAYGET_on
 #define WITHCONNECTORS
 #define WITHALLFIELDS_on
 
-#define MAXINDEX1 (/180, 150/)
-#define MAXINDEX2 (/319, 313/)
-#define MAXINDEX3 (/628, 628/)
+#define MAXINDEX1 (/18, 15/)
+#define MAXINDEX2 (/31, 31/)
+#define MAXINDEX3 (/62, 62/)
 
 #define MINCORNER1 (/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/)
 #define MINCORNER2 (/10._ESMF_KIND_R8, 20._ESMF_KIND_R8/)

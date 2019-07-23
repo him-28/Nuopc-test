@@ -213,12 +213,31 @@ module ATM_M
     integer, intent(out) :: rc
     
     ! local variables    
+    character(ESMF_MAXSTR)  :: cname
+    type(ESMF_Time)         :: currTime
+    character(ESMF_MAXSTR)  :: currTimeStr
     type(ESMF_Field)        :: field
-    type(ESMF_Grid)         :: gridIn
-    type(ESMF_Grid)         :: gridOut
     
     rc = ESMF_SUCCESS
-    
+
+    call NUOPC_CompGet(model, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_TimeGet(currTime, timeString=currTimeStr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail ou
+ 
     ! create a Grid object for Fields
     Domain1 = ESMF_GridCreateNoPeriDimUfrm(maxIndex=MAXINDEX1, &
       minCornerCoord=MINCORNER1, &
@@ -425,6 +444,26 @@ module ATM_M
         return  ! bail out
     endif
 
+    call StateFill(importState, dataFillScheme="const", &
+      const1=0._ESMF_KIND_R8, step=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call StateFill(exportState, dataFillScheme="const", &
+      const1=5._ESMF_KIND_R8, step=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call StateWrite(exportState, cname, currTimeStr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -434,12 +473,24 @@ module ATM_M
     integer, intent(out) :: rc
     
     ! local variables
+    character(ESMF_MAXSTR)      :: cname
     type(ESMF_Clock)            :: clock
+    type(ESMF_Time)             :: currTime
+    type(ESMF_Time)             :: stopTime
+    character(ESMF_MAXSTR)      :: currTimeStr
+    character(ESMF_MAXSTR)      :: stopTimeStr
     type(ESMF_State)            :: importState, exportState
     character(len=160)          :: msgString
+    integer(ESMF_KIND_I8)       :: advanceCount
 
     rc = ESMF_SUCCESS
-    
+
+    call NUOPC_CompGet(model, name=cname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     ! query the Component for its clock, importState and exportState
     call NUOPC_ModelGet(model, modelClock=clock, importState=importState, &
       exportState=exportState, rc=rc)
@@ -448,12 +499,32 @@ module ATM_M
       file=__FILE__)) &
       return  ! bail out
 
+    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, &
+      advanceCount=advanceCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_TimeGet(currTime, timeString=currTimeStr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_TimeGet(stopTime, timeString=stopTimeStr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call StateWrite(importState, cname, currTimeStr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
-    
-    ! Because of the way that the internal Clock was set by default,
-    ! its timeStep is equal to the parent timeStep. As a consequence the
-    ! currTime + timeStep is equal to the stopTime of the internal Clock
-    ! for this call of the ModelAdvance() routine.
     
     call ESMF_ClockPrint(clock, options="currTime", &
       preString="------>Advancing ATM from: ", unit=msgString, rc=rc)
@@ -462,6 +533,13 @@ module ATM_M
       file=__FILE__)) &
       return  ! bail out
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call StateFill(exportState, dataFillScheme="sincos", &
+      step=int(advanceCount), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -478,6 +556,157 @@ module ATM_M
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    call StateWrite(exportState, cname, stopTimeStr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  recursive subroutine StateFill(state, dataFillScheme, const1, &
+  step, rc)
+    type(ESMF_State) :: state
+    character(len=*), intent(in), optional :: dataFillScheme
+    real(ESMF_KIND_R8), intent(in), optional :: const1
+    integer, intent(in), optional :: step
+    integer, intent(out) :: rc
+
+    ! local variables
+    type(ESMF_State)        :: nestedState
+    integer                 :: itemCount, i, stat
+    character (ESMF_MAXSTR), allocatable   :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_Field)        :: field
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state, itemCount=itemCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    allocate( &
+      itemNameList(itemCount), &
+      itemTypeList(itemCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of state item list memory failed.", &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call ESMF_StateGet(state, &
+      itemNameList=itemNameList, &
+      itemTypeList=itemTypeList, &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+
+    do i=1, itemCount
+      if ( itemTypeList(i) == ESMF_STATEITEM_FIELD) then
+        call ESMF_StateGet(state, field=field, &
+          itemName=itemNameList(i),rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call ESMF_FieldFill(field, dataFillScheme=dataFillScheme, &
+          const1=const1, member=i, step=step)
+      elseif ( itemTypeList(i) == ESMF_STATEITEM_STATE) then
+        call ESMF_StateGet(state, nestedState=nestedState, &
+          itemName=itemNameList(i),rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call StateFill(nestedState, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+      endif
+    enddo
+
+    deallocate( &
+      itemNameList, &
+      itemTypeList, &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Dellocation of state item list memory failed.", &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+
+  recursive subroutine StateWrite(state, cname, timeStr, rc)
+    type(ESMF_State) :: state
+    character(*),intent(in) :: cname
+    character(*),intent(in) :: timeStr
+    integer, intent(out) :: rc
+
+    ! local variables
+    character(ESMF_MAXSTR)  :: sname
+    character(ESMF_MAXSTR)  :: fname
+    type(ESMF_State)        :: nestedState
+    integer                 :: itemCount, i, stat
+    character (ESMF_MAXSTR), allocatable   :: itemNameList(:)
+    type(ESMF_StateItem_Flag), allocatable :: itemTypeList(:)
+    type(ESMF_Field)        :: field
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state, itemCount=itemCount, name=sname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    allocate( &
+      itemNameList(itemCount), &
+      itemTypeList(itemCount), &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Allocation of state item list memory failed.", &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call ESMF_StateGet(state, &
+      itemNameList=itemNameList, &
+      itemTypeList=itemTypeList, &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return ! bail out
+
+    do i=1, itemCount
+      if ( itemTypeList(i) == ESMF_STATEITEM_FIELD) then
+        call ESMF_StateGet(state, field=field, &
+          itemName=itemNameList(i),rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call ESMF_FieldGet(field, name=fname,rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+#ifdef FIELDWRITE_on
+        call ESMF_FieldWrite(field, &
+          fileName=trim(cname)//'_'//trim(sname)//'_'// &
+                   trim(fname)//'_'//trim(timeStr)//'.nc', &
+          overwrite=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+#endif
+      elseif ( itemTypeList(i) == ESMF_STATEITEM_STATE) then
+        call ESMF_StateGet(state, nestedState=nestedState, &
+          itemName=itemNameList(i),rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+        call StateWrite(nestedState, cname, timeStr, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return ! bail out
+      endif
+    enddo
+
+    deallocate( &
+      itemNameList, &
+      itemTypeList, &
+      stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Dellocation of state item list memory failed.", &
+      line=__LINE__, file=__FILE__)) return  ! bail out
 
   end subroutine
 
