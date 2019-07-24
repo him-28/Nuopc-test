@@ -164,7 +164,8 @@ module ATM_M
     
     ! exportable field: air_pressure_at_sea_level
     call NUOPC_Advertise(NStateExp1, &
-      StandardName="air_pressure_at_sea_level", name="pmsl", rc=rc)
+      StandardName="air_pressure_at_sea_level", name="pmsl", &
+      SharePolicyField="share", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
