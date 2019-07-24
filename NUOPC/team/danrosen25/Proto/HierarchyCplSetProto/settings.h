@@ -1,4 +1,4 @@
-#define VERBOSITY "max"
+#define VERBOSITY "high"
 #define REMAPMTHD ":remapmethod=redist"
 #define WRITEPETS 1
 #define CUSTOMRUNSEQUENCE_off
