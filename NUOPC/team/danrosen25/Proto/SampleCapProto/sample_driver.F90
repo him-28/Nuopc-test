@@ -12,8 +12,6 @@ module sample_driver_mod
     driver_routine_SS             => SetServices, &
     driver_label_SetModelServices => label_SetModelServices
 
-#define STR_(x) #x
-#define STR(x) STR_(x)
 #ifdef COMP1_MOD
       use COMP1_MOD, only: COMP1_SS => SetServices
 #endif
@@ -39,17 +37,17 @@ module sample_driver_mod
   CHARACTER(LEN=*), PARAMETER :: label_InternalState = 'InternalState'
   CHARACTER(LEN=*), PARAMETER :: defaultConfigFile   = 'sample.rc'
   CHARACTER(LEN=16), DIMENSION(10), PARAMETER :: CUSTOMFIELDLIST = (/ &
-    "dummy_field_1", "dummy_field_2", &
-    "dummy_field_3", "dummy_field_4", &
-    "dummy_field_5", "dummy_field_6", &
-    "dummy_field_7", "dummy_field_8", &
-    "dummy_field_9", "dummy_field_10" /)
+    "dummy_field_1 ", "dummy_field_2 ", &
+    "dummy_field_3 ", "dummy_field_4 ", &
+    "dummy_field_5 ", "dummy_field_6 ", &
+    "dummy_field_7 ", "dummy_field_8 ", &
+    "dummy_field_9 ", "dummy_field_10" /)
   CHARACTER(LEN=10), DIMENSION(10), PARAMETER :: CUSTOMUNITSLIST = (/ &
-    "Pa",            "kg",    &
-    "W m-2",         "m",     &
-    "kg",            "m s-1", &
-    "kg",            "W m-2", &
-    "m",             "K"      /)
+    "Pa   ",         "kg   ", &
+    "W m-2",         "m    ", &
+    "kg   ",         "m s-1", &
+    "kg   ",         "W m-2", &
+    "m    ",         "K    "  /)
 
   type model_internalstate_type
     logical           :: defaultConfig    = .FALSE.
@@ -151,30 +149,25 @@ module sample_driver_mod
         'Component Modules in Executable'
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 #ifdef COMP1_MOD
-      write (tmpStr, "(A,A20)") trim(dname)//': ', &
-        STR(COMP1_MOD)
+      write (tmpStr, "(A,A20)") trim(dname)//': ', COMP1_STR
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 #endif
 #ifdef COMP2_MOD
-      write (tmpStr, "(A,A20)") trim(dname)//': ', &
-        STR(COMP2_MOD)
+      write (tmpStr, "(A,A20)") trim(dname)//': ', COMP2_STR
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 #endif
 #ifdef COMP3_MOD
-      write (tmpStr, "(A,A20)") trim(dname)//': ', &
-        STR(COMP3_MOD)
+      write (tmpStr, "(A,A20)") trim(dname)//': ', COMP3_STR
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
 #endif
 #ifdef COMP4_MOD
-      write (tmpStr, "(A,A20)") trim(dname)//': ', &
-        STR(COMP4_MOD)
+      write (tmpStr, "(A,A20)") trim(dname)//': ', COMP4_STR
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 
 #endif
 #ifdef COMP5_MOD
-      write (tmpStr, "(A,A20)") trim(dname)//': ', &
-        STR(COMP5_MOD)
+      write (tmpStr, "(A,A20)") trim(dname)//': ', COMP5_STR
       call ESMF_LogWrite(trim(tmpStr),ESMF_LOGMSG_INFO)
 #endif
       endif
@@ -255,7 +248,7 @@ module sample_driver_mod
     call ESMF_AttributeGet(driver, name="verbosity", value=tmpStr, &
       defaultValue="default", convention="NUOPC", purpose="Instance", rc=rc)
     is%wrap%verbosity = ESMF_UtilString2Int(tmpStr, &
-      specialStringList=(/"default","none","max"/), &
+      specialStringList=(/"default","none   ","max    "/), &
       specialValueList=(/is%wrap%verbosity,0,255/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
@@ -309,7 +302,7 @@ module sample_driver_mod
 
       select case (trim(compMod))
 #ifdef COMP1_MOD
-        case (STR(COMP1_MOD))
+        case (COMP1_STR)
           ! SetServices for component 1
           call NUOPC_DriverAddComp(driver, trim(compName), COMP1_SS, &
             comp=child, rc=rc)
@@ -317,7 +310,7 @@ module sample_driver_mod
             line=__LINE__, file=__FILE__)) return ! bail out
 #endif
 #ifdef COMP2_MOD
-        case (STR(COMP2_MOD))
+        case (COMP2_STR)
           ! SetServices for component 2
           call NUOPC_DriverAddComp(driver, trim(compName), COMP2_SS, &
             comp=child, rc=rc)
@@ -325,7 +318,7 @@ module sample_driver_mod
             line=__LINE__, file=__FILE__)) return ! bail out
 #endif
 #ifdef COMP3_MOD
-        case (STR(COMP3_MOD))
+        case (COMP3_STR)
           ! SetServices for component 3
           call NUOPC_DriverAddComp(driver, trim(compName), COMP3_SS, &
             comp=child, rc=rc)
@@ -333,7 +326,7 @@ module sample_driver_mod
             line=__LINE__, file=__FILE__)) return ! bail out
 #endif
 #ifdef COMP4_MOD
-        case (STR(COMP4_MOD))
+        case (COMP4_STR)
           ! SetServices for component 4
           call NUOPC_DriverAddComp(driver, trim(compName), COMP4_SS, &
             comp=child, rc=rc)
@@ -341,7 +334,7 @@ module sample_driver_mod
             line=__LINE__, file=__FILE__)) return ! bail out
 #endif
 #ifdef COMP5_MOD
-        case (STR(COMP5_MOD))
+        case (COMP5_STR)
           ! SetServices for component 5
           call NUOPC_DriverAddComp(driver, trim(compName), COMP5_SS, &
             comp=child, rc=rc)

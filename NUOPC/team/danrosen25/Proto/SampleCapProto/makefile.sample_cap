@@ -133,7 +133,7 @@ $(addprefix $(INSTPATH)/,$(CAP_MK)):
 	@echo "ESMF_DEP_FRONT     = $(CAP_DEP_FRONT)" >> $@
 	@echo "ESMF_DEP_INCPATH   = $(INSTPATH)" >> $@
 	@echo "ESMF_DEP_CMPL_OBJS = " >> $@
-	@echo "ESMF_DEP_LINK_OBJS = $(INSTPATH)/$(CAP_LIB)" >> $@
+	@echo "ESMF_DEP_LINK_OBJS = $(INSTPATH)/$(CAP_LIB) $(INSTPATH)/$(MODEL_LIB)" >> $@
 	@echo "ESMF_DEP_SHRD_PATH = " >> $@
 	@echo "ESMF_DEP_SHRD_LIBS = " >> $@
 	@echo $(HR)

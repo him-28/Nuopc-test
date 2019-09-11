@@ -438,7 +438,7 @@ module sample_cap_mod
       defaultValue="default", convention="NUOPC", purpose="Instance", &
       rc=rc)
     is%wrap%verbosity = ESMF_UtilString2Int(tmpStr, &
-      specialStringList=(/"default","none","max"/), &
+      specialStringList=(/"default","none   ","max    "/), &
       specialValueList=(/is%wrap%verbosity,0,255/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return ! bail out
