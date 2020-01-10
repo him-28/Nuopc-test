@@ -1,0 +1,47 @@
+README for Scatter Gather Ungridded Field NUOPC prototype
+---------------------------------------------------------
+
+A two model system with a Mediator. The first model has an ungridded dimension
+that does not exist in the second model.
+
+Description:
+
+  A two-way coupled system with a single driver (ESM), two model components
+  (ATM, OCN), and a mediator (MED).
+
+  The ESM driver constructs a custom run sequence to implement coupling
+  between ATM, OCN, and MED components. 
+  
+  The connector components are explicitly added by the driver.
+  
+  ATM uses a 3D field with 1 ungridded dimension.
+  OCN uses a 2D field, all dimensions are gridded.
+  Slices of the ungridded dimension are scattered and gathered in the mediator.
+
+  If the mediator correctly scatters and gathers then all import field cells
+  will contain 1s.
+
+
+Build:
+  - Set environment variable ESMFMKFILE to point to the esmf.mk of your ESMF
+    installation.
+  - gmake
+  
+Execution:
+  - Optionally set environment variable ESMF_RUNTIME_COMPLIANCECHECK to ON.
+  - mpirun -np X ./esmApp (where X is the total number of PETs, typically 4)
+  
+Output:
+  - PET*.Log files containing compliance checker output if turned on.
+  - The prototype outputs time stepping information to stdout.
+
+Code structure:
+  - Makefile    - Makefile that is based on the standard esmf.mk mechanism.
+  - settings.h  - Macro settings file
+  - atm.F90     - The ATM component, specializing generic NUOPC_Model.
+  - ocn.F90     - The OCN component, specializing generic NUOPC_Model.
+  - med.F90     - The Mediator component, specializing generic 
+                  NUOPC_Mediator.
+  - esm.F90     - The Earth System Model (ESM) component, specializing generic
+                  NUOPC_Driver. Define partial petLists for ATM, OCN, and MED.
+  - esmApp.F90  - ESM application.
