@@ -24,6 +24,9 @@ endif
 
 include $(ESMFMKFILE)
 
+#ESMF_F90COMPILEOPTS += -g -traceback
+#ESMF_CXXCOMPILEOPTS += -g -traceback
+
 ################################################################################
 ################################################################################
 
@@ -57,7 +60,7 @@ med.o: settings.h
 # -----------------------------------------------------------------------------
 .PHONY: dust clean distclean info edit
 dust:
-	rm -f PET*.ESMF_LogFile *.nc *.stdout
+	rm -f PET*.ESMF_LogFile *.nc *.stdout *.log
 clean:
 	rm -f esmApp *.o *.mod
 distclean: dust clean

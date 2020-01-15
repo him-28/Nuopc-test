@@ -545,8 +545,7 @@ module MED
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    ! local variables
-    
+    ! local variables 
 
     rc = ESMF_SUCCESS
 
@@ -746,40 +745,133 @@ module MED
       type(ESMF_State)  :: state
       integer, optional :: rc
       ! local variables
-      integer                                 :: itemCount, item
+      logical                                 :: isPresent
+      integer                                 :: itemCount, item, stat
+      type(ESMF_Field)                        :: field
+      type(ESMF_FieldStatus_Flag)             :: fieldStatus
       character(len=80), allocatable          :: itemNameList(:)
       type(ESMF_StateItem_Flag), allocatable  :: itemTypeList(:)
-    
+      integer, pointer                        :: ugLBound(:), ugUBound(:)
+      integer, pointer                        :: gridToFieldMap(:)
+
       if (present(rc)) rc = ESMF_SUCCESS
-      
-      ! query info about the items in the state
+
       call ESMF_StateGet(state, nestedFlag=.true., itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
       allocate(itemNameList(itemCount), itemTypeList(itemCount))
+
       call ESMF_StateGet(state, nestedFlag=.true., &
         itemNameList=itemNameList, itemTypeList=itemTypeList, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+        line=__LINE__, file=__FILE__)) return  ! bail out
 
-      ! realize all the fields in the state (geoms have been transferred)
       do item=1, itemCount
         if (itemTypeList(item)==ESMF_STATEITEM_FIELD) then
-          ! realize this field
-          call NUOPC_Realize(state, fieldName=itemNameList(item), rc=rc)
+          ! this is a field -> get more info
+          call ESMF_StateGet(state, field=field, itemName=itemNameList(item), &
+            rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
+            line=__LINE__, file=__FILE__)) return  ! bail out
+          call ESMF_FieldGet(field, status=fieldStatus, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+          if (fieldStatus==ESMF_FIELDSTATUS_GRIDSET) then
+            ! the Connector instructed the Mediator to accept geom object
+            ! the transferred geom object is already set, allocate memory
+            ! for data by complete
+            nullify(ugLBound, ugUBound, gridToFieldMap)
+            ! deal with gridToFieldMap
+            call ESMF_AttributeGet(field, name="GridToFieldMap", &
+              convention="NUOPC", purpose="Instance", &
+              isPresent=isPresent, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=__FILE__)) return  ! bail out
+            if (isPresent) then
+              call ESMF_AttributeGet(field, name="GridToFieldMap", &
+                convention="NUOPC", purpose="Instance", &
+                itemCount=itemCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            else
+              itemCount = 0
+            endif
+            if (itemCount > 0) then
+              allocate(gridToFieldMap(itemCount))
+              call ESMF_AttributeGet(field, name="GridToFieldMap", &
+                convention="NUOPC", purpose="Instance", &
+                valueList=gridToFieldMap, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            endif
+            ! deal with ungriddedLBound
+            call ESMF_AttributeGet(field, name="UngriddedLBound", &
+              convention="NUOPC", purpose="Instance", &
+              isPresent=isPresent, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=__FILE__)) return  ! bail out
+            if (isPresent) then
+              call ESMF_AttributeGet(field, name="UngriddedLBound", &
+                convention="NUOPC", purpose="Instance", &
+                itemCount=itemCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            else
+              itemCount = 0
+            endif
+            if (itemCount > 0) then
+              allocate(ugLBound(itemCount))
+              call ESMF_AttributeGet(field, name="UngriddedLBound", &
+                convention="NUOPC", purpose="Instance", &
+                valueList=ugLBound, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            endif
+            ! deal with ungriddedUBound
+            call ESMF_AttributeGet(field, name="UngriddedUBound", &
+              convention="NUOPC", purpose="Instance", &
+              isPresent=isPresent, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=__FILE__)) return  ! bail out
+            if (isPresent) then
+              call ESMF_AttributeGet(field, name="UngriddedUBound", &
+                convention="NUOPC", purpose="Instance", &
+                itemCount=itemCount, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            else
+              itemCount = 0
+            endif
+            if (itemCount > 0) then
+              allocate(ugUBound(itemCount))
+              call ESMF_AttributeGet(field, name="UngriddedUBound", &
+                convention="NUOPC", purpose="Instance", &
+                valueList=ugUBound, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            endif
+
+            if (associated(ugLBound).and.associated(ugUBound)) then
+              call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, &
+                ungriddedLBound=ugLBound, ungriddedUBound=ugUBound, &
+                gridToFieldMap=gridToFieldMap, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+              deallocate(ugLBound, ugUBound)
+            else
+              call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, &
+                gridToFieldMap=gridToFieldMap, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, file=__FILE__)) return  ! bail out
+            endif
+            deallocate(gridToFieldMap)
+          endif
         endif
       enddo
-      
+
       deallocate(itemNameList, itemTypeList)
-    
+
     end subroutine
 
   end subroutine
