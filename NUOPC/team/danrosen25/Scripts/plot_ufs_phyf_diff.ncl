@@ -49,7 +49,7 @@ begin
   ;--- command line arguments ---
   print("### Usage ###")
   print("  "+usage)
-  print("### Supported Variables ###")
+  print("### Pre-Configured Variables ###")
   print("  "+dflt_variables(:))
   print("### Options ###")
   print("  Control Directory = "+ctldir)
@@ -137,34 +137,50 @@ begin
   res@gsnStringFontHeightF = .03
   res@trGridType = "TriangularMesh"
   res@cnFillMode = "RasterFill"
-  res@cnLevelSelectionMode = "ExplicitLevels"
   if (variables(j) .eq. "tcdc_aveclm") then
     res@cnFillPalette = "WhiteBlueGreenYellowRed"
+    res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(0.000,100.0,21)
   else if (variables(j) .eq. "tmp2m") then
-    res@cnFillPalette = "BlAqGrYeOrReVi200"
-    res@cnLevels = fspan(170.0,350.0,21)
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(215.0,315.0,51)
   else if (variables(j) .eq. "tprcp") then
     res@cnFillPalette = "WhBlGrYeRe"
-    res@cnLevels = fspan(0.0001,0.0021,21)
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(0.0001,0.0031,21)
+  else
+    res@cnFillPalette = "rainbow"
+    if (min_data(0) .eq. max_data(0)) then
+      res@cnLevelSelectionMode = "ExplicitLevels"
+      res@cnLevels = fspan(min_data(0)-1,max_data(0)+1,21)
+    else
+      res@cnLevelSelectionMode = "ManualLevels"
+      res@cnMinLevelValF = min_data(0)
+      res@cnMaxLevelValF = max_data(0)
+      res@cnLevelSpacingF  = (max_data(0)-min_data(0))/20
+      res@cnLevels = fspan(-100,100,21)
+    end if
   end if
   end if
   end if
 
   ;--- plot control and test ---
-  res@gsnCenterString = "Control"
+  res@gsnCenterString = "Control Run: "+ctldir
   plot(0) = gsn_csm_contour_map(wks, data(0,:,:), res)
-  res@gsnCenterString = "Test"
+  res@gsnCenterString = "Test Run:    "+tstdir
   plot(1) = gsn_csm_contour_map(wks, data(1,:,:), res)
 
   ;--- panel first two plots ---
   pres1                     = True
-  pres1@gsnPanelMainString = "Values for "+label(0)+"@"+timesteps(k)+"h in "+units(0)
+  pres1@gsnPanelMainString  = str_upper(label(0))+" ("+units(0)+") @"+timesteps(k)+"h"
+  pres1@gsnPanelMainFont    = "helvetica-bold"
   pres1@gsnPanelLabelBar    = True
   pres1@gsnFrame            = False
   pres1@lbOrientation       = "horizontal"
   pres1@gsnPanelBottom      = 0.4
   gsn_panel(wks,plot,(/2,1/),pres1)
+  delete(res@cnLevels)
 
   ;--- calculate difference ---
   diff = data(1,:,:)
@@ -174,16 +190,20 @@ begin
   print(variables(j)+": diff_range="+min_data(ndsets)+":"+max_data(ndsets)+" in "+units(0))
 
   ;--- plot difference ---
-  delete(res@cnLevels)
-  res@cnFillPalette = "NCV_blu_red"
   res@gsnCenterString = "Difference"
+  res@cnFillPalette = "NCV_blu_red"
   if (variables(j) .eq. "tcdc_aveclm") then
-    res@cnLevels = fspan(-100.000,100.0,21)
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(-35.000,35.0,15)
   else if (variables(j) .eq. "tmp2m") then
+    res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(-20.0,20.0,21)
   else if (variables(j) .eq. "tprcp") then
+    res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(-0.001,0.001,21)
   else
+    res@cnLevelSelectionMode = "AutomaticLevels"
+    res@cnLevels = fspan(-100,100,21)
   end if
   end if
   end if
@@ -197,6 +217,7 @@ begin
   pres2@gsnFrame            = False
   pres2@lbOrientation       = "horizontal"
   gsn_panel(wks,plot2,(/1,1/),pres2)
+  delete(res@cnLevels)
 
   frame(wks)
 
