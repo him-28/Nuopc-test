@@ -5,6 +5,7 @@
 ; Usage: ncl anim_ufs_phyf.ncl ['d="<dir>"']
 ;          ['v="<variables>"'] ['s="<time_steps>"']
 ;          ['a="<True/False>"'] ['g="<True/False>"']
+;          ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"]
 
 begin
   ;--- parameters ---
@@ -17,6 +18,7 @@ begin
   usage = usage+" ['s="+dblq+"<time_steps>"+dblq+"']"
   usage = usage+" ['a="+dblq+"<True/False>"+dblq+"']"
   usage = usage+" ['g="+dblq+"<True/False>"+dblq+"']"
+  usage = usage+" ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"+dblq+"']"
   dflt_variables = (/ "spd10max" /)
   dflt_timesteps = (/ "006","012","018","024","030","036","042","048", \
                       "054","060","066","072","078","084","090","096", \
@@ -50,6 +52,20 @@ begin
   else
     gblmap = dflt_gbl
   end if
+  if (isvar("r")) then
+    mpZoom = True
+    if (str_upper(r) .eq. "CONUS") then
+      mpRegion = (/ 18.0 , 49.0, -125.0, -62.5 /)
+    else if (str_upper(r) .eq. "N.ATLANTIC") then
+      mpRegion = (/ 10.0, 40.0, -90.0, -45.0 /)
+    else
+      mpRegion = stringtofloat(str_split(r,","))
+    end if
+    end if
+  else
+    mpZoom = False
+    mpRegion = (/ 0.0, 0.0, 0.0, 0.0 /)
+  end if
 
   ;--- command line arguments ---
   print("### Usage ###")
@@ -62,6 +78,11 @@ begin
   print("  Time Step(s)      = "+timesteps(:))
   print("  Animation         = "+anim)
   print("  Global Map        = "+gblmap)
+  if (mpZoom) then
+    print("  Map LatLon        = ("+ \
+      mpRegion(0)+":"+mpRegion(1)+","+ \
+      mpRegion(2)+":"+mpRegion(3)+")")
+  end if
   ;--- datasets ---
   dsets = (/ "UFS-WEATHER-MODEL", rundir+"" /)
   nts = dimsizes(timesteps)
@@ -131,6 +152,13 @@ begin
     else
       res@gsnAddCyclic = False
     end if
+    if (mpZoom) then
+      res@mpLimitMode   = "LatLon"
+      res@mpMinLatF     = mpRegion(0)
+      res@mpMaxLatF     = mpRegion(1)
+      res@mpMinLonF     = mpRegion(2)
+      res@mpMaxLonF     = mpRegion(3)
+    end if
     res@gsnLeftString = ""
     res@gsnRightString = ""
     res@gsnCenterString = ""
@@ -164,7 +192,7 @@ begin
 
     ;--- plot control and test ---
     res@gsnCenterString = ""
-    if (gblmap) then
+    if (gblmap .or. mpZoom) then
       plot(0) = gsn_csm_contour_map(wks, data(:,:), res)
     else
       plot(0) = gsn_csm_contour(wks, data(:,:), res)
@@ -191,7 +219,8 @@ begin
       gname = "plot_ufs_phyf_"+variables(j)+"_*.png"
       aname = "anim_ufs_phyf_"+variables(j)+".gif"
       print("Animating "+aname)
-      pwd = systemfunc("convert -delay 20 "+gname+" "+aname)
+      stat = systemfunc("convert -delay 50 "+gname+" "+aname)
+      stat = systemfunc("convert "+aname+" -coalesce -repage 0x0 -crop 768x620+128+0 +repage "+aname)
     end do ; nvars
   else if(anim .and. (nts .le. 1)) then
     print("Skipping animation: time step count less than 2.")
