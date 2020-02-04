@@ -4,7 +4,7 @@
 ; Last Modified: 2020-02-03
 ; Usage: ncl anim_ufs_phyf.ncl ['d="<dir>"']
 ;          ['v="<variables>"'] ['s="<time_steps>"']
-;          ['a="<True/False>"']
+;          ['a="<True/False>"'] ['g="<True/False>"']
 
 begin
   ;--- parameters ---
@@ -16,10 +16,12 @@ begin
   usage = usage+" ['v="+dblq+"<variables>"+dblq+"']"
   usage = usage+" ['s="+dblq+"<time_steps>"+dblq+"']"
   usage = usage+" ['a="+dblq+"<True/False>"+dblq+"']"
+  usage = usage+" ['g="+dblq+"<True/False>"+dblq+"']"
   dflt_variables = (/ "spd10max" /)
   dflt_timesteps = (/ "006","012","018","024","030","036","042","048", \
                       "054","060","066","072","078","084","090","096", \
                       "102","108","114","120","126" /)
+  dflt_gbl = False
   dflt_anim = True
  
   ;--- command line arguments ---
@@ -43,6 +45,11 @@ begin
   else
     anim = dflt_anim
   end if
+  if (isvar("g")) then
+    gblmap = (str_upper(g) .eq. "TRUE")
+  else
+    gblmap = dflt_gbl
+  end if
 
   ;--- command line arguments ---
   print("### Usage ###")
@@ -54,6 +61,7 @@ begin
   print("  Variable(s)       = "+variables(:))
   print("  Time Step(s)      = "+timesteps(:))
   print("  Animation         = "+anim)
+  print("  Global Map        = "+gblmap)
   ;--- datasets ---
   dsets = (/ "UFS-WEATHER-MODEL", rundir+"" /)
   nts = dimsizes(timesteps)
@@ -102,8 +110,10 @@ begin
     res@gsnFrame = False
     res@cnInfoLabelOn = False
     res@cnFillOn = True
-;    res@mpFillOn = False 
-;    res@mpOutlineOn = True ;False
+    if (gblmap) then
+      res@mpFillOn = False 
+      res@mpOutlineOn = True
+    end if
     res@cnMissingValFillColor = "gray70"
     res@cnLinesOn = False
     res@cnLineLabelsOn = False
@@ -116,7 +126,11 @@ begin
     res@tmXTOn = False
     res@tmXTLabelsOn = False
     res@lbLabelBarOn = False
-    res@gsnAddCyclic = False
+    if (gblmap) then
+      res@gsnAddCyclic = True
+    else
+      res@gsnAddCyclic = False
+    end if
     res@gsnLeftString = ""
     res@gsnRightString = ""
     res@gsnCenterString = ""
@@ -150,7 +164,11 @@ begin
 
     ;--- plot control and test ---
     res@gsnCenterString = ""
-    plot(0) = gsn_csm_contour(wks, data(:,:), res)
+    if (gblmap) then
+      plot(0) = gsn_csm_contour_map(wks, data(:,:), res)
+    else
+      plot(0) = gsn_csm_contour(wks, data(:,:), res)
+    end if
 
     ;--- add plot to panel ---
     pres1                     = True
