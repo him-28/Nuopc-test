@@ -19,10 +19,13 @@ begin
   usage = usage+" ['a="+dblq+"<True/False>"+dblq+"']"
   usage = usage+" ['g="+dblq+"<True/False>"+dblq+"']"
   usage = usage+" ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"+dblq+"']"
+;  dflt_variables = (/ "tcdc_aveclm","tmp2m","tprcp" /)
   dflt_variables = (/ "spd10max" /)
-  dflt_timesteps = (/ "006","012","018","024","030","036","042","048", \
-                      "054","060","066","072","078","084","090","096", \
-                      "102","108","114","120","126" /)
+;  dflt_timesteps = (/ "006","012","018","024","030","036","042","048", \
+;                      "054","060","066","072","078","084","090","096", \
+;                      "102","108","114","120","126" /)
+  dflt_timesteps = (/ "000","003","006" /) 
+
   dflt_gbl = False
   dflt_anim = True
  
