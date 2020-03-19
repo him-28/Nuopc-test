@@ -21,11 +21,14 @@ begin
   usage = usage+" ['g="+dblq+"<True/False>"+dblq+"']"
   usage = usage+" ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"+dblq+"']"
 ;  dflt_variables = (/ "tcdc_aveclm","tmp2m","tprcp" /)
-  dflt_variables = (/ "spd10max" /)
+;  dflt_variables = (/ "spd10max" /)
+  dflt_variables = (/ "tmp2m", "tmpsfc" /)
 ;  dflt_timesteps = (/ "006","012","018","024","030","036","042","048", \
 ;                      "054","060","066","072","078","084","090","096", \
 ;                      "102","108","114","120","126" /)
-  dflt_timesteps = (/ "000","003","006" /)
+;  dflt_timesteps = (/ "000","003","006" /)
+  dflt_timesteps = (/ "012","024","036","048","060","072","084","096", \
+                      "108","120" /)
   dflt_gbl = False
   dflt_anim = True
  
@@ -196,6 +199,10 @@ begin
     res@cnFillPalette = "WhiteBlueGreenYellowRed"
     res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(0.000,100.0,21)
+  else if (variables(j) .eq. "tmpsfc") then
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(215.0,315.0,51)
   else if (variables(j) .eq. "tmp2m") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
@@ -220,6 +227,7 @@ begin
       res@cnLevelSpacingF  = (max_data(0)-min_data(0))/20
       res@cnLevels = fspan(-100,100,21)
     end if
+  end if
   end if
   end if
   end if
@@ -263,9 +271,12 @@ begin
   if (variables(j) .eq. "tcdc_aveclm") then
     res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(-35.000,35.0,15)
+  else if (variables(j) .eq. "tmpsfc") then
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(-10.0,10.0,21)
   else if (variables(j) .eq. "tmp2m") then
     res@cnLevelSelectionMode = "ExplicitLevels"
-    res@cnLevels = fspan(-20.0,20.0,21)
+    res@cnLevels = fspan(-10.0,10.0,21)
   else if (variables(j) .eq. "tprcp") then
     res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(-0.001,0.001,21)
@@ -275,6 +286,7 @@ begin
   else
     res@cnLevelSelectionMode = "AutomaticLevels"
     res@cnLevels = fspan(-100,100,21)
+  end if
   end if
   end if
   end if
