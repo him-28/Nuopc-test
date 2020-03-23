@@ -2,9 +2,11 @@
 ; Authors: Daniel Rosen
 ; Email: daniel.rosen@noaa.gov
 ; Last Modified: 2020-03-17
-; Usage: ncl anim_NUOPC_diagnostic_diff.ncD ['d="<dir>"']
-;          'p="<COMP1,COMP2>"' ['v="<variables>"']
+; Usage: ncl anim_NUOPC_diagnostic_diff.nc 'p="<COMP1,COMP2>"'
+;          ['d="<dir>"'] ['v="<variables>"']
 ;          ['c="<scale_min,scale_max"'] ['s="<time_steps>"']
+;          ['o="<write_point1,write_point2>"'] ['t="<state1,state2>"']
+;          ['grids="+dblq+"<grid_file1,grid_file2>"+dblq+"']
 ;          ['a="<True/False>"'] ['g="<True/False>"']
 ;          ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"]
 
@@ -17,14 +19,18 @@ begin
   usage = usage+" 'p="+dblq+"<COMP1,COMP2>"+dblq+"'"
   usage = usage+" ['d="+dblq+"<dir>"+dblq+"']"
   usage = usage+" ['v="+dblq+"<variables>"+dblq+"']"
+  usage = usage+" ['c="+dblq+"<scale_min,scale_max>"+dblq+"']"
   usage = usage+" ['s="+dblq+"<time_steps>"+dblq+"']"
+  usage = usage+" ['o="+dblq+"<write_point1,write_point2>"+dblq+"']"
+  usage = usage+" ['t="+dblq+"<state1,state2>"+dblq+"']"
+  usage = usage+" ['grids="+dblq+"<grid_file1,grid_file2>"+dblq+"']"
   usage = usage+" ['a="+dblq+"<True/False>"+dblq+"']"
   usage = usage+" ['g="+dblq+"<True/False>"+dblq+"']"
   usage = usage+" ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"+dblq+"']"
-  dflt_components = (/ "ATM", "OCN" /)
+  dflt_components = (/ "OCN", "OCN" /)
   dflt_phase = "Run"
-  dflt_points = (/ "enter", "enter" /)
-  dflt_states = (/ "export", "import" /)
+  dflt_points = (/ "enter", "exit" /)
+  dflt_states = (/ "export", "export" /)
   dflt_variables = (/ "sst,sea_surface_temperature", \
                       "inst_merid_wind_height10m,v10", \
                       "inst_pres_height_surface,mslprs", \
@@ -35,7 +41,8 @@ begin
                       "mean_down_lw_flx,lwflxd", \
                       "mean_down_sw_flx,swflxd", \
                       "mean_prec_rate,prcp" /)
-  dflt_filenamev = (/ "sst", "sea_surface_temperature" /)
+  dflt_filenamev = (/ "sst", "sst" /)
+;  dflt_filenamev = (/ "sst", "sea_surface_temperature" /)
 ;  dflt_filenamev = (/ "inst_merid_wind_height10m", "u10" /)
 ;  dflt_filenamev = (/ "inst_pres_height_surface", "mslprs" /)
 ;  dflt_filenamev = (/ "inst_spec_humid_height2m", "airhum" /)
@@ -45,7 +52,7 @@ begin
 ;  dflt_filenamev = (/ "mean_down_lw_flx", "lwflxd" /)
 ;  dflt_filenamev = (/ "mean_down_sw_flx", "swflxd" /)
 ;  dflt_filenamev = (/ "mean_prec_rate", "prcp" /)
-;  dflt_timesteps = (/ "2019_08_29_00_00_00_000" /)
+;  dflt_timesteps = (/ "2019_08_29_00_06_00_000" /)
   dflt_timesteps = (/ "2019_08_29_00_00_00_000", "2019_08_29_00_06_00_000", \
                       "2019_08_29_00_12_00_000", "2019_08_29_00_18_00_000", \
                       "2019_08_29_00_24_00_000", "2019_08_29_00_30_00_000", \
@@ -53,8 +60,8 @@ begin
                       "2019_08_29_00_48_00_000", "2019_08_29_00_54_00_000" /)
   dflt_gbl = False
   dflt_anim = True
-  dflt_usrscale = False
   dflt_fillValue = (/ 1.267650600228229e+30, 1.267650600228229e+30 /)
+;  dflt_fillValue = (/ 9.99e+20, 9.99e+20 /)
  
   ;--- command line arguments ---
   if (isvar("p")) then
@@ -88,6 +95,22 @@ begin
   else
     timesteps = dflt_timesteps
   end if
+  if (isvar("o")) then
+    points = str_split(o,",")
+  else
+    points = dflt_points
+  end if
+  if (isvar("t")) then
+    states = str_split(t,",")
+  else
+    states = dflt_states
+  end if
+  if (isvar("grids")) then
+    usegrids = True
+    grid_files = str_split(grids,",")
+  else
+    usegrids = False
+  end if
   if (isvar("a")) then
     anim = (str_upper(a) .eq. "TRUE")
   else
@@ -114,8 +137,6 @@ begin
   end if
 
   phase = dflt_phase
-  points = dflt_points
-  states = dflt_states
 
   ;--- command line arguments ---
   print("### Usage ###")
@@ -130,6 +151,9 @@ begin
   print("  Phase             = "+phase)
   print("  Points            = "+points(0)+","+points(1))
   print("  States            = "+states(0)+","+states(1))
+  if (usegrids) then
+    print("  Grid Files        = "+grid_files(:))
+  end if
   print("  Animation         = "+anim)
   print("  Global Map        = "+gblmap)
   if (mpZoom) then
@@ -153,6 +177,55 @@ begin
   files = new((/ 2 /), "string")
   variables = new((/ 2 /), "string")
 
+  ;--- add dimensions to temporary variables ---
+  if (usegrids) then
+    rad2deg = 180.0/get_pi("f")
+    if (isfilepresent(rundir+"/"+grid_files(0))) then
+      gf1 = addfile(rundir+"/"+grid_files(0), "r")
+    else
+      print("### ERROR ###")
+      print("  File is missing: "+grid_files(0))
+      exit()
+    end if
+    dimslat = dimsizes(gf1->lat_center)
+    dimslon = dimsizes(gf1->lon_center)
+    ny = dimslat(1)
+    nx = dimslon(0)
+    lat1 = new((/ nx /), "double")
+    lat1 = gf1->lat_center(:,0)
+    lat1@long_name = "T-cell latitude"
+    lat1@units = "degrees_N"
+    lat1@_FillValue = dflt_fillValue(0)
+    lon1 = new((/ ny /), "double")
+    lon1 = gf1->lon_center(0,:)
+    lon1@long_name = "T-cell longitude"    
+    lon1@units = "degrees_E"
+    lon1@_FillValue = dflt_fillValue(0)
+
+    if (isfilepresent(rundir+"/"+grid_files(1))) then
+      gf2 = addfile(rundir+"/"+grid_files(1), "r")
+    else
+      print("### ERROR ###")
+      print("  File is missing: "+grid_files(1))
+      exit()
+    end if
+    dimslat = dimsizes(gf2->lat_center)
+    dimslon = dimsizes(gf2->lon_center)
+    ny = dimslat(1)
+    nx = dimslon(0)
+    lat2 = new((/ nx /), "double")
+    lat2 = gf2->lat_center(:,0)
+    lat2@long_name = "T-cell latitude"
+    lat2@units = "degrees_N"
+    lat2@_FillValue = dflt_fillValue(1)
+    lon2 = new((/ ny /), "double")
+    lon2 = gf2->lon_center(0,:)
+    lon2@long_name = "T-cell longitude"
+    lon2@units = "degrees_E"
+    lon2@_FillValue = dflt_fillValue(1)
+
+  end if
+
   do k = 0, nts-1
   files(0) = dsets(0,1)+timesteps(k)+"_"+filenamev(0)+".nc"
   files(1) = dsets(1,1)+timesteps(k)+"_"+filenamev(1)+".nc"
@@ -170,19 +243,18 @@ begin
 
   vNames = getfilevarnames(nc)
   variables(0) = vNames(0)
-
   ;--- create temporary variable ---
-  dimsx = dimsizes(nc->$variables(0)$)
-  dimsy = dimsizes(nc->$variables(0)$)
-  nx = dimsx(1)
-  ny = dimsy(2)
+  vardims = dimsizes(nc->$vNames(0)$)
+  nx = vardims(1)
+  ny = vardims(2)
   data1 = new((/ nx, ny /), "double")
 
   ;--- read data ---
-  data1(:,:) = (/ nc->$variables(0)$(0,:,:) /)
+  data1(:,:) = (/ nc->$vNames(0)$(0,:,:) /)
   data1@_FillValue = dflt_fillValue(0)
   units(0) = variables(0)
   label(0) = variables(0)
+;  data1 = mask(data1,gf1->mask,1)
 
   min_data(0) = min(data1(:,:))
   max_data(0) = max(data1(:,:))
@@ -194,16 +266,13 @@ begin
     replace_ieeenan(data1,data1@_FillValue, 0)
   end if
 
-;  ;--- add dimensions to temporary variables ---
-;  data!0 = "dsets"
-;  data&dsets = dsets(:,0)
-;  data!1 = "lat"
-;  data!2 = "lon"
-;  rad2deg = 180.0/get_pi("f")
-;  lat1d = nc->lat(:,0)
-;  data&lat = lat1d
-;  lon1d = nc->lon(0,:)
-;  data&lon = lon1d
+  ;--- add dimensions to temporary variables ---
+  if (usegrids) then
+    data1!0 = "lat"
+    data1!1 = "lon"
+    data1&lat = lat1
+    data1&lon = lon1
+  end if
 
   print("Processing "+dsets(1,0)+" "+files(1))
 
@@ -218,19 +287,18 @@ begin
 
   vNames = getfilevarnames(nc)
   variables(1) = vNames(0)
-
   ;--- create temporary variable ---
-  dimsx = dimsizes(nc->$variables(1)$)
-  dimsy = dimsizes(nc->$variables(1)$)
-  nx = dimsx(1)
-  ny = dimsy(2)
+  vardims = dimsizes(nc->$vNames(0)$)
+  nx = vardims(1)
+  ny = vardims(2)
   data2 = new((/ nx, ny /), "double")
 
   ;--- read data ---
-  data2(:,:) = (/ nc->$variables(1)$(0,:,:) /)
+  data2(:,:) = (/ nc->$vNames(0)$(0,:,:) /)
   data2@_FillValue = dflt_fillValue(1)
   units(1) = variables(1)
   label(1) = variables(1)
+;  data2 = mask(data2,gf2->mask,1)
 
   min_data(1) = min(data2(:,:))
   max_data(1) = max(data2(:,:))
@@ -242,16 +310,13 @@ begin
     replace_ieeenan(data2,data2@_FillValue, 0)
   end if
 
-;  ;--- add dimensions to temporary variables ---
-;  data!0 = "dsets"
-;  data&dsets = dsets(:,0)
-;  data!1 = "lat"
-;  data!2 = "lon"
-;  rad2deg = 180.0/get_pi("f")
-;  lat1d = nc->lat(:,0)
-;  data&lat = lat1d
-;  lon1d = nc->lon(0,:)
-;  data&lon = lon1d
+  ;--- add dimensions to temporary variables ---
+  if (usegrids) then
+    data2!0 = "lat"
+    data2!1 = "lon"
+    data2&lat = lat2
+    data2&lon = lon2
+  end if
 
   ;--- plot ---
   wks = gsn_open_wks("png", "plot_NUOPC_diag_diff_"+variables(0)+"_"+timesteps(k))
@@ -367,9 +432,9 @@ begin
   ;--- plot control and test ---
   res@gsnCenterString = ""
   if (gblmap .or. mpZoom) then
-    res@gsnCenterString = "Control Run: "+ctldir
+    res@gsnCenterString = "Component 1: "+cmpList(0)
     plot(0) = gsn_csm_contour_map(wks, data1(:,:), res)
-    res@gsnCenterString = "Test Run:    "+tstdir
+    res@gsnCenterString = "Component 2:    "+cmpList(1)
     plot(1) = gsn_csm_contour_map(wks, data2(:,:), res)
   else
     res@gsnCenterString = "Component 1: "+cmpList(0)
@@ -380,7 +445,7 @@ begin
 
   ;--- panel first two plots ---
   pres1                     = True
-  pres1@gsnPanelMainString  = str_upper(label(0))+" ("+units(0)+") @"+timesteps(k)+"h"
+  pres1@gsnPanelMainString  = str_upper(label(0))+" @"+timesteps(k)+"h"
   pres1@gsnPanelMainFont    = "helvetica-bold"
   pres1@gsnPanelLabelBar    = True
   pres1@gsnFrame            = False
