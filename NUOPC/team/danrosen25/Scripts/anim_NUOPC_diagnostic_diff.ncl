@@ -37,9 +37,14 @@ begin
                       "inst_spec_humid_height2m,airhum", \
                       "inst_temp_height2m,airtmp", \
                       "inst_temp_height_surface,gt", \
+                      "inst_temp_height_lowest,gt", \
                       "inst_zonal_wind_height10m,u10", \
                       "mean_down_lw_flx,lwflxd", \
                       "mean_down_sw_flx,swflxd", \
+                      "mean_net_lw_flx,lwflxd", \
+                      "mean_net_sw_flx,swflxd", \
+                      "mean_zonal_moment_flx,u10", \
+                      "mean_merid_moment_flx,v10", \
                       "mean_prec_rate,prcp" /)
   dflt_filenamev = (/ "sst", "sst" /)
 ;  dflt_filenamev = (/ "sst", "sea_surface_temperature" /)
@@ -52,12 +57,12 @@ begin
 ;  dflt_filenamev = (/ "mean_down_lw_flx", "lwflxd" /)
 ;  dflt_filenamev = (/ "mean_down_sw_flx", "swflxd" /)
 ;  dflt_filenamev = (/ "mean_prec_rate", "prcp" /)
-;  dflt_timesteps = (/ "2019_08_29_00_06_00_000" /)
-  dflt_timesteps = (/ "2019_08_29_00_00_00_000", "2019_08_29_00_06_00_000", \
-                      "2019_08_29_00_12_00_000", "2019_08_29_00_18_00_000", \
-                      "2019_08_29_00_24_00_000", "2019_08_29_00_30_00_000", \
-                      "2019_08_29_00_36_00_000", "2019_08_29_00_42_00_000", \
-                      "2019_08_29_00_48_00_000", "2019_08_29_00_54_00_000" /)
+  dflt_timesteps = (/ "2019_08_29_00_06_00_000" /)
+;  dflt_timesteps = (/ "2019_08_29_00_00_00_000", "2019_08_29_00_06_00_000", \
+;                      "2019_08_29_00_12_00_000", "2019_08_29_00_18_00_000", \
+;                      "2019_08_29_00_24_00_000", "2019_08_29_00_30_00_000", \
+;                      "2019_08_29_00_36_00_000", "2019_08_29_00_42_00_000", \
+;                      "2019_08_29_00_48_00_000", "2019_08_29_00_54_00_000" /)
   dflt_gbl = False
   dflt_anim = True
   dflt_fillValue = (/ 1.267650600228229e+30, 1.267650600228229e+30 /)
@@ -389,6 +394,10 @@ begin
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(215.0,315.0,51)
+  else if (variables(0) .eq. "inst_temp_height_lowest") then
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(215.0,315.0,51)
   else if (variables(0) .eq. "inst_zonal_wind_height10m") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
@@ -401,6 +410,22 @@ begin
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
     res@cnLevels = fspan(0.0,600.0,61)
+  else if (variables(0) .eq. "mean_net_lw_flx") then
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(-200.0,100.0,61)
+  else if (variables(0) .eq. "mean_net_sw_flx") then
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(0.0,300.0,61)
+  else if (variables(0) .eq. "mean_zonal_moment_flx") then
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(-1,1.0,51)
+  else if (variables(0) .eq. "mean_merid_moment_flx") then
+    res@cnFillPalette = "NCV_jet"
+    res@cnLevelSelectionMode = "ExplicitLevels"
+    res@cnLevels = fspan(-1.0,1.0,51)
   else if (variables(0) .eq. "mean_prec_rate") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
@@ -417,6 +442,11 @@ begin
       res@cnLevelSpacingF  = (max_data(0)-min_data(0))/20
       res@cnLevels = fspan(-100,100,21)
     end if
+  end if
+  end if
+  end if
+  end if
+  end if
   end if
   end if
   end if
