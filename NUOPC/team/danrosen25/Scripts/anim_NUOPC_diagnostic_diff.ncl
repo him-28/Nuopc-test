@@ -9,28 +9,41 @@
 ;          ['grids="+dblq+"<grid_file1,grid_file2>"+dblq+"']
 ;          ['a="<True/False>"'] ['g="<True/False>"']
 ;          ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"]
+;          ['prefix="<output_prefix>"']
+;          ['reverse="<True/False,True/False>"']
+;          ['phase="<phase>"']
 
 begin
   ;--- parameters ---
   pwd = systemfunc("pwd")
   script = get_script_name()
   dblq = integertochar(34)
-  usage = "ncl "+script
-  usage = usage+" 'p="+dblq+"<COMP1,COMP2>"+dblq+"'"
-  usage = usage+" ['d="+dblq+"<dir>"+dblq+"']"
-  usage = usage+" ['v="+dblq+"<variables>"+dblq+"']"
-  usage = usage+" ['c="+dblq+"<scale_min,scale_max>"+dblq+"']"
-  usage = usage+" ['s="+dblq+"<time_steps>"+dblq+"']"
-  usage = usage+" ['o="+dblq+"<write_point1,write_point2>"+dblq+"']"
-  usage = usage+" ['t="+dblq+"<state1,state2>"+dblq+"']"
-  usage = usage+" ['grids="+dblq+"<grid_file1,grid_file2>"+dblq+"']"
-  usage = usage+" ['a="+dblq+"<True/False>"+dblq+"']"
-  usage = usage+" ['g="+dblq+"<True/False>"+dblq+"']"
-  usage = usage+" ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"+dblq+"']"
-  dflt_components = (/ "OCN", "OCN" /)
+  nl = integertochar(10)
+  tab = integertochar(9)
+  usage = "### Usage ###"
+  usage = usage+nl+tab+"  ncl "+script+" OPTIONS"
+  usage = usage+nl+tab+"### Options ###"
+  usage = usage+nl+tab+"  'p="+dblq+"<COMP1,COMP2>"+dblq+"'"
+  usage = usage+nl+tab+"  ['d="+dblq+"<dir>"+dblq+"']"
+  usage = usage+nl+tab+"  ['v="+dblq+"<variables>"+dblq+"']"
+  usage = usage+nl+tab+"  ['c="+dblq+"<scale_min,scale_max>"+dblq+"']"
+  usage = usage+nl+tab+"  ['s="+dblq+"<time_steps>"+dblq+"']"
+  usage = usage+nl+tab+"  ['o="+dblq+"<write_point1,write_point2>"+dblq+"']"
+  usage = usage+nl+tab+"  ['t="+dblq+"<state1,state2>"+dblq+"']"
+  usage = usage+nl+tab+"  ['grids="+dblq+"<grid_file1,grid_file2>"+dblq+"']"
+  usage = usage+nl+tab+"  ['a="+dblq+"<True/False>"+dblq+"']"
+  usage = usage+nl+tab+"  ['g="+dblq+"<True/False>"+dblq+"']"
+  usage = usage+nl+tab+"  ['r="+dblq+"<minLat,maxLat,minLon,maxLon>"+dblq+"']"
+  usage = usage+nl+tab+"  ['prefix="+dblq+"<output_prefix>"+dblq+"']"
+  usage = usage+nl+tab+"  ['reverse="+dblq+"<True/False,True/False>"+dblq+"']"
+  usage = usage+nl+tab+"  ['phase="+dblq+"<phase>"+dblq+"']"
+
+  dflt_outtype = "nuopc_diag"
+  dflt_title = "NUOPC Diag"
+  dflt_components = (/ "ATM", "OCN" /)
   dflt_phase = "Run"
-  dflt_points = (/ "enter", "exit" /)
-  dflt_states = (/ "export", "export" /)
+  dflt_points = (/ "enter", "enter" /)
+  dflt_states = (/ "export", "import" /)
   dflt_variables = (/ "sst,sea_surface_temperature", \
                       "inst_merid_wind_height10m,v10", \
                       "inst_pres_height_surface,mslprs", \
@@ -46,13 +59,13 @@ begin
                       "mean_zonal_moment_flx,u10", \
                       "mean_merid_moment_flx,v10", \
                       "mean_prec_rate,prcp" /)
-  dflt_filenamev = (/ "sst", "sst" /)
+;  dflt_filenamev = (/ "sst", "sst" /)
 ;  dflt_filenamev = (/ "sst", "sea_surface_temperature" /)
 ;  dflt_filenamev = (/ "inst_merid_wind_height10m", "u10" /)
 ;  dflt_filenamev = (/ "inst_pres_height_surface", "mslprs" /)
 ;  dflt_filenamev = (/ "inst_spec_humid_height2m", "airhum" /)
 ;  dflt_filenamev = (/ "inst_temp_height2m", "airtmp" /)
-;  dflt_filenamev = (/ "inst_temp_height_surface", "gt" /)
+  dflt_filenamev = (/ "inst_temp_height_surface", "gt" /)
 ;  dflt_filenamev = (/ "inst_zonal_wind_height10m", "v10" /)
 ;  dflt_filenamev = (/ "mean_down_lw_flx", "lwflxd" /)
 ;  dflt_filenamev = (/ "mean_down_sw_flx", "swflxd" /)
@@ -65,6 +78,7 @@ begin
 ;                      "2019_08_29_00_48_00_000", "2019_08_29_00_54_00_000" /)
   dflt_gbl = False
   dflt_anim = True
+  dflt_prefix = "NUOPC DIFF"
   dflt_fillValue = (/ 1.267650600228229e+30, 1.267650600228229e+30 /)
 ;  dflt_fillValue = (/ 9.99e+20, 9.99e+20 /)
  
@@ -74,13 +88,20 @@ begin
   else
     print("### ERROR ###")
     print("  Components are not defined. ['p="+dblq+"<COMP1,COMP2>"+dblq+"']")
-    print("  "+usage)
+    print(""+usage)
     exit()
   end if
   if (isvar("d")) then
     rundir = d
   else
     rundir = pwd
+  end if
+  if (isvar("prefix")) then
+    title = prefix
+    outtype = str_sub_str(prefix," ","_")
+  else
+    title = dflt_title
+    outtype = dflt_outtype
   end if
   if (isvar("v")) then
     filenamev = str_split(v,",")
@@ -130,37 +151,65 @@ begin
     mpZoom = True
     if (str_upper(r) .eq. "CONUS") then
       mpRegion = (/ 18.0 , 49.0, -125.0, -62.5 /)
+      outtype = outtype+"_CONUS"
+      title = title+" Conus"
     else if (str_upper(r) .eq. "N.ATLANTIC") then
       mpRegion = (/ 10.0, 40.0, -90.0, -45.0 /)
+      outtype = outtype+"_NATLANTIC"
+      title = title+" N.Atlantic"
+    else if (str_upper(r) .eq. "PUERTORICO") then
+      mpRegion = (/ 17.5, 19.5, -67.5, -65.0 /)
+      outtype = outtype+"_PUERTORICO"
+      title = title+" Puerto Rico"
+    else if (str_upper(r) .eq. "FLORIDA") then
+      mpRegion = (/ 24.5, 30.5, -83.0, -79.5 /)
+      outtype = outtype+"_FLORIDA"
+      title = title+" Florida"
     else
       mpRegion = stringtofloat(str_split(r,","))
+      outtype = outtype+"_REGIONAL"
+      title = title+" Regional"
+    end if
+    end if
     end if
     end if
   else
     mpZoom = False
     mpRegion = (/ 0.0, 0.0, 0.0, 0.0 /)
   end if
-
-  phase = dflt_phase
+  if (isvar("reverse")) then
+    reverse_data = str_split(reverse,",")
+    reverse1 = (str_upper(reverse_data(0)) .eq. "TRUE")
+    reverse2 = (str_upper(reverse_data(1)) .eq. "TRUE")
+  else
+    reverse1 = False
+    reverse2 = False
+  end if
+  if (isvar("phase")) then
+    phase = phase
+  else
+    phase = dflt_phase
+  end if
 
   ;--- command line arguments ---
-  print("### Usage ###")
-  print("  "+usage)
+  print(""+usage)
   print("### Pre-Configured Variables ###")
   print("  "+dflt_variables(:))
-  print("### Options ###")
+  print("### Run Settings ###")
   print("  Component(s)      = "+cmpList(0)+","+cmpList(1))
   print("  Directory         = "+rundir)
   print("  Variable(s)       = "+filenamev(0)+","+filenamev(1))
   print("  Time Step(s)      = "+timesteps(:))
   print("  Phase             = "+phase)
   print("  Points            = "+points(0)+","+points(1))
+  print("  Reverse Data      = "+reverse1+","+reverse2)
   print("  States            = "+states(0)+","+states(1))
   if (usegrids) then
     print("  Grid Files        = "+grid_files(:))
   end if
   print("  Animation         = "+anim)
   print("  Global Map        = "+gblmap)
+  print("  Title             = "+title)
   if (mpZoom) then
     print("  Map LatLon        = ("+ \
       mpRegion(0)+":"+mpRegion(1)+","+ \
@@ -196,13 +245,13 @@ begin
     dimslon = dimsizes(gf1->lon_center)
     ny = dimslat(1)
     nx = dimslon(0)
-    lat1 = new((/ nx /), "double")
-    lat1 = gf1->lat_center(:,0)
+    lat1 = new((/ nx,ny /), "double")
+    lat1 = gf1->lat_center(:,:)
     lat1@long_name = "T-cell latitude"
     lat1@units = "degrees_N"
     lat1@_FillValue = dflt_fillValue(0)
-    lon1 = new((/ ny /), "double")
-    lon1 = gf1->lon_center(0,:)
+    lon1 = new((/ nx,ny /), "double")
+    lon1 = gf1->lon_center(:,:)
     lon1@long_name = "T-cell longitude"    
     lon1@units = "degrees_E"
     lon1@_FillValue = dflt_fillValue(0)
@@ -218,13 +267,13 @@ begin
     dimslon = dimsizes(gf2->lon_center)
     ny = dimslat(1)
     nx = dimslon(0)
-    lat2 = new((/ nx /), "double")
-    lat2 = gf2->lat_center(:,0)
+    lat2 = new((/ nx,ny /), "double")
+    lat2 = gf2->lat_center(:,:)
     lat2@long_name = "T-cell latitude"
     lat2@units = "degrees_N"
     lat2@_FillValue = dflt_fillValue(1)
-    lon2 = new((/ ny /), "double")
-    lon2 = gf2->lon_center(0,:)
+    lon2 = new((/ nx,ny /), "double")
+    lon2 = gf2->lon_center(:,:)
     lon2@long_name = "T-cell longitude"
     lon2@units = "degrees_E"
     lon2@_FillValue = dflt_fillValue(1)
@@ -256,6 +305,9 @@ begin
 
   ;--- read data ---
   data1(:,:) = (/ nc->$vNames(0)$(0,:,:) /)
+  if (reverse1) then
+    data1(:,:) = data1(::-1,::-1)
+  end if
   data1@_FillValue = dflt_fillValue(0)
   units(0) = variables(0)
   label(0) = variables(0)
@@ -273,10 +325,8 @@ begin
 
   ;--- add dimensions to temporary variables ---
   if (usegrids) then
-    data1!0 = "lat"
-    data1!1 = "lon"
-    data1&lat = lat1
-    data1&lon = lon1
+    data1@lat2d = lat1
+    data1@lon2d = lon1
   end if
 
   print("Processing "+dsets(1,0)+" "+files(1))
@@ -300,6 +350,9 @@ begin
 
   ;--- read data ---
   data2(:,:) = (/ nc->$vNames(0)$(0,:,:) /)
+  if (reverse2) then
+    data2(:,:) = data2(::-1,::-1)
+  end if
   data2@_FillValue = dflt_fillValue(1)
   units(1) = variables(1)
   label(1) = variables(1)
@@ -317,14 +370,12 @@ begin
 
   ;--- add dimensions to temporary variables ---
   if (usegrids) then
-    data2!0 = "lat"
-    data2!1 = "lon"
-    data2&lat = lat2
-    data2&lon = lon2
+    data2@lat2d = lat2
+    data2@lon2d = lon2
   end if
 
   ;--- plot ---
-  wks = gsn_open_wks("png", "plot_NUOPC_diag_diff_"+variables(0)+"_"+timesteps(k))
+  wks = gsn_open_wks("png", "plot_"+outtype+"_"+variables(0)+"_"+timesteps(k))
 
   plot = new(2,graphic)
   res = True
@@ -373,7 +424,7 @@ begin
   else if (variables(0) .eq. "sea_surface_temperature") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
-    res@cnLevels = fspan(215.0,315.0,51)
+    res@cnLevels = fspan(265.0,315.0,51)
   else if (variables(0) .eq. "inst_merid_wind_height10m") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
@@ -389,15 +440,15 @@ begin
   else if (variables(0) .eq. "inst_temp_height2m") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
-    res@cnLevels = fspan(215.0,315.0,51)
+    res@cnLevels = fspan(265.0,315.0,51)
   else if (variables(0) .eq. "inst_temp_height_surface") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
-    res@cnLevels = fspan(215.0,315.0,51)
+    res@cnLevels = fspan(265.0,315.0,51)
   else if (variables(0) .eq. "inst_temp_height_lowest") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
-    res@cnLevels = fspan(215.0,315.0,51)
+    res@cnLevels = fspan(265.0,315.0,51)
   else if (variables(0) .eq. "inst_zonal_wind_height10m") then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
@@ -462,20 +513,20 @@ begin
   ;--- plot control and test ---
   res@gsnCenterString = ""
   if (gblmap .or. mpZoom) then
-    res@gsnCenterString = "Component 1: "+cmpList(0)
+    res@gsnCenterString = cmpList(0)+" @ "+timesteps(k)+"h"
     plot(0) = gsn_csm_contour_map(wks, data1(:,:), res)
-    res@gsnCenterString = "Component 2:    "+cmpList(1)
+    res@gsnCenterString = cmpList(1)+" @ "+timesteps(k)+"h"
     plot(1) = gsn_csm_contour_map(wks, data2(:,:), res)
   else
-    res@gsnCenterString = "Component 1: "+cmpList(0)
+    res@gsnCenterString = cmpList(0)+" @ "+timesteps(k)+"h"
     plot(0) = gsn_csm_contour(wks, data1(:,:), res)
-    res@gsnCenterString = "Component 2:    "+cmpList(1)
+    res@gsnCenterString = cmpList(1)+" @ "+timesteps(k)+"h"
     plot(1) = gsn_csm_contour(wks, data2(:,:), res)
   end if
 
   ;--- panel first two plots ---
   pres1                     = True
-  pres1@gsnPanelMainString  = str_upper(label(0))+" @"+timesteps(k)+"h"
+  pres1@gsnPanelMainString  = str_capital(title)+" "+str_upper(label(0))
   pres1@gsnPanelMainFont    = "helvetica-bold"
   pres1@gsnPanelLabelBar    = True
   pres1@gsnFrame            = False
@@ -489,8 +540,8 @@ begin
   end do ; nts
 
   if (anim .and. (nts .gt. 1)) then
-    gname = "plot_NUOPC_diag_diff_"+variables(0)+"_*.png"
-    aname = "anim_NUOPC_diag_diff_"+variables(0)+".gif"
+    gname = "plot_"+outtype+"_"+variables(0)+"_*.png"
+    aname = "anim_"+outtype+"_"+variables(0)+".gif"
     print("Animating "+aname)
     stat = systemfunc("convert -delay 50 "+gname+" "+aname)
   else if(anim .and. (nts .le. 1)) then
