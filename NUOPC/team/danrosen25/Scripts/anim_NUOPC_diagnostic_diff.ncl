@@ -381,15 +381,23 @@ begin
   res = True
   res@gsnDraw  = False 
   res@gsnFrame = False
+  res@gsnMaximize   = True
   res@cnInfoLabelOn = False
   res@cnFillOn = True
+  if (mpZoom) then
+    res@cnFillMode = "CellFill"
+  else
+    res@cnFillMode = "RasterFill"
+  end if
+;  res@cnFillPalette  = "cyclic"
+  res@cnLinesOn      = False
+  res@cnLineLabelsOn = False
+  res@cnFixFillBleed = False
+  res@cnMissingValFillColor = "gray70"
   if (gblmap) then
     res@mpFillOn = False
     res@mpOutlineOn = True
   end if
-  res@cnMissingValFillColor = "gray70"
-  res@cnLinesOn = False
-  res@cnLineLabelsOn = False
   res@tmYLOn = False
   res@tmYLLabelsOn = False
   res@tmYROn = False
@@ -398,6 +406,7 @@ begin
   res@tmXBLabelsOn = False
   res@tmXTOn = False
   res@tmXTLabelsOn = False
+  res@tiYAxisString = ""+str_upper(label(0))
   res@lbLabelBarOn = False
   if (gblmap) then
     res@gsnAddCyclic = True
@@ -414,9 +423,8 @@ begin
   res@gsnLeftString = ""
   res@gsnRightString = ""
   res@gsnCenterString = ""
-  res@gsnStringFontHeightF = .03
+;  res@gsnStringFontHeightF = .03
   res@trGridType = "TriangularMesh"
-  res@cnFillMode = "RasterFill"
   if (usrscale) then
     res@cnFillPalette = "NCV_jet"
     res@cnLevelSelectionMode = "ExplicitLevels"
@@ -526,12 +534,12 @@ begin
 
   ;--- panel first two plots ---
   pres1                     = True
-  pres1@gsnPanelMainString  = str_capital(title)+" "+str_upper(label(0))
+  pres1@gsnPanelMainString  = str_capital(title)
   pres1@gsnPanelMainFont    = "helvetica-bold"
   pres1@gsnPanelLabelBar    = True
   pres1@gsnFrame            = False
   pres1@lbOrientation       = "horizontal"
-  pres1@gsnPanelBottom      = 0.4
+;  pres1@gsnPanelBottom      = 0.4
   gsn_panel(wks,plot,(/2,1/),pres1)
   delete(res@cnLevels)
 
