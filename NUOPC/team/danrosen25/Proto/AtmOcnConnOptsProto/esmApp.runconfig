@@ -1,0 +1,30 @@
+###############################################
+####  esmApp Run-Time Configuration File  #####
+###############################################
+
+# Encoding a simple run sequence
+runSeq::
+    @1800             # 30min time step 
+      ATM -> OCN :remapmethod=nearest_stod
+      OCN -> ATM :remapmethod=nearest_stod
+      ATM
+      OCN
+    @
+::
+
+# Attributes for components
+
+driverAttributes::
+  Verbosity = 1
+  Profiling = 0
+::
+
+atmAttributes::
+  Verbosity = 1
+  Diagnostic = max
+::
+
+ocnAttributes::
+  Verbosity = 1
+  Diagnostic = max
+::
